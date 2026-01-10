@@ -12,7 +12,7 @@
 | **Title**              | AIV — Auditable Verification Standard for AI-Assisted Code Changes         |
 | **Version**            | 1.0.0                                                                      |
 | **Status**             | Proposed Standard                                                          |
-| **Date**               | 2025-01-07                                                                 |
+| **Date**               | 2026-01-07                                                                 |
 | **Normative Keywords** | Per RFC 2119: MUST, MUST NOT, SHOULD, SHOULD NOT, MAY                      |
 | **Scope**              | PR/MR-based software delivery including AI-authored or AI-assisted changes |
 | **Conformance Target** | Engineering teams, CI/CD systems, audit functions, compliance programs     |
