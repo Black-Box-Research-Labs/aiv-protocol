@@ -65,7 +65,7 @@ class LinkValidator(BaseValidator):
         elif isinstance(intent_link, str):
             errors.append(self._make_finding(
                 rule_id="E004",
-                severity="warn",
+                severity="info",
                 message=(
                     "Class E Evidence is a plain text reference, not a URL. "
                     "Consider using a SHA-pinned permalink for immutability."
