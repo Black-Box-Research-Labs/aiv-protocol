@@ -7,7 +7,7 @@ Anti-cheat detection for test modifications (Addendum 2.4).
 from __future__ import annotations
 
 import re
-from typing import Pattern
+from re import Pattern
 
 from ..models import (
     AntiCheatFinding,
@@ -137,8 +137,10 @@ class AntiCheatScanner:
                 current_line += 1
 
         # Check for removed test files
+        # In unified diffs, 'diff --git a/X b/X' comes BEFORE 'deleted file mode'.
         removed_files = re.findall(
-            r"deleted file mode \d+\n.*?diff --git a/([^\s]+)", diff_text
+            r"diff --git a/([^\s]+) b/[^\s]+\n(?:old|new|deleted|index|similarity|rename|copy)[^\n]*\ndeleted file mode \d+",
+            diff_text,
         )
         for removed in removed_files:
             if self._is_test_file(removed):
