@@ -1,0 +1,527 @@
+name: V4 Architecture Guard
+
+on:
+  push:
+    branches: [ main, feat/v4-architecture-pivot ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  validate-schema:
+    name: Validate Content Collections & Build
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Create evidence directory
+        run: mkdir -p artifacts
+      
+      - name: Run Astro type checking
+        run: |
+          set -euo pipefail
+          npx astro check 2>&1 | tee artifacts/astro_check.txt
+
+      - name: Run full type checking (Astro + TypeScript)
+        run: |
+          set -euo pipefail
+          npm run type-check 2>&1 | tee artifacts/type_check.txt
+
+      - name: Validate seeded content (bb-audit validate)
+        run: |
+          set -euo pipefail
+          node --loader ts-node/esm engine/cli.ts validate target humanlayer 2>&1 | tee artifacts/validate_target_humanlayer.txt
+          node --loader ts-node/esm engine/cli.ts validate case-study cs-verification-friction 2>&1 | tee artifacts/validate_case_study_cs_verification_friction.txt
+      
+      - name: Build site (validates Zod schemas)
+        run: |
+          set -euo pipefail
+          npm run build 2>&1 | tee artifacts/build.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Lint source
+        run: |
+          set -euo pipefail
+          npm run lint 2>&1 | tee artifacts/lint.txt
+
+      - name: Generate negative evidence (policy checks)
+        run: |
+          {
+            echo "# Negative Evidence (Class C)";
+            echo;
+            echo "## robots.txt blocks /audit/";
+            grep -n "^Disallow: /audit/" public/robots.txt || true;
+            echo;
+            echo "## Audit pages are noindex,nofollow";
+            grep -n "name=\"robots\"" src/pages/audit/\[id\].astro || true;
+            echo;
+            echo "## API routes are not prerendered";
+            grep -n "export const prerender = false" src/pages/api/health.ts || true;
+            grep -n "export const prerender = false" src/pages/api/submit.ts || true;
+          } > artifacts/negative_evidence.txt
+
+      - name: Generate machine-readable AIV manifests
+        run: |
+          set -euo pipefail
+
+          HEAD_SHA="${{ github.event.pull_request.head.sha || github.sha }}"
+          BASE_SHA="${{ github.event.pull_request.base.sha || github.event.before || '' }}"
+
+          NODE_VERSION=$(node --version)
+          NPM_VERSION=$(npm --version)
+          OS_NAME=$(uname -s)
+          OS_RELEASE=$(uname -r)
+          GREP_VERSION=$(grep --version 2>/dev/null | head -n 1 || echo "unknown")
+
+          export HEAD_SHA BASE_SHA NODE_VERSION NPM_VERSION OS_NAME OS_RELEASE GREP_VERSION
+
+          python3 - <<'PY'
+          import json, os, datetime
+
+          now = datetime.datetime.utcnow().replace(microsecond=0).isoformat() + 'Z'
+          sha = os.environ.get('HEAD_SHA','') or os.environ.get('GITHUB_SHA','')
+          run_id = os.environ.get('GITHUB_RUN_ID','')
+          repo = os.environ.get('GITHUB_REPOSITORY','')
+
+          executed = [
+            {"id":"astro_check","artifact":"astro_check.txt","kind":"static_or_schema"},
+            {"id":"type_check","artifact":"type_check.txt","kind":"static_or_schema"},
+            {"id":"validate_target_humanlayer","artifact":"validate_target_humanlayer.txt","kind":"execution"},
+            {"id":"validate_case_study_cs_verification_friction","artifact":"validate_case_study_cs_verification_friction.txt","kind":"execution"},
+            {"id":"build","artifact":"build.txt","kind":"execution"},
+            {"id":"lint","artifact":"lint.txt","kind":"static_or_schema"},
+          ]
+
+          class_a = {
+            "schema_version": "1.0.0",
+            "head_sha": sha,
+            "run": {
+              "repository": repo,
+              "run_id": run_id,
+            },
+            "execution_environment": {
+              "os": {"name": os.environ.get('OS_NAME',''), "release": os.environ.get('OS_RELEASE','')},
+              "node": os.environ.get('NODE_VERSION',''),
+              "npm": os.environ.get('NPM_VERSION',''),
+            },
+            "test_results": {"pass": len(executed), "fail": 0, "skip": 0},
+            "test_list": [e["id"] for e in executed],
+            "executed_checks": executed,
+            "generated_at": now,
+          }
+
+          class_c = {
+            "schema_version": "1.0.0",
+            "head_sha": sha,
+            "base_sha": os.environ.get('BASE_SHA',''),
+            "search_method": {"tool": "grep", "version": os.environ.get('GREP_VERSION',''), "deterministic": True},
+            "search_scope": [
+              "public/robots.txt",
+              "src/pages/audit/[id].astro",
+              "src/pages/api/health.ts",
+              "src/pages/api/submit.ts",
+            ],
+            "patterns": [
+              {"description": "robots.txt blocks /audit/", "pattern": "^Disallow: /audit/", "file": "public/robots.txt"},
+              {"description": "Audit pages are noindex,nofollow", "pattern": "name=\"robots\"", "file": "src/pages/audit/[id].astro"},
+              {"description": "API routes are not prerendered", "pattern": "export const prerender = false", "file": "src/pages/api/health.ts"},
+              {"description": "API routes are not prerendered", "pattern": "export const prerender = false", "file": "src/pages/api/submit.ts"},
+            ],
+            "search_results_artifact": "negative_evidence.txt",
+            "test_integrity": {
+              "method": "semantic_ci_workflow_integrity_yaml_parse",
+              "machine_readable": True,
+              "semantic_report_artifact": "test_integrity_semantic.json",
+              "required_evidence_files": [
+                "astro_check.txt",
+                "type_check.txt",
+                "build.txt",
+                "lint.txt",
+                "validate_target_humanlayer.txt",
+                "validate_case_study_cs_verification_friction.txt",
+                "negative_evidence.txt",
+                "test_integrity_semantic.json",
+              ],
+            },
+            "generated_at": now,
+          }
+
+          with open('artifacts/class_a_execution.json','w',encoding='utf-8') as f:
+            json.dump(class_a, f, indent=2)
+            f.write('\n')
+
+          with open('artifacts/class_c_negative.json','w',encoding='utf-8') as f:
+            json.dump(class_c, f, indent=2)
+            f.write('\n')
+          PY
+
+      - name: Generate semantic test integrity report (workflow integrity)
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          HEAD_SHA="${{ github.event.pull_request.head.sha || github.sha }}"
+          BASE_SHA="${{ github.event.pull_request.base.sha || github.event.before || '' }}"
+          REPO="${{ github.repository }}"
+
+          export HEAD_SHA BASE_SHA REPO
+
+          node - <<'NODE'
+          const fs = require('fs');
+          const cp = require('child_process');
+          let YAML = null;
+          try {
+            YAML = require('yaml');
+          } catch (err) {
+            YAML = null;
+          }
+
+          const headSha = String(process.env.HEAD_SHA || '').trim();
+          const baseSha = String(process.env.BASE_SHA || '').trim();
+          const repo = String(process.env.REPO || '').trim();
+          const token = String(process.env.GITHUB_TOKEN || '').trim();
+          const now = new Date().toISOString();
+
+          const readHead = () => fs.readFileSync('.github/workflows/verify-architecture.yml', 'utf8');
+          const readBase = () => {
+            if (!baseSha) return null;
+            if (!token) throw new Error('Missing GITHUB_TOKEN in environment');
+            const url = `https://api.github.com/repos/${repo}/contents/.github/workflows/verify-architecture.yml?ref=${baseSha}`;
+            const args = [
+              '-fsSL',
+              '-H',
+              `Authorization: Bearer ${token}`,
+              '-H',
+              'Accept: application/vnd.github.raw',
+              url,
+            ];
+            return cp.execFileSync('curl', args, { encoding: 'utf8' });
+          };
+
+          const getStepsFromDoc = (doc, jobId) => {
+            if (!doc || typeof doc !== 'object') return [];
+            const jobs = doc.jobs && typeof doc.jobs === 'object' ? doc.jobs : {};
+            const job = jobs[jobId] || null;
+            const steps = Array.isArray(job?.steps) ? job.steps : [];
+            return steps
+              .map((s) => ({
+                name: typeof s?.name === 'string' ? s.name : '',
+                uses: typeof s?.uses === 'string' ? s.uses : '',
+                run: typeof s?.run === 'string' ? s.run : '',
+              }))
+              .filter((s) => s.name || s.uses || s.run);
+          };
+
+          const getStepsFromTextFallback = (text, jobId) => {
+            if (typeof text !== 'string' || !text) return [];
+            const lines = text.split(/\r?\n/);
+            const jobHeaderRe = new RegExp(`^\\s{2}${jobId}:\\s*$`);
+            const otherJobRe = /^\s{2}[A-Za-z0-9_-]+:\s*$/;
+
+            let inJob = false;
+            let inSteps = false;
+            let stepsIndent = null;
+            const steps = [];
+            let current = null;
+
+            const flush = () => {
+              if (current && (current.name || current.uses || current.run)) steps.push(current);
+              current = null;
+            };
+
+            for (let i = 0; i < lines.length; i++) {
+              const line = lines[i];
+              if (!inJob) {
+                if (jobHeaderRe.test(line)) {
+                  inJob = true;
+                }
+                continue;
+              }
+
+              if (otherJobRe.test(line) && !jobHeaderRe.test(line)) {
+                break;
+              }
+
+              const mSteps = line.match(/^(\s*)steps:\s*$/);
+              if (mSteps) {
+                inSteps = true;
+                stepsIndent = mSteps[1].length;
+                continue;
+              }
+
+              if (!inSteps) continue;
+              if (stepsIndent !== null && line.match(new RegExp(`^\\s{0,${stepsIndent}}\\S`))) {
+                break;
+              }
+
+              const mName = line.match(/^\s*-\s*name:\s*(.*)\s*$/);
+              if (mName) {
+                flush();
+                current = { name: mName[1] || '', uses: '', run: '' };
+                continue;
+              }
+
+              if (!current) continue;
+              const mUses = line.match(/^\s*uses:\s*(.*)\s*$/);
+              if (mUses) {
+                current.uses = mUses[1] || '';
+                continue;
+              }
+
+              const mRun = line.match(/^(\s*)run:\s*\|\s*$/);
+              if (mRun) {
+                const runIndent = mRun[1].length;
+                const runLines = [];
+                for (let j = i + 1; j < lines.length; j++) {
+                  const l2 = lines[j];
+                  if (l2.trim() === '') {
+                    runLines.push('');
+                    continue;
+                  }
+                  const mIndent = l2.match(/^(\s*)/);
+                  const indentLen = mIndent ? mIndent[1].length : 0;
+                  if (indentLen <= runIndent) {
+                    i = j - 1;
+                    break;
+                  }
+                  runLines.push(l2.slice(runIndent + 2));
+                  i = j;
+                }
+                current.run = runLines.join('\n');
+                continue;
+              }
+            }
+
+            flush();
+            return steps;
+          };
+
+          let baseText = null;
+          let baseFetchOk = true;
+          try {
+            baseText = readBase();
+          } catch (err) {
+            baseText = null;
+            baseFetchOk = false;
+          }
+          const headText = readHead();
+
+          const JOB_ID = 'validate-schema';
+
+          const parseYamlSafe = (text) => {
+            if (!YAML || typeof YAML.parse !== 'function') return null;
+            try {
+              return YAML.parse(text);
+            } catch {
+              return null;
+            }
+          };
+
+          const baseDoc = baseText ? parseYamlSafe(baseText) : null;
+          const headDoc = parseYamlSafe(headText);
+
+          const baseSteps = baseDoc ? getStepsFromDoc(baseDoc, JOB_ID) : getStepsFromTextFallback(baseText, JOB_ID);
+          const headSteps = headDoc ? getStepsFromDoc(headDoc, JOB_ID) : getStepsFromTextFallback(headText, JOB_ID);
+
+          const keyStepNames = [
+            'Install dependencies',
+            'Run Astro type checking',
+            'Run full type checking (Astro + TypeScript)',
+            'Validate seeded content (bb-audit validate)',
+            'Build site (validates Zod schemas)',
+            'Lint source',
+          ];
+
+          const findByName = (steps, name) => steps.find((s) => s.name === name) || null;
+          const hasStrictShell = (step) => typeof step?.run === 'string' && /^\s*set -euo pipefail\s*$/m.test(step.run);
+          const hasBypass = (step) => typeof step?.run === 'string' && /\|\|\s*true/.test(step.run);
+          const requiresStrictShell = (name, step) => {
+            if (name === 'Install dependencies') return false;
+            if (!step || typeof step.run !== 'string') return false;
+            return step.run.includes('\n');
+          };
+
+          const checks = [];
+          const add = (id, description, result, details = {}) => checks.push({ id, description, result, details });
+
+          if (!YAML) {
+            add('yaml-module', 'YAML parser module available', 'SKIP');
+          } else {
+            add('yaml-module', 'YAML parser module available', 'PASS');
+          }
+
+          if (!baseSha) {
+            add('base-available', 'Base SHA available for semantic diff (PR context)', 'SKIP', { base_sha: baseSha });
+          } else {
+            add('base-available', 'Base SHA available for semantic diff (PR context)', 'PASS', { base_sha: baseSha });
+          }
+
+          if (baseSha && !baseFetchOk) {
+            add('base-fetch', 'Base workflow file retrievable via GitHub API', 'FAIL', { base_sha: baseSha });
+          } else if (baseSha) {
+            add('base-fetch', 'Base workflow file retrievable via GitHub API', 'PASS', { base_sha: baseSha });
+          } else {
+            add('base-fetch', 'Base workflow file retrievable via GitHub API', 'SKIP', { base_sha: baseSha });
+          }
+
+          const removedSteps = baseSteps
+            .map((s) => s.name)
+            .filter((n) => n && !headSteps.some((s) => s.name === n));
+
+          const keyMissing = keyStepNames.filter((n) => !findByName(headSteps, n));
+
+          if (baseSha && removedSteps.length > 0) {
+            add('ci-steps-not-removed', 'No CI steps removed compared to base', 'FAIL', { removed_steps: removedSteps });
+          } else if (!baseSha) {
+            add('ci-steps-not-removed', 'No CI steps removed compared to base', 'SKIP', { removed_steps: [] });
+          } else {
+            add('ci-steps-not-removed', 'No CI steps removed compared to base', 'PASS', { removed_steps: [] });
+          }
+
+          if (keyMissing.length > 0) {
+            add('ci-key-steps-present', 'Required CI steps are present', 'FAIL', { missing_steps: keyMissing });
+          } else {
+            add('ci-key-steps-present', 'Required CI steps are present', 'PASS');
+          }
+
+          const strictShellFailures = [];
+          const bypassFailures = [];
+          for (const name of keyStepNames) {
+            const step = findByName(headSteps, name);
+            if (!step) continue;
+            if (requiresStrictShell(name, step) && !hasStrictShell(step)) strictShellFailures.push(name);
+            if (hasBypass(step)) bypassFailures.push(name);
+          }
+
+          if (strictShellFailures.length > 0) {
+            add('ci-shell-strict', 'Key CI run steps enforce strict shell (set -euo pipefail)', 'FAIL', { steps: strictShellFailures });
+          } else {
+            add('ci-shell-strict', 'Key CI run steps enforce strict shell (set -euo pipefail)', 'PASS');
+          }
+
+          if (bypassFailures.length > 0) {
+            add('ci-no-bypass', 'Key CI run steps do not bypass failures (no "|| true")', 'FAIL', { steps: bypassFailures });
+          } else {
+            add('ci-no-bypass', 'Key CI run steps do not bypass failures (no "|| true")', 'PASS');
+          }
+
+          const summary = checks.reduce(
+            (acc, c) => {
+              if (c.result === 'PASS') acc.pass += 1;
+              else if (c.result === 'FAIL') acc.fail += 1;
+              else acc.skip += 1;
+              return acc;
+            },
+            { pass: 0, fail: 0, skip: 0 },
+          );
+
+          const overall = summary.fail > 0 ? 'FAIL' : 'PASS';
+
+          const report = {
+            schema_version: '1.0.0',
+            tool: { name: 'aiv-ci-integrity', version: '1.0.0' },
+            head_sha: headSha,
+            base_sha: baseSha,
+            repository: repo,
+            overall_result: overall,
+            summary,
+            checks,
+            generated_at: now,
+          };
+
+          fs.writeFileSync('artifacts/test_integrity_semantic.json', `${JSON.stringify(report, null, 2)}\n`);
+          NODE
+
+      - name: Setup ORAS
+        if: always()
+        uses: oras-project/setup-oras@v1
+
+      - name: Export aiv-evidence to GHCR (best-effort)
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          NOW=$(date -u +%FT%TZ)
+          HEAD_SHA="${{ github.event.pull_request.head.sha || github.sha }}"
+          REPO="${{ github.repository }}"
+          ACTOR="${{ github.actor }}"
+          RUN_ID="${{ github.run_id }}"
+          RUN_ATTEMPT="${{ github.run_attempt }}"
+
+          TAR_PATH="artifacts/aiv-evidence.tgz"
+          META_PATH="artifacts/durable_storage_oci.json"
+          OWNER="${REPO%%/*}"
+          REPO_NAME="${REPO#*/}"
+          OWNER_LC=$(echo "${OWNER}" | tr '[:upper:]' '[:lower:]')
+          REPO_NAME_LC=$(echo "${REPO_NAME}" | tr '[:upper:]' '[:lower:]')
+          PKG="ghcr.io/${OWNER_LC}/${REPO_NAME_LC}-aiv-evidence"
+          TAG="${RUN_ID}-${RUN_ATTEMPT}"
+          OCI_REF_TAG="oci://${PKG}:${TAG}"
+
+          TAR_TMP=$(mktemp -t aiv-evidence.XXXXXX.tgz)
+          tar -czf "${TAR_TMP}" -C artifacts .
+          mv "${TAR_TMP}" "${TAR_PATH}"
+          TAR_SHA=$(sha256sum "${TAR_PATH}" | awk '{print $1}')
+
+          if ! echo "${GITHUB_TOKEN}" | oras login ghcr.io -u "${ACTOR}" --password-stdin >/dev/null 2>&1; then
+            printf '{\n  "schema_version": "1.0.0",\n  "backend": "ghcr_oci",\n  "export_result": "FAIL",\n  "error": "oras login failed",\n  "generated_at": "%s",\n  "head_sha": "%s",\n  "repository": "%s",\n  "oci_ref_tag": "%s",\n  "tar_sha256": "%s"\n}\n' "${NOW}" "${HEAD_SHA}" "${REPO}" "${OCI_REF_TAG}" "${TAR_SHA}" > "${META_PATH}"
+            exit 0
+          fi
+
+          OUT=""
+          if ! OUT=$(oras push "${PKG}:${TAG}" "${TAR_PATH}:application/gzip" 2>&1); then
+            OUT_CLEAN=$(echo "${OUT}" | tail -n 40 | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read().strip()))')
+            printf '{\n  "schema_version": "1.0.0",\n  "backend": "ghcr_oci",\n  "export_result": "FAIL",\n  "error": "oras push failed",\n  "oras_output_tail": %s,\n  "generated_at": "%s",\n  "head_sha": "%s",\n  "repository": "%s",\n  "oci_ref_tag": "%s",\n  "tar_sha256": "%s"\n}\n' "${OUT_CLEAN}" "${NOW}" "${HEAD_SHA}" "${REPO}" "${OCI_REF_TAG}" "${TAR_SHA}" > "${META_PATH}"
+            exit 0
+          fi
+
+          DIGEST=$(echo "${OUT}" | awk '/^Digest:/ {print $2}' | head -n 1)
+          if [ -z "${DIGEST}" ]; then
+            DIGEST=$(oras manifest fetch "${PKG}:${TAG}" --descriptor 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("digest", ""))' || true)
+          fi
+
+          OCI_REF_DIGEST=""
+          if [ -n "${DIGEST}" ]; then
+            OCI_REF_DIGEST="oci://${PKG}@${DIGEST}"
+          fi
+
+          printf '{\n  "schema_version": "1.0.0",\n  "backend": "ghcr_oci",\n  "export_result": "SUCCESS",\n  "generated_at": "%s",\n  "head_sha": "%s",\n  "repository": "%s",\n  "oci_ref_tag": "%s",\n  "oci_ref_digest": "%s",\n  "digest": "%s",\n  "tar_sha256": "%s"\n}\n' "${NOW}" "${HEAD_SHA}" "${REPO}" "${OCI_REF_TAG}" "${OCI_REF_DIGEST}" "${DIGEST}" "${TAR_SHA}" > "${META_PATH}"
+
+      - name: Upload AIV evidence artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aiv-evidence
+          if-no-files-found: error
+          path: |
+            artifacts/astro_check.txt
+            artifacts/type_check.txt
+            artifacts/build.txt
+            artifacts/lint.txt
+            artifacts/validate_target_humanlayer.txt
+            artifacts/validate_case_study_cs_verification_friction.txt
+            artifacts/negative_evidence.txt
+            artifacts/class_a_execution.json
+            artifacts/class_c_negative.json
+            artifacts/test_integrity_semantic.json
+            artifacts/aiv-evidence.tgz
+            artifacts/durable_storage_oci.json
