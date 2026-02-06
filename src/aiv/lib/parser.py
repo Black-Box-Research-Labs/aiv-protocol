@@ -348,6 +348,8 @@ class PacketParser:
 
         # Build a map: claim_number -> (evidence_class, artifact_text)
         claim_evidence: dict[int, tuple[EvidenceClass, str]] = {}
+        # Track evidence sections that don't reference specific claims
+        unlinked_evidence: list[tuple[EvidenceClass, str]] = []
 
         for ev_section in evidence_sections:
             class_match = self.EVIDENCE_CLASS_PATTERN.search(ev_section.title)
@@ -359,33 +361,44 @@ class PacketParser:
             except ValueError:
                 continue
 
+            # Skip Class E — handled separately as IntentSection
+            if ev_class == EvidenceClass.INTENT:
+                continue
+
             content = "\n".join(ev_section.content)
 
             # Find "Claim N:" references
-            claim_refs = re.finditer(
+            claim_refs = list(re.finditer(
                 r"(?:\*\*)?Claim\s+(\d+)(?:-(\d+))?(?:\s*:.+?)?(?:\*\*)?",
                 content, re.IGNORECASE
-            )
-            for ref in claim_refs:
-                start = int(ref.group(1))
-                end = int(ref.group(2)) if ref.group(2) else start
-                # Extract the content after this claim reference
-                ref_pos = ref.end()
-                next_claim = re.search(
-                    r"\n\*\*Claim\s+\d+",
-                    content[ref_pos:], re.IGNORECASE
-                )
-                artifact_text = content[ref_pos:ref_pos + (next_claim.start() if next_claim else len(content[ref_pos:]))]
-                artifact_text = artifact_text.strip()
+            ))
 
-                # Try to extract a URL from the artifact text
-                url = self._extract_url(artifact_text)
+            if claim_refs:
+                for ref in claim_refs:
+                    start = int(ref.group(1))
+                    end = int(ref.group(2)) if ref.group(2) else start
+                    # Extract the content after this claim reference
+                    ref_pos = ref.end()
+                    next_claim = re.search(
+                        r"\n\*\*Claim\s+\d+",
+                        content[ref_pos:], re.IGNORECASE
+                    )
+                    artifact_text = content[ref_pos:ref_pos + (next_claim.start() if next_claim else len(content[ref_pos:]))]
+                    artifact_text = artifact_text.strip()
 
-                for n in range(start, end + 1):
-                    if url:
-                        claim_evidence[n] = (ev_class, url)
-                    elif artifact_text:
-                        claim_evidence[n] = (ev_class, artifact_text)
+                    # Try to extract a URL from the artifact text
+                    url = self._extract_url(artifact_text)
+
+                    for n in range(start, end + 1):
+                        if url:
+                            claim_evidence[n] = (ev_class, url)
+                        elif artifact_text:
+                            claim_evidence[n] = (ev_class, artifact_text)
+            else:
+                # No "Claim N:" references — this evidence applies broadly
+                artifact_text = content.strip()
+                if artifact_text:
+                    unlinked_evidence.append((ev_class, artifact_text))
 
         # Reproduction defaults to "N/A" (zero-touch compliant).
         # The ## Verification Methodology section is informational context
@@ -408,6 +421,9 @@ class PacketParser:
                         artifact = artifact_raw
                 else:
                     artifact = artifact_raw
+            elif unlinked_evidence:
+                # Apply first matching unlinked evidence to unenriched claims
+                ev_class, artifact = unlinked_evidence[0]
 
             # Since Claim is frozen, we must create a new instance
             enriched.append(Claim(
