@@ -6,6 +6,8 @@ Evidence class-specific validation rules.
 
 from __future__ import annotations
 
+import re
+
 from ..models import (
     ArtifactLink,
     Claim,
@@ -120,7 +122,7 @@ class EvidenceValidator(BaseValidator):
         if isinstance(claim.artifact, ArtifactLink):
             if claim.artifact.link_type != "github_blob":
                 errors.append(self._make_finding(
-                    rule_id="E007",
+                    rule_id="E015",
                     severity="warn",
                     message="Class B evidence should link directly to code (GitHub blob)",
                     location=f"Section {claim.section_number}",
@@ -133,7 +135,7 @@ class EvidenceValidator(BaseValidator):
             ]
             if not any(x in claim.artifact.lower() for x in file_ref_keywords):
                 errors.append(self._make_finding(
-                    rule_id="E007",
+                    rule_id="E016",
                     severity="warn",
                     message="Class B evidence should reference specific file locations",
                     location=f"Section {claim.section_number}",
@@ -157,7 +159,7 @@ class EvidenceValidator(BaseValidator):
 
         if not has_negative_framing:
             errors.append(self._make_finding(
-                rule_id="E007",
+                rule_id="E017",
                 severity="warn",
                 message="Class C evidence should clearly state what is NOT present",
                 location=f"Section {claim.section_number}",
@@ -183,7 +185,7 @@ class EvidenceValidator(BaseValidator):
 
         if any(kw in repro_lower for kw in manual_state_keywords):
             errors.append(self._make_finding(
-                rule_id="E007",
+                rule_id="E018",
                 severity="block",
                 message="Class D evidence must not require manual database queries",
                 location=f"Section {claim.section_number}",
@@ -246,16 +248,27 @@ class EvidenceValidator(BaseValidator):
 
     def _is_bug_fix(self, packet: VerificationPacket) -> bool:
         """Heuristic to detect if this PR is a bug fix."""
-        indicators = ["fix", "bug", "issue", "patch", "resolve", "closes #"]
+        # Use word-boundary patterns to avoid false positives on substrings
+        # like "prefix" matching "fix" or "tissue" matching "issue".
+        indicators = [
+            r"\bfix(?:ed|es|ing)?\b",
+            r"\bbug(?:s|fix)?\b",
+            r"\bissue\s*#?\d+",
+            r"\bpatch(?:ed|es)?\b",
+            r"\bresolve[ds]?\b",
+            r"\bcloses\s*#\d+",
+            r"\bhotfix\b",
+        ]
+        combined = "|".join(indicators)
 
         # Check intent description
         intent_text = packet.intent.verifier_check.lower()
-        if any(ind in intent_text for ind in indicators):
+        if re.search(combined, intent_text):
             return True
 
         # Check claim descriptions
         for claim in packet.claims:
-            if any(ind in claim.description.lower() for ind in indicators):
+            if re.search(combined, claim.description.lower()):
                 return True
 
         return False
