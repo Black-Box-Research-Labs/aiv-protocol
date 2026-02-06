@@ -38,7 +38,7 @@ classification:
   2. ✅ Source layout `src/aiv/` matches spec Section 3.3
   3. ✅ CLI entry point `aiv` registered per spec Section 6.1
   4. ✅ Dependencies match spec requirements (pydantic v2, mistune, typer, rich)
-  5. ✅ Python >=3.11 per spec Section 7
+  5. ✅ Python >=3.10 (lowered from 3.11 for broader compatibility)
 
 ### Class B (Referential Evidence)
 
