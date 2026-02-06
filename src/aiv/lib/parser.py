@@ -1,7 +1,15 @@
 """
 aiv/lib/parser.py
 
-Markdown packet parser using AST analysis.
+Markdown packet parser for AIV Verification Packets.
+
+Handles the standard template format used in .github/aiv-packets/:
+  - # AIV Verification Packet (v2.1)
+  - ## Classification (required)
+  - ## Claim(s) — numbered list items
+  - ## Evidence — with ### Class E/B/A/C/D/F subsections
+  - ## Verification Methodology
+  - ## Summary
 """
 
 from __future__ import annotations
@@ -38,35 +46,11 @@ class PacketParser:
     Converts markdown text into structured VerificationPacket objects.
     Uses regex-based section extraction rather than a full AST library
     to minimize dependencies while remaining robust.
-    """
 
-    # Regex patterns for field extraction
-    FIELD_PATTERNS = {
-        "evidence_class": re.compile(
-            r"\*\*Evidence\s+Class:\*\*\s*([A-F](?:\s*\([^)]+\))?)",
-            re.IGNORECASE
-        ),
-        "evidence_artifact": re.compile(
-            r"\*\*Evidence\s+Artifact:\*\*\s*(.+?)(?=\n\*\*|\n##|\Z)",
-            re.IGNORECASE | re.DOTALL
-        ),
-        "reproduction": re.compile(
-            r"\*\*Reproduction(?:\s+Instructions)?:\*\*\s*(.+?)(?=\n\*\*|\n##|\Z)",
-            re.IGNORECASE | re.DOTALL
-        ),
-        "class_e_evidence": re.compile(
-            r"\*\*Class\s+E\s+Evidence:\*\*\s*(.+?)(?=\n\*\*|\n##|\Z)",
-            re.IGNORECASE | re.DOTALL
-        ),
-        "verifier_check": re.compile(
-            r"\*\*Verifier\s+Check:\*\*\s*(.+?)(?=\n\*\*|\n##|\Z)",
-            re.IGNORECASE | re.DOTALL
-        ),
-        "justification": re.compile(
-            r"\*\*Justification:\*\*\s*(.+?)(?=\n\*\*|\n##|\Z)",
-            re.IGNORECASE | re.DOTALL
-        ),
-    }
+    Supports the actual template format from VERIFICATION_PACKET_TEMPLATE.md:
+    - Claims listed as numbered items under ## Claim(s)
+    - Evidence grouped by class under ## Evidence > ### Class X
+    """
 
     # Pattern for extracting URLs from markdown links
     URL_PATTERN = re.compile(r"\[([^\]]*)\]\(([^)]+)\)")
@@ -77,14 +61,16 @@ class PacketParser:
         re.IGNORECASE
     )
 
-    # Pattern for claim section title
-    CLAIM_PATTERN = re.compile(
-        r"(?:Claim(?:\s*\d+)?:?\s*)?(.+)",
-        re.IGNORECASE
-    )
-
     # Pattern for markdown headings
     HEADING_PATTERN = re.compile(r"^(#{1,6})\s+(.+)$", re.MULTILINE)
+
+    # Pattern for numbered list items (claims)
+    NUMBERED_ITEM_PATTERN = re.compile(r"^(\d+)\.\s+(.+)$")
+
+    # Pattern for evidence class subsection titles
+    EVIDENCE_CLASS_PATTERN = re.compile(
+        r"Class\s+([A-F])\b", re.IGNORECASE
+    )
 
     def __init__(self) -> None:
         self.errors: list[ValidationFinding] = []
@@ -94,7 +80,7 @@ class PacketParser:
         Parse markdown text into a VerificationPacket.
 
         Args:
-            markdown_text: Raw markdown content from PR description
+            markdown_text: Raw markdown content from PR description or packet file
 
         Returns:
             Parsed packet if successful, None if critical parse failure
@@ -116,19 +102,22 @@ class PacketParser:
         # Parse into sections
         sections = self._extract_sections(markdown_text)
 
-        # Find Section 0 (Intent Alignment)
-        intent = self._parse_intent_section(sections, markdown_text)
+        # Parse intent from ## Evidence > ### Class E
+        intent = self._parse_intent(sections)
         if intent is None:
             raise PacketParseError(
-                "Missing Section 0: Intent Alignment (required by Addendum 2.1)"
+                "Missing Class E (Intent Alignment) evidence section"
             )
 
-        # Parse claim sections
-        claims = self._parse_claim_sections(sections, markdown_text)
+        # Parse claims from ## Claim(s) section
+        claims = self._parse_claims(sections)
         if not claims:
             raise PacketParseError(
-                "No valid claims found. At least one claim is required."
+                "No valid claims found. At least one numbered claim is required."
             )
+
+        # Enrich claims with evidence from ## Evidence subsections
+        claims = self._enrich_claims_with_evidence(claims, sections)
 
         return VerificationPacket(
             version=version,
@@ -174,163 +163,262 @@ class PacketParser:
 
         return sections
 
-    def _parse_intent_section(
+    def _find_section(
         self,
         sections: list[ParsedSection],
-        raw_text: str
-    ) -> IntentSection | None:
-        """Parse Section 0: Intent Alignment."""
-
-        # Find section with "Intent" or "0." in title
-        intent_section = None
+        title_contains: str,
+        level: int | None = None,
+    ) -> ParsedSection | None:
+        """Find a section by title substring and optional level."""
         for section in sections:
-            title_lower = section.title.lower()
-            if "intent" in title_lower or section.title.startswith("0"):
-                intent_section = section
-                break
+            if title_contains.lower() in section.title.lower():
+                if level is None or section.level == level:
+                    return section
+        return None
 
-        if intent_section is None:
-            return None
+    def _find_sections(
+        self,
+        sections: list[ParsedSection],
+        title_contains: str,
+        level: int | None = None,
+    ) -> list[ParsedSection]:
+        """Find all sections matching title substring and optional level."""
+        return [
+            s for s in sections
+            if title_contains.lower() in s.title.lower()
+            and (level is None or s.level == level)
+        ]
 
-        content = "\n".join(intent_section.content)
+    def _parse_intent(self, sections: list[ParsedSection]) -> IntentSection | None:
+        """
+        Parse intent from ### Class E (Intent Alignment) under ## Evidence.
 
-        # Extract Class E Evidence link
-        class_e_match = self.FIELD_PATTERNS["class_e_evidence"].search(content)
-        if not class_e_match:
-            self.errors.append(ValidationFinding(
-                rule_id="E003",
-                severity=Severity.BLOCK,
-                message="Missing Class E Evidence link in Intent section",
-                location="Section 0",
-                suggestion="Add '**Class E Evidence:** [Link](url)'"
-            ))
-            return None
+        Also handles legacy format where intent is ## 0. Intent Alignment.
+        """
+        # Strategy 1: Look for ### Class E subsection under ## Evidence
+        class_e = self._find_section(sections, "class e", level=3)
+        if class_e:
+            return self._build_intent_from_class_e(class_e)
 
-        # Extract URL from the field
-        url = self._extract_url(class_e_match.group(1))
-        if not url:
-            self.errors.append(ValidationFinding(
-                rule_id="E003",
-                severity=Severity.BLOCK,
-                message="Class E Evidence must contain a valid URL",
-                location="Section 0",
-            ))
-            return None
+        # Strategy 2: Legacy format — ## section with "Intent" or "0."
+        for section in sections:
+            if section.level == 2:
+                title_lower = section.title.lower()
+                if "intent" in title_lower or section.title.startswith("0"):
+                    return self._build_intent_from_legacy(section)
 
-        # Extract Verifier Check
-        verifier_match = self.FIELD_PATTERNS["verifier_check"].search(content)
+        return None
+
+    def _build_intent_from_class_e(self, section: ParsedSection) -> IntentSection | None:
+        """Build IntentSection from ### Class E section content."""
+        content = "\n".join(section.content)
+
+        # Extract **Link:** field
+        link_match = re.search(
+            r"\*\*Link:\*\*\s*(.+?)(?=\n\*\*|\n##|\n###|\Z)",
+            content, re.DOTALL | re.IGNORECASE
+        )
+
+        evidence_link: ArtifactLink | str
+        if link_match:
+            link_text = link_match.group(1).strip()
+            url = self._extract_url(link_text)
+            if url:
+                evidence_link = ArtifactLink.from_url(url)
+            else:
+                # Plain text reference (e.g. "AIV Protocol Addendum 2.5 — ...")
+                evidence_link = link_text
+        else:
+            # No **Link:** field — use first line of content as reference
+            first_line = content.strip().split("\n")[0] if content.strip() else ""
+            evidence_link = first_line or "See evidence section"
+
+        # Extract **Requirements Verified:** as verifier check
+        req_match = re.search(
+            r"\*\*Requirements\s+Verified:\*\*\s*(.+?)(?=\n###|\n##|\Z)",
+            content, re.DOTALL | re.IGNORECASE
+        )
+        if req_match:
+            verifier_check = req_match.group(1).strip()
+        else:
+            # Fall back to full section content
+            verifier_check = content.strip()
+
+        # Ensure minimum length
+        if len(verifier_check) < 10:
+            verifier_check = f"Class E evidence: {verifier_check or 'see linked specification'}"
+
+        return IntentSection(
+            evidence_link=evidence_link,
+            verifier_check=verifier_check[:500],  # Truncate if very long
+        )
+
+    def _build_intent_from_legacy(self, section: ParsedSection) -> IntentSection | None:
+        """Build IntentSection from legacy ## 0. Intent Alignment format."""
+        content = "\n".join(section.content)
+
+        # Look for **Class E Evidence:** field
+        class_e_match = re.search(
+            r"\*\*Class\s+E\s+Evidence:\*\*\s*(.+?)(?=\n\*\*|\n##|\Z)",
+            content, re.DOTALL | re.IGNORECASE
+        )
+
+        evidence_link: ArtifactLink | str
+        if class_e_match:
+            link_text = class_e_match.group(1).strip()
+            url = self._extract_url(link_text)
+            if url:
+                evidence_link = ArtifactLink.from_url(url)
+            else:
+                evidence_link = link_text
+        else:
+            evidence_link = "See intent section"
+
+        # Extract **Verifier Check:** field
+        verifier_match = re.search(
+            r"\*\*Verifier\s+Check:\*\*\s*(.+?)(?=\n\*\*|\n##|\Z)",
+            content, re.DOTALL | re.IGNORECASE
+        )
         verifier_check = verifier_match.group(1).strip() if verifier_match else ""
 
         if len(verifier_check) < 10:
-            self.errors.append(ValidationFinding(
-                rule_id="E002",
-                severity=Severity.WARN,
-                message="Verifier Check description is too brief",
-                location="Section 0",
-                suggestion="Describe what the verifier should confirm (min 10 chars)"
-            ))
             verifier_check = verifier_check or "See linked specification"
 
         return IntentSection(
-            evidence_link=ArtifactLink.from_url(url),
+            evidence_link=evidence_link,
             verifier_check=verifier_check,
         )
 
-    def _parse_claim_sections(
-        self,
-        sections: list[ParsedSection],
-        raw_text: str
-    ) -> list[Claim]:
-        """Parse numbered claim sections."""
+    def _parse_claims(self, sections: list[ParsedSection]) -> list[Claim]:
+        """
+        Parse claims from ## Claim(s) section.
+
+        Claims are numbered list items: "1. Description of claim"
+        """
+        # Find ## Claim(s) section
+        claims_section = self._find_section(sections, "claim", level=2)
+        if not claims_section:
+            return []
 
         claims: list[Claim] = []
+        for line in claims_section.content:
+            match = self.NUMBERED_ITEM_PATTERN.match(line.strip())
+            if match:
+                number = int(match.group(1))
+                description = match.group(2).strip()
 
-        for section in sections:
-            # Skip non-claim sections
-            if section.level != 2:  # Claims should be ## level
-                continue
+                # Strip markdown bold if present
+                description = re.sub(r"\*\*(.+?)\*\*", r"\1", description)
 
-            # Skip Section 0
-            if "intent" in section.title.lower() or section.title.startswith("0"):
-                continue
+                # Skip if description is too short
+                if len(description) < 10:
+                    self.errors.append(ValidationFinding(
+                        rule_id="E005",
+                        severity=Severity.WARN,
+                        message=f"Claim {number} description is too brief",
+                        location=f"Claim {number}",
+                    ))
+                    continue
 
-            # Try to extract section number
-            number_match = re.match(r"(\d+)\.", section.title)
-            if not number_match:
-                continue
-
-            section_number = int(number_match.group(1))
-
-            # Extract claim description from title
-            claim_match = self.CLAIM_PATTERN.search(
-                section.title[number_match.end():].strip()
-            )
-            description = claim_match.group(1).strip() if claim_match else section.title
-
-            content = "\n".join(section.content)
-
-            # Extract Evidence Class
-            class_match = self.FIELD_PATTERNS["evidence_class"].search(content)
-            if not class_match:
-                self.errors.append(ValidationFinding(
-                    rule_id="E006",
-                    severity=Severity.BLOCK,
-                    message=f"Missing Evidence Class in Section {section_number}",
-                    location=f"Section {section_number}",
+                claims.append(Claim(
+                    section_number=number,
+                    description=description,
+                    evidence_class=EvidenceClass.REFERENTIAL,  # Default; enriched later
+                    artifact="See Evidence section",  # Default; enriched later
+                    reproduction="N/A",  # Default; enriched later
                 ))
+
+        return sorted(claims, key=lambda c: c.section_number)
+
+    def _enrich_claims_with_evidence(
+        self,
+        claims: list[Claim],
+        sections: list[ParsedSection],
+    ) -> list[Claim]:
+        """
+        Enrich claims with evidence from ## Evidence subsections.
+
+        Scans ### Class B, ### Class A, etc. for "Claim N:" references
+        and updates the corresponding claim's evidence_class and artifact.
+        """
+        evidence_sections = [
+            s for s in sections
+            if s.level == 3 and self.EVIDENCE_CLASS_PATTERN.search(s.title)
+        ]
+
+        # Build a map: claim_number -> (evidence_class, artifact_text)
+        claim_evidence: dict[int, tuple[EvidenceClass, str]] = {}
+
+        for ev_section in evidence_sections:
+            class_match = self.EVIDENCE_CLASS_PATTERN.search(ev_section.title)
+            if not class_match:
                 continue
 
             try:
-                evidence_class = EvidenceClass.from_string(class_match.group(1))
-            except ValueError as e:
-                self.errors.append(ValidationFinding(
-                    rule_id="E006",
-                    severity=Severity.BLOCK,
-                    message=f"Invalid Evidence Class: {e}",
-                    location=f"Section {section_number}",
-                ))
+                ev_class = EvidenceClass.from_string(class_match.group(1))
+            except ValueError:
                 continue
 
-            # Extract Evidence Artifact
-            artifact_match = self.FIELD_PATTERNS["evidence_artifact"].search(content)
-            if not artifact_match:
-                self.errors.append(ValidationFinding(
-                    rule_id="E007",
-                    severity=Severity.BLOCK,
-                    message=f"Missing Evidence Artifact in Section {section_number}",
-                    location=f"Section {section_number}",
-                ))
-                continue
+            content = "\n".join(ev_section.content)
 
-            artifact_text = artifact_match.group(1).strip()
-            artifact_url = self._extract_url(artifact_text)
+            # Find "Claim N:" references
+            claim_refs = re.finditer(
+                r"(?:\*\*)?Claim\s+(\d+)(?:-(\d+))?(?:\s*:.+?)?(?:\*\*)?",
+                content, re.IGNORECASE
+            )
+            for ref in claim_refs:
+                start = int(ref.group(1))
+                end = int(ref.group(2)) if ref.group(2) else start
+                # Extract the content after this claim reference
+                ref_pos = ref.end()
+                next_claim = re.search(
+                    r"\n\*\*Claim\s+\d+",
+                    content[ref_pos:], re.IGNORECASE
+                )
+                artifact_text = content[ref_pos:ref_pos + (next_claim.start() if next_claim else len(content[ref_pos:]))]
+                artifact_text = artifact_text.strip()
 
-            artifact: ArtifactLink | str
-            if artifact_url:
-                artifact = ArtifactLink.from_url(artifact_url)
-            else:
-                artifact = artifact_text
+                # Try to extract a URL from the artifact text
+                url = self._extract_url(artifact_text)
 
-            # Extract Reproduction
-            repro_match = self.FIELD_PATTERNS["reproduction"].search(content)
-            reproduction = repro_match.group(1).strip() if repro_match else "N/A"
+                for n in range(start, end + 1):
+                    if url:
+                        claim_evidence[n] = (ev_class, url)
+                    elif artifact_text:
+                        claim_evidence[n] = (ev_class, artifact_text)
 
-            # Extract Justification (for Class F)
-            justification: str | None = None
-            if evidence_class == EvidenceClass.CONSERVATION:
-                just_match = self.FIELD_PATTERNS["justification"].search(content)
-                justification = just_match.group(1).strip() if just_match else None
+        # Reproduction defaults to "N/A" (zero-touch compliant).
+        # The ## Verification Methodology section is informational context
+        # for the packet as a whole, not a per-claim reproduction instruction.
+        reproduction = "N/A"
 
-            claims.append(Claim(
-                section_number=section_number,
-                description=description,
-                evidence_class=evidence_class,
+        # Rebuild claims with enriched evidence
+        enriched: list[Claim] = []
+        for claim in claims:
+            ev_class = claim.evidence_class
+            artifact: ArtifactLink | str = claim.artifact
+
+            if claim.section_number in claim_evidence:
+                ev_class, artifact_raw = claim_evidence[claim.section_number]
+                url = self._extract_url(artifact_raw) if not artifact_raw.startswith("http") else artifact_raw
+                if url:
+                    try:
+                        artifact = ArtifactLink.from_url(url)
+                    except Exception:
+                        artifact = artifact_raw
+                else:
+                    artifact = artifact_raw
+
+            # Since Claim is frozen, we must create a new instance
+            enriched.append(Claim(
+                section_number=claim.section_number,
+                description=claim.description,
+                evidence_class=ev_class,
                 artifact=artifact,
                 reproduction=reproduction,
-                justification=justification,
             ))
 
-        return sorted(claims, key=lambda c: c.section_number)
+        return enriched
 
     def _extract_url(self, text: str) -> str | None:
         """Extract URL from markdown link or plain text."""
@@ -341,7 +429,7 @@ class PacketParser:
             return match.group(2)
 
         # Try plain URL
-        url_match = re.search(r"https?://[^\s\)]+", text)
+        url_match = re.search(r"https?://[^\s\)\>]+", text)
         if url_match:
             return url_match.group(0)
 

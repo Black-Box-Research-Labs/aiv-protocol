@@ -45,21 +45,32 @@ class LinkValidator(BaseValidator):
         """
         errors: list[ValidationFinding] = []
 
-        # Validate intent link (Class E) - MUST be immutable
+        # Validate intent link (Class E) - MUST be immutable if it's a URL
         intent_link = packet.intent.evidence_link
-        if not intent_link.is_immutable:
+        if isinstance(intent_link, ArtifactLink):
+            if not intent_link.is_immutable:
+                errors.append(self._make_finding(
+                    rule_id="E004",
+                    severity="block",
+                    message=(
+                        f"Class E Evidence must be immutable. "
+                        f"Reason: {intent_link.immutability_reason}"
+                    ),
+                    location="Section 0 (Intent Alignment)",
+                    suggestion=(
+                        "Link to a specific commit SHA, not a branch. "
+                        "Example: /blob/a1b2c3d/docs/spec.md instead of /blob/main/..."
+                    ),
+                ))
+        elif isinstance(intent_link, str):
             errors.append(self._make_finding(
                 rule_id="E004",
-                severity="block",
+                severity="warn",
                 message=(
-                    f"Class E Evidence must be immutable. "
-                    f"Reason: {intent_link.immutability_reason}"
+                    "Class E Evidence is a plain text reference, not a URL. "
+                    "Consider using a SHA-pinned permalink for immutability."
                 ),
                 location="Section 0 (Intent Alignment)",
-                suggestion=(
-                    "Link to a specific commit SHA, not a branch. "
-                    "Example: /blob/a1b2c3d/docs/spec.md instead of /blob/main/..."
-                ),
             ))
 
         # Validate claim artifacts

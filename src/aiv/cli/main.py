@@ -98,7 +98,7 @@ def check(
         console.print(Panel(
             f"[red]Validation Failed[/red]\n"
             f"{len(result.errors)} blocking error(s), {len(result.warnings)} warning(s)",
-            title="❌ Result",
+            title="[X] Result",
             border_style="red"
         ))
         raise typer.Exit(1)
@@ -110,7 +110,7 @@ def check(
             f"[green]Validation Passed[/green]\n"
             f"Packet version: {version}\n"
             f"Claims: {claims_count}",
-            title="✅ Result",
+            title="[OK] Result",
             border_style="green"
         ))
 
@@ -143,7 +143,7 @@ def init(
         )
         console.print(f"[green]Created:[/green] {aiv_yml}")
 
-    console.print(f"[green]✅ AIV Protocol initialized in {path}[/green]")
+    console.print(f"[green][OK] AIV Protocol initialized in {path}[/green]")
 
 
 def _display_findings(findings: list[ValidationFinding], title: str, color: str) -> None:

@@ -215,10 +215,12 @@ class IntentSection(BaseModel):
     Section 0: Intent Alignment (Mandatory).
 
     Must contain a Class E evidence link to the originating spec.
+    The link can be a validated ArtifactLink (URL) or a plain text
+    reference (e.g. "AIV Protocol Addendum 2.5 — description").
     """
     model_config = ConfigDict(frozen=True)
 
-    evidence_link: ArtifactLink
+    evidence_link: ArtifactLink | str
     verifier_check: str = Field(
         min_length=10,
         description="Description of what the verifier should confirm"
@@ -242,7 +244,9 @@ class VerificationPacket(BaseModel):
     @property
     def all_links(self) -> list[ArtifactLink]:
         """Extract all artifact links for bulk validation."""
-        links = [self.intent.evidence_link]
+        links: list[ArtifactLink] = []
+        if isinstance(self.intent.evidence_link, ArtifactLink):
+            links.append(self.intent.evidence_link)
         for claim in self.claims:
             if isinstance(claim.artifact, ArtifactLink):
                 links.append(claim.artifact)

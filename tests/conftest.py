@@ -2,6 +2,11 @@
 tests/conftest.py
 
 Shared test fixtures and utilities.
+
+All packet fixtures use the ACTUAL template format from
+.github/aiv-packets/VERIFICATION_PACKET_TEMPLATE.md:
+- ## Claim(s) with numbered list items
+- ## Evidence with ### Class E/B/A/C subsections
 """
 
 import pytest
@@ -14,51 +19,121 @@ import pytest
 @pytest.fixture
 def valid_minimal_packet():
     """Minimal valid packet meeting all requirements."""
-    return """
+    return """\
 # AIV Verification Packet (v2.1)
 
-## 0. Intent Alignment (Mandatory)
-- **Class E Evidence:** [Task #123](https://github.com/owner/repo/blob/abc123def456/docs/spec.md)
-- **Verifier Check:** This PR implements the feature described in the linked spec.
+**Commit:** `abc1234`
+**Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
-## 1. Claim: Implements new API endpoint
-- **Evidence Class:** A (Execution)
-- **Evidence Artifact:** [CI Run](https://github.com/owner/repo/actions/runs/12345)
-- **Reproduction:** CI Automation
+## Claim(s)
+
+1. Implements new API endpoint for user authentication per spec Section 3.2.
 
 ---
-_This packet certifies that all claims are supported by the linked, reproducible evidence._
+
+## Evidence
+
+### Class E (Intent Alignment)
+
+- **Link:** [Task #123](https://github.com/owner/repo/blob/abc123def456/docs/spec.md)
+- **Requirements Verified:**
+  1. API endpoint returns 200 for valid credentials
+  2. API endpoint returns 401 for invalid credentials
+
+### Class B (Referential Evidence)
+
+**Scope Inventory (required)**
+
+- Created:
+  - `src/auth.py` (45 lines)
+
+### Class A (Execution Evidence)
+
+- [CI Run #12345](https://github.com/owner/repo/actions/runs/12345) — all tests pass
+
+---
+
+## Summary
+
+New API endpoint for user authentication.
 """
 
 
 @pytest.fixture
 def valid_full_packet():
-    """Comprehensive packet with all evidence classes."""
-    return """
+    """Comprehensive packet with multiple claims and evidence classes."""
+    return """\
 # AIV Verification Packet (v2.1)
 
-## 0. Intent Alignment (Mandatory)
-- **Class E Evidence:** [Issue #42](https://github.com/owner/repo/blob/a1b2c3d/docs/requirements.md#feature-x)
-- **Verifier Check:** Fixes the bug described in Issue #42 where login fails for SSO users.
+**Commit:** `a1b2c3d`
+**Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
-## 1. Claim: Fixed SSO authentication flow
-- **Evidence Class:** A (Execution)
-- **Evidence Artifact:** [CI Run #9876](https://github.com/owner/repo/actions/runs/9876543)
-- **Reproduction:** CI Automation
+## Classification (required)
 
-## 2. Claim: Added regression test for SSO edge case
-- **Evidence Class:** B (Referential)
-- **Evidence Artifact:** [test_sso.py:45-67](https://github.com/owner/repo/blob/a1b2c3d/tests/test_sso.py#L45-L67)
-- **Reproduction:** N/A (Static Code)
+```yaml
+classification:
+  risk_tier: R2
+  sod_mode: S0
+  critical_surfaces: []
+  blast_radius: component
+  classification_rationale: "SSO authentication fix affecting login flow."
+  classified_by: "cascade"
+  classified_at: "2026-02-06T22:00:00Z"
+```
 
-## 3. Claim: No existing tests were modified or deleted
-- **Evidence Class:** F (Conservation)
-- **Evidence Artifact:** [Test diff](https://github.com/owner/repo/pull/123/files#diff-tests)
-- **Reproduction:** See CI artifact
-- **Justification:** Only additions; all existing assertions preserved.
+## Claim(s)
+
+1. Implemented SSO authentication flow to handle SAML response edge case.
+2. Added regression test for SSO edge case covering the SAML response parsing.
+3. No existing tests were modified or deleted during this change.
 
 ---
-_This packet certifies that all claims are supported by the linked, reproducible evidence._
+
+## Evidence
+
+### Class E (Intent Alignment)
+
+- **Link:** [Issue #42](https://github.com/owner/repo/blob/a1b2c3d/docs/requirements.md#feature-x)
+- **Requirements Verified:**
+  1. SSO login succeeds for SAML users
+  2. Error handling for malformed SAML responses
+
+### Class B (Referential Evidence)
+
+**Scope Inventory (required)**
+
+- Created:
+  - `src/auth/sso.py` (120 lines)
+- Modified:
+  - `src/auth/login.py` (5 lines changed)
+
+**Claim 1: SSO fix**
+- [`sso.py#L45-L67`](https://github.com/owner/repo/blob/a1b2c3d/src/auth/sso.py#L45-L67) — SAML response parser
+
+**Claim 2: Regression test**
+- [`test_sso.py#L10-L30`](https://github.com/owner/repo/blob/a1b2c3d/tests/test_sso.py#L10-L30) — new test case
+
+### Class A (Execution Evidence)
+
+- [CI Run #9876](https://github.com/owner/repo/actions/runs/9876543) — 42 passed, 0 failed
+
+### Class C (Negative Evidence — Conservation)
+
+**Claim 3: No regressions**
+- No existing tests modified or deleted.
+- Full regression suite passed in CI.
+
+---
+
+## Verification Methodology
+
+**Zero-Touch Mandate:** Verifier inspects artifacts only.
+
+---
+
+## Summary
+
+SSO authentication fix with regression test coverage.
 """
 
 
@@ -69,43 +144,83 @@ _This packet certifies that all claims are supported by the linked, reproducible
 @pytest.fixture
 def invalid_missing_header():
     """Packet without required header."""
-    return """
-## 0. Intent Alignment
-- **Class E Evidence:** [Link](https://example.com)
+    return """\
+## Claim(s)
+
+1. Some claim that should fail because there is no header.
+
+## Evidence
+
+### Class E (Intent Alignment)
+
+- **Link:** [Link](https://example.com)
 """
 
 
 @pytest.fixture
 def invalid_mutable_link():
-    """Packet with mutable (non-SHA) link."""
-    return """
+    """Packet with mutable (non-SHA) Class E link."""
+    return """\
 # AIV Verification Packet (v2.1)
 
-## 0. Intent Alignment (Mandatory)
-- **Class E Evidence:** [Spec](https://github.com/owner/repo/blob/main/docs/spec.md)
-- **Verifier Check:** This PR implements the spec.
+## Claim(s)
 
-## 1. Claim: Did something useful here
-- **Evidence Class:** A
-- **Evidence Artifact:** [Link](https://github.com/owner/repo/actions/runs/99999)
-- **Reproduction:** N/A
+1. Did something useful here that should be verified by the linked spec.
+
+---
+
+## Evidence
+
+### Class E (Intent Alignment)
+
+- **Link:** [Spec](https://github.com/owner/repo/blob/main/docs/spec.md)
+- **Requirements Verified:**
+  1. Implements the spec requirements
+
+### Class B (Referential Evidence)
+
+**Scope Inventory (required)**
+
+- Modified:
+  - `src/feature.py`
+
+---
+
+## Summary
+
+Feature implementation.
 """
 
 
 @pytest.fixture
 def invalid_manual_reproduction():
-    """Packet with Zero-Touch violation."""
-    return """
+    """Packet with Zero-Touch violation in reproduction instructions."""
+    return """\
 # AIV Verification Packet (v2.1)
 
-## 0. Intent Alignment (Mandatory)
-- **Class E Evidence:** [Task](https://github.com/owner/repo/blob/abc123def/docs/task.md)
-- **Verifier Check:** Implements the task described in the linked document.
+## Claim(s)
 
-## 1. Claim: Feature works correctly now
-- **Evidence Class:** A
-- **Evidence Artifact:** Screenshot attached
+1. Feature works correctly now after fixing the authentication flow.
+
+---
+
+## Evidence
+
+### Class E (Intent Alignment)
+
+- **Link:** [Task](https://github.com/owner/repo/blob/abc123def/docs/task.md)
+- **Requirements Verified:**
+  1. Authentication flow works for all user types
+
+### Class A (Execution Evidence)
+
 - **Reproduction:** git clone repo && cd repo && npm install && npm run dev && open browser and click login
+
+---
+
+## Summary
+
+Feature fix.
 """
 
 
