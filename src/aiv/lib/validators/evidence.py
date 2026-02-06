@@ -126,8 +126,12 @@ class EvidenceValidator(BaseValidator):
                     location=f"Section {claim.section_number}",
                 ))
         elif isinstance(claim.artifact, str):
-            # Check if it looks like a file reference
-            if not any(x in claim.artifact.lower() for x in ["line", "file", "path"]):
+            # Check if it looks like a file reference or scope inventory
+            file_ref_keywords = [
+                "line", "file", "path", "created", "modified", "deleted",
+                "scope", "inventory", "added", "removed", "changed",
+            ]
+            if not any(x in claim.artifact.lower() for x in file_ref_keywords):
                 errors.append(self._make_finding(
                     rule_id="E007",
                     severity="warn",
