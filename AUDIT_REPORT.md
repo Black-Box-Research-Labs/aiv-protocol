@@ -331,21 +331,27 @@ All validators implement `BaseValidator.validate(packet) → list[ValidationFind
 - ✅ FIXED: **REMOVED FILE DETECTION BUG:** The regex (lines 141-143) now correctly matches `diff --git a/X b/X` BEFORE `deleted file mode` — matching real unified diff order. Pattern: `r"diff --git a/([^\s]+) b/[^\s]+\n(?:old|new|deleted|index|similarity|rename|copy)[^\n]*\ndeleted file mode \d+"`. This can now detect deleted test files.
 - ✅ FIXED: **DEPRECATED IMPORT:** Now uses `from re import Pattern` (line 10) instead of `from typing import Pattern`.
 
-### 2.15 `cli/main.py` — CLI Application (366 lines, was 170)
+### 2.15 `cli/main.py` — CLI Application (665 lines, was 170)
 
-**Stated purpose:** Typer CLI with `check`, `init`, and `generate` commands.
+**Stated purpose:** Typer CLI with `check`, `init`, `audit`, and `generate` commands.
 
 **Actual behavior — verified by execution:**
 - `check`: reads packet from file/argument/stdin, runs pipeline, displays results with Rich tables.
 - `init`: creates `.aiv.yml` config file.
-- 🆕 `generate`: creates a pre-filled packet scaffold with classification, claim stubs, and evidence sections appropriate for the chosen risk tier. Includes git scope detection (`_detect_git_scope()` runs `git diff --cached --name-status`).
-- 🆕 SVP CLI integrated via `app.add_typer(svp_app, name="svp")` at line 28.
+- `audit`: scans all verification packets for quality issues (COMMIT_PENDING, CLASS_E_NO_URL, TODO remnants, FIX_NO_CLASS_F). Supports `--fix` for auto-backfill of commit SHAs and URL pinning. Rich table output with severity coloring.
+- `generate`: creates a pre-filled packet scaffold with classification, claim stubs, and evidence sections appropriate for the chosen risk tier. Includes:
+  - Git scope detection (`_detect_git_scope()` runs `git diff --cached --name-status`)
+  - 🆕 Auto-populated CI URL via `_fetch_latest_ci_url()` (uses GITHUB_TOKEN)
+  - 🆕 Auto-populated issue link via `_fetch_issue_title()` for Class E
+  - 🆕 Local check results via `_run_local_checks()` (pytest/ruff/mypy)
+  - 🆕 `--skip-checks` option to bypass local check execution
+- SVP CLI integrated via `app.add_typer(svp_app, name="svp")` at line 27.
 
 **Inconsistencies found:**
 - ✅ FIXED: **UNUSED IMPORTS:** CLI now only imports `ValidationStatus`, `ValidationFinding`, `ValidationPipeline`, `AIVConfig`, and `svp_app`. Individual validators and `Severity` are no longer imported.
-- ⚠️ PARTIALLY FIXED: **`init` IS MINIMAL:** Docstring now correctly says "Creates: .aiv.yml configuration file" (line 125) — the false "Verification packet template" claim has been removed. However, users wanting a packet template must use `aiv generate` separately; `init` doesn't mention this.
+- ⚠️ PARTIALLY FIXED: **`init` IS MINIMAL:** Docstring now correctly says "Creates: .aiv.yml configuration file" (line 109) — the false "Verification packet template" claim has been removed. However, users wanting a packet template must use `aiv generate` separately; `init` doesn't mention this.
 - ✅ FIXED: **FROZEN MODEL MUTATION:** Now uses `cfg = cfg.model_copy(update={"strict_mode": strict})` instead of direct mutation. Clean immutable pattern.
-- ✅ FIXED: **SVP IMPORT PATH:** Line 21 now imports `from aiv.svp.cli.main import svp_app`. SVP relocated under `src/aiv/svp/` — single wheel, no cross-package coupling. `pyproject.toml` updated to `packages = ["src/aiv"]`.
+- ✅ FIXED: **SVP IMPORT PATH:** Line 20 now imports `from aiv.svp.cli.main import svp_app`. SVP relocated under `src/aiv/svp/` — single wheel, no cross-package coupling. `pyproject.toml` updated to `packages = ["src/aiv"]`.
 
 ---
 
