@@ -6,45 +6,41 @@ Unit tests for the SVP Protocol Suite (§7.5 P4).
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 import pytest
-from datetime import datetime, timezone, timedelta
-from uuid import uuid4
 
 from aiv.svp.lib.models import (
+    RATING_POINTS,
+    AITellType,
+    BugSeverity,
     Complexity,
     Confidence,
-    SessionType,
-    SVPPhase,
-    SVPStatus,
-    BugSeverity,
-    VerifierTier,
-    AITellType,
-    ValidationSeverity,
-    PredictionRecord,
-    PredictionComparison,
-    TraceRecord,
-    StateTransition,
-    ProbeRecord,
-    ProbeFinding,
-    WhyQuestion,
+    DocstringChange,
     FalsificationScenario,
     OwnershipCommit,
-    RenameChange,
-    DocstringChange,
-    SVPSession,
-    BugReport,
+    PredictionComparison,
+    PredictionRecord,
+    ProbeFinding,
+    ProbeRecord,
     RatingEvent,
+    RenameChange,
+    SessionType,
+    StateTransition,
+    SVPPhase,
+    SVPSession,
+    SVPStatus,
+    TraceRecord,
     VerifierRating,
-    SVPValidationError,
-    SVPValidationResult,
-    RATING_POINTS,
+    VerifierTier,
+    WhyQuestion,
 )
 from aiv.svp.lib.validators.session import validate_session
-
 
 # ------------------------------------------------------------------ #
 # Fixtures
 # ------------------------------------------------------------------ #
+
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
@@ -87,14 +83,18 @@ def _make_probe(**kwargs) -> ProbeRecord:
         happy_path_bias_checked=True,
         context_amnesia_checked=True,
         fragile_assertions_checked=True,
-        why_questions=[WhyQuestion(
-            question="Why was this approach chosen over X?",
-            context="reviewing auth flow",
-        )],
-        falsification_scenarios=[FalsificationScenario(
-            claim_id="C-001",
-            scenario="If test_auth_login accepts an expired token, claim C-001 is falsified.",
-        )],
+        why_questions=[
+            WhyQuestion(
+                question="Why was this approach chosen over X?",
+                context="reviewing auth flow",
+            )
+        ],
+        falsification_scenarios=[
+            FalsificationScenario(
+                claim_id="C-001",
+                scenario="If test_auth_login accepts an expired token, claim C-001 is falsified.",
+            )
+        ],
         overall_assessment="No AI tells detected in this PR.",
     )
     defaults.update(kwargs)
@@ -109,13 +109,15 @@ def _make_ownership(**kwargs) -> OwnershipCommit:
         author_github_id="verifier",
         commit_message="ownership: clarify auth flow naming",
         committed_at=_now(),
-        renames=[RenameChange(
-            file_path="src/auth.py",
-            original_name="do_auth",
-            new_name="authenticate_user",
-            change_type="function",
-            justification="Clarifies intent of authentication function",
-        )],
+        renames=[
+            RenameChange(
+                file_path="src/auth.py",
+                original_name="do_auth",
+                new_name="authenticate_user",
+                change_type="function",
+                justification="Clarifies intent of authentication function",
+            )
+        ],
     )
     defaults.update(kwargs)
     return OwnershipCommit(**defaults)
@@ -139,6 +141,7 @@ def _make_complete_session(**kwargs) -> SVPSession:
 # ------------------------------------------------------------------ #
 # Enum tests
 # ------------------------------------------------------------------ #
+
 
 class TestEnums:
     def test_complexity_values(self):
@@ -165,6 +168,7 @@ class TestEnums:
 # ------------------------------------------------------------------ #
 # Prediction tests
 # ------------------------------------------------------------------ #
+
 
 class TestPrediction:
     def test_valid_prediction(self):
@@ -209,6 +213,7 @@ class TestPrediction:
 # Trace tests
 # ------------------------------------------------------------------ #
 
+
 class TestTrace:
     def test_valid_trace(self):
         t = _make_trace()
@@ -229,6 +234,7 @@ class TestTrace:
 # ------------------------------------------------------------------ #
 # Probe tests
 # ------------------------------------------------------------------ #
+
 
 class TestProbe:
     def test_complete_checklist(self):
@@ -276,6 +282,7 @@ class TestProbe:
 # Ownership tests
 # ------------------------------------------------------------------ #
 
+
 class TestOwnership:
     def test_follows_pattern(self):
         oc = _make_ownership()
@@ -321,6 +328,7 @@ class TestOwnership:
 # ------------------------------------------------------------------ #
 # Session tests
 # ------------------------------------------------------------------ #
+
 
 class TestSession:
     def test_complete_session(self):
@@ -371,6 +379,7 @@ class TestSession:
 # ------------------------------------------------------------------ #
 # Rating tests
 # ------------------------------------------------------------------ #
+
 
 class TestRating:
     def test_initial_rating(self):
@@ -429,6 +438,7 @@ class TestRating:
 # Session validator tests
 # ------------------------------------------------------------------ #
 
+
 class TestSessionValidator:
     def test_complete_session_passes(self):
         s = _make_complete_session()
@@ -477,17 +487,17 @@ class TestSessionValidator:
         probe = _make_probe(falsification_scenarios=[])
         s = _make_complete_session(probe=probe)
         result = validate_session(s)
-        assert any(e.rule_id == "S014" for e in result.errors), (
-            "Empty falsification_scenarios should trigger S014"
-        )
+        assert any(e.rule_id == "S014" for e in result.errors), "Empty falsification_scenarios should trigger S014"
 
     def test_s014_valid_falsification_scenarios(self):
-        probe = _make_probe(falsification_scenarios=[
-            FalsificationScenario(
-                claim_id="C-001",
-                scenario="If test_auth shows expired token accepted, claim is falsified.",
-            ),
-        ])
+        probe = _make_probe(
+            falsification_scenarios=[
+                FalsificationScenario(
+                    claim_id="C-001",
+                    scenario="If test_auth shows expired token accepted, claim is falsified.",
+                ),
+            ]
+        )
         s = _make_complete_session(probe=probe)
         result = validate_session(s)
         assert not any(e.rule_id == "S014" for e in result.errors), (
@@ -543,6 +553,7 @@ class TestSessionValidator:
 # S015: AI Execution Trace
 # ------------------------------------------------------------------ #
 
+
 class TestS015ExecutionTrace:
     """S015: AI sessions must include verified_output on traces."""
 
@@ -586,6 +597,7 @@ class TestS015ExecutionTrace:
 # S016: Falsification-as-Code
 # ------------------------------------------------------------------ #
 
+
 class TestS016FalsificationAsCode:
     """S016: AI sessions must have test_code on falsification scenarios."""
 
@@ -606,13 +618,15 @@ class TestS016FalsificationAsCode:
         assert result.phase_3_complete is False
 
     def test_ai_session_passes_with_test_code(self):
-        probe = _make_probe(falsification_scenarios=[
-            FalsificationScenario(
-                claim_id="C-001",
-                scenario="If test_auth_login accepts an expired token, claim C-001 is falsified.",
-                test_code="def test_expired_token():\n    assert login(expired) == False",
-            ),
-        ])
+        probe = _make_probe(
+            falsification_scenarios=[
+                FalsificationScenario(
+                    claim_id="C-001",
+                    scenario="If test_auth_login accepts an expired token, claim C-001 is falsified.",
+                    test_code="def test_expired_token():\n    assert login(expired) == False",
+                ),
+            ]
+        )
         s = _make_complete_session(
             session_type=SessionType.AI_ADVERSARIAL_TRIAGE,
             traces=[_make_trace(verified_output="confirmed")],
@@ -627,6 +641,7 @@ class TestS016FalsificationAsCode:
 # SessionType model tests
 # ------------------------------------------------------------------ #
 
+
 class TestSessionType:
     """SessionType enum and session_type field on SVPSession."""
 
@@ -636,14 +651,18 @@ class TestSessionType:
 
     def test_ai_triage_type(self):
         s = SVPSession(
-            pr_number=1, repository="o/r", verifier_id="cascade-ai",
+            pr_number=1,
+            repository="o/r",
+            verifier_id="cascade-ai",
             session_type=SessionType.AI_ADVERSARIAL_TRIAGE,
         )
         assert s.session_type == SessionType.AI_ADVERSARIAL_TRIAGE
 
     def test_session_type_serializes(self):
         s = SVPSession(
-            pr_number=1, repository="o/r", verifier_id="v",
+            pr_number=1,
+            repository="o/r",
+            verifier_id="v",
             session_type=SessionType.AI_ADVERSARIAL_TRIAGE,
         )
         data = s.model_dump()
@@ -654,7 +673,7 @@ class TestSessionType:
 # Rating engine tests
 # ------------------------------------------------------------------ #
 
-from aiv.svp.lib.rating import score_session, calculate_rating
+from aiv.svp.lib.rating import calculate_rating, score_session
 
 
 class TestScoreSession:
@@ -662,22 +681,27 @@ class TestScoreSession:
 
     def test_no_probe_no_events(self):
         s = SVPSession(
-            pr_number=1, repository="o/r", verifier_id="v",
-            aiv_guard_passed=True, prediction=_make_prediction(),
+            pr_number=1,
+            repository="o/r",
+            verifier_id="v",
+            aiv_guard_passed=True,
+            prediction=_make_prediction(),
         )
         events = score_session(s)
         assert events == []
 
     def test_confirmed_bug_generates_event(self):
-        probe = _make_probe(findings=[
-            ProbeFinding(
-                finding_type=AITellType.HAPPY_PATH_BIAS,
-                file_path="src/foo.py",
-                description="Missing null check on auth token",
-                severity=BugSeverity.HIGH,
-                is_confirmed_bug=True,
-            ),
-        ])
+        probe = _make_probe(
+            findings=[
+                ProbeFinding(
+                    finding_type=AITellType.HAPPY_PATH_BIAS,
+                    file_path="src/foo.py",
+                    description="Missing null check on auth token",
+                    severity=BugSeverity.HIGH,
+                    is_confirmed_bug=True,
+                ),
+            ]
+        )
         s = _make_complete_session(probe=probe)
         events = score_session(s)
         bug_events = [e for e in events if e.event_type == "bug_caught_high"]
@@ -685,59 +709,64 @@ class TestScoreSession:
         assert bug_events[0].points == 30
 
     def test_unconfirmed_finding_no_event(self):
-        probe = _make_probe(findings=[
-            ProbeFinding(
-                finding_type=AITellType.CONTEXT_AMNESIA,
-                file_path="src/bar.py",
-                description="Possible context leak in session handler",
-                severity=BugSeverity.MEDIUM,
-                is_confirmed_bug=False,
-            ),
-        ])
+        probe = _make_probe(
+            findings=[
+                ProbeFinding(
+                    finding_type=AITellType.CONTEXT_AMNESIA,
+                    file_path="src/bar.py",
+                    description="Possible context leak in session handler",
+                    severity=BugSeverity.MEDIUM,
+                    is_confirmed_bug=False,
+                ),
+            ]
+        )
         s = _make_complete_session(probe=probe)
         events = score_session(s)
         assert not any(e.event_type.startswith("bug_caught") for e in events)
 
     def test_falsified_scenario_generates_event(self):
-        probe = _make_probe(falsification_scenarios=[
-            FalsificationScenario(
-                claim_id="C-001",
-                scenario="If test_auth accepts expired tokens, C-001 is false.",
-                checked=True,
-                result="falsified",
-            ),
-        ])
+        probe = _make_probe(
+            falsification_scenarios=[
+                FalsificationScenario(
+                    claim_id="C-001",
+                    scenario="If test_auth accepts expired tokens, C-001 is false.",
+                    checked=True,
+                    result="falsified",
+                ),
+            ]
+        )
         s = _make_complete_session(probe=probe)
         events = score_session(s)
-        falsified_events = [
-            e for e in events
-            if "Falsified" in e.description
-        ]
+        falsified_events = [e for e in events if "Falsified" in e.description]
         assert len(falsified_events) == 1
         assert falsified_events[0].points == 15
 
     def test_unchecked_scenario_no_event(self):
-        probe = _make_probe(falsification_scenarios=[
-            FalsificationScenario(
-                claim_id="C-001",
-                scenario="If test_auth accepts expired tokens, C-001 is false.",
-                checked=False,
-            ),
-        ])
+        probe = _make_probe(
+            falsification_scenarios=[
+                FalsificationScenario(
+                    claim_id="C-001",
+                    scenario="If test_auth accepts expired tokens, C-001 is false.",
+                    checked=False,
+                ),
+            ]
+        )
         s = _make_complete_session(probe=probe)
         events = score_session(s)
         assert not any("Falsified" in e.description for e in events)
 
     def test_false_positive_scenario_generates_penalty(self):
-        probe = _make_probe(falsification_scenarios=[
-            FalsificationScenario(
-                claim_id="C-001",
-                scenario="Original said 12 models but actual is 13 — wrong count.",
-                checked=True,
-                result="confirmed",
-                false_positive=True,
-            ),
-        ])
+        probe = _make_probe(
+            falsification_scenarios=[
+                FalsificationScenario(
+                    claim_id="C-001",
+                    scenario="Original said 12 models but actual is 13 — wrong count.",
+                    checked=True,
+                    result="confirmed",
+                    false_positive=True,
+                ),
+            ]
+        )
         s = _make_complete_session(probe=probe)
         events = score_session(s)
         fp_events = [e for e in events if e.event_type == "false_positive"]
@@ -745,15 +774,17 @@ class TestScoreSession:
         assert fp_events[0].points == -10
 
     def test_non_false_positive_scenario_no_penalty(self):
-        probe = _make_probe(falsification_scenarios=[
-            FalsificationScenario(
-                claim_id="C-002",
-                scenario="Pass a packet with /blob/main/ and verify E004 BLOCK.",
-                checked=True,
-                result="confirmed",
-                false_positive=False,
-            ),
-        ])
+        probe = _make_probe(
+            falsification_scenarios=[
+                FalsificationScenario(
+                    claim_id="C-002",
+                    scenario="Pass a packet with /blob/main/ and verify E004 BLOCK.",
+                    checked=True,
+                    result="confirmed",
+                    false_positive=False,
+                ),
+            ]
+        )
         s = _make_complete_session(probe=probe)
         events = score_session(s)
         assert not any(e.event_type == "false_positive" for e in events)
@@ -767,30 +798,35 @@ class TestScoreSession:
 
     def test_incomplete_session_no_bonus(self):
         s = SVPSession(
-            pr_number=1, repository="o/r", verifier_id="v",
-            aiv_guard_passed=True, prediction=_make_prediction(),
+            pr_number=1,
+            repository="o/r",
+            verifier_id="v",
+            aiv_guard_passed=True,
+            prediction=_make_prediction(),
             traces=[_make_trace()],
         )
         events = score_session(s)
         assert not any(e.event_type == "svp_completed" for e in events)
 
     def test_multiple_bugs_accumulate(self):
-        probe = _make_probe(findings=[
-            ProbeFinding(
-                finding_type=AITellType.HAPPY_PATH_BIAS,
-                file_path="src/a.py",
-                description="Critical auth bypass in login handler",
-                severity=BugSeverity.CRITICAL,
-                is_confirmed_bug=True,
-            ),
-            ProbeFinding(
-                finding_type=AITellType.CONTEXT_AMNESIA,
-                file_path="src/b.py",
-                description="Missing error handling on API response",
-                severity=BugSeverity.MEDIUM,
-                is_confirmed_bug=True,
-            ),
-        ])
+        probe = _make_probe(
+            findings=[
+                ProbeFinding(
+                    finding_type=AITellType.HAPPY_PATH_BIAS,
+                    file_path="src/a.py",
+                    description="Critical auth bypass in login handler",
+                    severity=BugSeverity.CRITICAL,
+                    is_confirmed_bug=True,
+                ),
+                ProbeFinding(
+                    finding_type=AITellType.CONTEXT_AMNESIA,
+                    file_path="src/b.py",
+                    description="Missing error handling on API response",
+                    severity=BugSeverity.MEDIUM,
+                    is_confirmed_bug=True,
+                ),
+            ]
+        )
         s = _make_complete_session(probe=probe)
         events = score_session(s)
         bug_events = [e for e in events if e.event_type.startswith("bug_caught")]
@@ -803,15 +839,17 @@ class TestCalculateRating:
     """Tests for calculate_rating aggregation."""
 
     def test_single_session(self):
-        probe = _make_probe(findings=[
-            ProbeFinding(
-                finding_type=AITellType.HAPPY_PATH_BIAS,
-                file_path="src/foo.py",
-                description="Critical security bypass found in auth module",
-                severity=BugSeverity.CRITICAL,
-                is_confirmed_bug=True,
-            ),
-        ])
+        probe = _make_probe(
+            findings=[
+                ProbeFinding(
+                    finding_type=AITellType.HAPPY_PATH_BIAS,
+                    file_path="src/foo.py",
+                    description="Critical security bypass found in auth module",
+                    severity=BugSeverity.CRITICAL,
+                    is_confirmed_bug=True,
+                ),
+            ]
+        )
         s = _make_complete_session(probe=probe)
         rating, events = calculate_rating("verifier", [s])
         assert rating.elo_rating == 500 + 50 + 5  # critical + completed
@@ -830,9 +868,13 @@ class TestCalculateRating:
     def test_filters_by_verifier_id(self):
         s1 = _make_complete_session()
         s2 = SVPSession(
-            pr_number=2, repository="o/r", verifier_id="other-person",
-            aiv_guard_passed=True, prediction=_make_prediction(),
-            traces=[_make_trace()], probe=_make_probe(),
+            pr_number=2,
+            repository="o/r",
+            verifier_id="other-person",
+            aiv_guard_passed=True,
+            prediction=_make_prediction(),
+            traces=[_make_trace()],
+            probe=_make_probe(),
             ownership_commit=_make_ownership(),
         )
         rating, events = calculate_rating("verifier", [s1, s2])
