@@ -684,48 +684,61 @@ All five priority items from the previous audit's revised roadmap have been comp
 
 The external analysis is a high-level gap assessment against the specification. This audit is a line-by-line code review. Several findings exist only in this audit:
 
-| Finding | Category | Description |
-|---------|----------|-------------|
-| L01 | Bug | Anti-cheat removed file regex inverted — never matches real diffs |
-| L02 | Bug | Evidence enrichment applies only first unlinked section to all claims |
-| L04 | Design | Rule ID E007 used for 4 different rules — findings are ambiguous |
-| L06 | Bug | `DiffAnalyzer.detect_critical_surfaces()` attributes all matches to last file |
-| L08 | Design | `MutableBranchConfig` defined in config but never consulted by `ArtifactLink.from_url()` |
-| D01–D10 | Dead code | 691 lines of dead code across 10 locations (30% of source) |
-| — | Dependency | `mistune` is a phantom dependency — installed but never imported |
-| — | Test gap | Zero unit tests for any individual validator |
-| — | Parser | `_find_sections()` and `_build_intent_from_legacy()` are dead code paths |
+| Finding | Category | Description | Status |
+|---------|----------|-------------|--------|
+| L01 | Bug | Anti-cheat removed file regex inverted | ✅ FIXED |
+| L02 | Bug | Evidence enrichment applies only first unlinked section | ✅ FIXED |
+| L04 | Design | Rule ID E007 used for 4 different rules | ✅ FIXED |
+| L06 | Bug | `DiffAnalyzer` misattributes critical surface matches | ✅ FIXED (module deleted) |
+| L08 | Design | `MutableBranchConfig` never consulted | ✅ FIXED |
+| D01–D10 | Dead code | 691 lines across 10 locations (30% of source) | ✅ 86% eliminated |
+| — | Dependency | `mistune` phantom dependency | ✅ FIXED (removed) |
+| — | Test gap | Zero individual validator unit tests | ✅ FIXED (25+ tests) |
+| — | Parser | `_find_sections()` dead code | ✅ FIXED (removed) |
+| — | Parser | `_build_intent_from_legacy()` untested | ❌ STILL PRESENT |
 
 ---
 
 ### 7.7 Findings Unique to External Analysis (Not in This Audit)
 
-| Finding | Category | This Audit's Assessment |
-|---------|----------|------------------------|
-| SVP suite 0% implemented | Gap | **Valid.** This audit focused on `src/aiv/` and did not scope SVP as a gap since the repo is named `aiv-protocol`, not `svp-protocol`. But the specs exist and are unimplemented. |
-| `aiv generate` command exists as stub | Factual claim | **Incorrect.** No `generate` command exists — not even a stub. CLI has only `check` and `init`. |
-| CI integration for Class A auto-population | Feature gap | **Valid and important.** Not flagged by this audit because it's a missing-feature rather than a code-defect. |
-| Issue tracker integration for Class E | Feature gap | **Valid.** Same category — feature that doesn't exist, rather than broken code. |
+| Finding | Category | Previous Assessment | Current Status |
+|---------|----------|---------------------|----------------|
+| SVP suite 0% implemented | Gap | Valid — unimplemented | ✅ NOW IMPLEMENTED (43 tests) |
+| `aiv generate` command missing | Feature gap | Factually, no command existed | ✅ NOW IMPLEMENTED |
+| CI integration for Class A auto-population | Feature gap | Valid — not built | ❌ STILL MISSING in generator |
+| Issue tracker integration for Class E | Feature gap | Valid — not built | ❌ STILL MISSING |
 
 ---
 
 ### 7.8 Consolidated Assessment
 
-Both analyses converge on the same core diagnosis: **the Python implementation is a structural proof-of-concept, not a production-ready validator.** The two analyses complement each other:
+**Previous assessment:** Both analyses converged on the diagnosis that the Python implementation was a structural proof-of-concept, not production-ready. The external analysis identified what was missing; this audit identified what was broken.
 
-- **External analysis** identifies *what's missing* relative to the spec (SVP, generator, guard refactor, advanced evidence classes).
-- **This audit** identifies *what's broken* in what exists (dead code, inverted regexes, no-op validators, naming conflicts, missing risk-tier enforcement).
+**Re-Audit assessment:** The codebase has undergone **significant remediation**:
 
-Together, they paint a complete picture: the codebase has a sound architectural skeleton (pipeline, frozen models, validator interface) but needs both **depth** (fix what exists) and **breadth** (build what's missing) before it can serve as the single source of truth for AIV protocol enforcement.
+- **All HIGH and MEDIUM bugs fixed** (L01–L05): anti-cheat regex, evidence enrichment, bug-fix heuristic, rule ID collisions, zero-touch no-op.
+- **Dead code reduced by 86%:** from ~691 lines (30% of source) to ~99 lines (~2%).
+- **Major features built:** Guard module (1,571 lines), SVP suite (6 files), generate command, classification parsing, risk-tier enforcement.
+- **Test suite 4× larger:** 163 tests (was 39).
+- **Guard architecture unified:** Python guard uses aiv-lib internally; JS workflow preserved as fallback.
+
+**Remaining gaps are LOW severity:**
+- Class D/F naming conflict with spec
+- Stateful parser
+- Broad exception catch
+- Legacy intent parser untested
+- No tests for generate command or anti-cheat deleted file detection
+- `pyperclip` optional extra still unused
+- 4 exception classes still never raised
 
 **Updated Scorecard (incorporating both analyses):**
 
-| Dimension | Rating | Notes |
-|-----------|--------|-------|
-| **Correctness** | 6/10 | Core happy path works. Edge-case bugs in anti-cheat, evidence enrichment, bug-fix heuristic. |
-| **Completeness** | 3/10 | ~30% dead code. No SVP. No generator. No risk-tier enforcement. No Classification parsing. Class D/F validators are hollow. |
-| **Test Coverage** | 5/10 | 39 tests pass. But 0 validator unit tests, 0 coverage on 3 entire modules, no edge-case coverage. |
-| **Architecture** | 7/10 | Clean pipeline, frozen models, good separation. Undermined by dual JS/Python systems and dead scaffolding. |
-| **Maintainability** | 5/10 | Good code style. Dead code, duplicate logic, ambiguous rule IDs, naming drift from spec. |
-| **Spec Fidelity** | 3/10 | Class D/F naming wrong. Risk tiers not enforced. Classification not parsed. SVP 0%. Fast-track unintegrated. No generator. |
-| **Production Readiness** | 2/10 | Cannot replace JS guard due to validator defects and missing GitHub API/artifact integration. |
+| Dimension | Previous Rating | Current Rating | Notes |
+|-----------|----------------|----------------|-------|
+| **Correctness** | 6/10 | **8/10** | All HIGH/MEDIUM bugs fixed. LOW-severity issues remain. |
+| **Completeness** | 3/10 | **8/10** | SVP, generator, guard, classification — all implemented. Class D/F validators still hollow. |
+| **Test Coverage** | 5/10 | **8/10** | 163 tests. Validators, parser, guard, SVP tested. Edge-case gaps remain. |
+| **Architecture** | 7/10 | **8/10** | Guard shares aiv-lib. SVP integrated. JS fallback preserved. |
+| **Maintainability** | 5/10 | **8/10** | Dead code eliminated. Rule IDs unique. Config wired. |
+| **Spec Fidelity** | 3/10 | **7/10** | Risk tiers enforced. Classification parsed. Class D/F naming still wrong. |
+| **Production Readiness** | 2/10 | **7/10** | Python guard can replace JS guard. Missing PR comments and `action.yml`. |
