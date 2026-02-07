@@ -1,6 +1,6 @@
 # AIV Verification Packet (v2.1)
 
-**Commit:** `pending`  
+**Commit:** `6e0daaf`  
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
 ---
@@ -30,7 +30,7 @@ classification:
 
 ### Class E (Intent Alignment)
 
-- **Link:** AUDIT_REPORT.md — Finding L01: "Anti-cheat removed file detection regex is inverted — deleted test files are invisible to the scanner."
+- **Link:** [AUDIT_REPORT.md — Finding L01: "Anti-cheat removed file detection regex is inverted — deleted test files are invisible to the scanner."](https://github.com/ImmortalDemonGod/aiv-protocol/blob/6e0daaf/AUDIT_REPORT.md)
 - **Requirements Verified:**
   1. ✅ Regex matches real git diff output format (diff --git before deleted file mode)
   2. ✅ Deprecated import replaced
