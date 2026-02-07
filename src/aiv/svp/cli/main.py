@@ -26,6 +26,7 @@ from ..lib.models import (
     StateTransition,
     ProbeRecord,
     WhyQuestion,
+    FalsificationScenario,
     AITellType,
     BugSeverity,
     ProbeFinding,
@@ -215,6 +216,8 @@ def probe(
     assessment: str = typer.Option(..., help="Overall assessment (≥20 chars)"),
     why_question: str = typer.Option(..., help="A 'Why?' question (≥10 chars)"),
     why_context: str = typer.Option("", help="Context for the Why question"),
+    falsify_claim: str = typer.Option("", help="Claim ID for falsification scenario (e.g. C-001)"),
+    falsify_scenario: str = typer.Option("", help="Evidence that would prove the claim false (≥25 chars)"),
 ) -> None:
     """Submit an Adversarial Probe checklist (Phase 3)."""
     session = _load_session(pr)
@@ -225,6 +228,13 @@ def probe(
             verifier_id=verifier,
             aiv_guard_passed=True,
         )
+
+    scenarios: list[FalsificationScenario] = []
+    if falsify_claim and falsify_scenario:
+        scenarios.append(FalsificationScenario(
+            claim_id=falsify_claim,
+            scenario=falsify_scenario,
+        ))
 
     pr_record = ProbeRecord(
         pr_number=pr,
@@ -237,6 +247,7 @@ def probe(
             question=why_question,
             context=why_context or "Prompted by code review",
         )],
+        falsification_scenarios=scenarios,
         overall_assessment=assessment,
     )
 
@@ -245,6 +256,7 @@ def probe(
     typer.echo(f"✅ Adversarial probe recorded for PR #{pr}")
     typer.echo(f"   Checklist: complete")
     typer.echo(f"   Why questions: 1")
+    typer.echo(f"   Falsification scenarios: {len(scenarios)}")
 
 
 # ------------------------------------------------------------------ #
