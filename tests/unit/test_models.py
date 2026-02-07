@@ -29,13 +29,13 @@ class TestEvidenceClass:
         assert EvidenceClass.EXECUTION.value == "A"
         assert EvidenceClass.REFERENTIAL.value == "B"
         assert EvidenceClass.NEGATIVE.value == "C"
-        assert EvidenceClass.STATE.value == "D"
+        assert EvidenceClass.DIFFERENTIAL.value == "D"
         assert EvidenceClass.INTENT.value == "E"
-        assert EvidenceClass.CONSERVATION.value == "F"
+        assert EvidenceClass.PROVENANCE.value == "F"
 
     def test_from_string_letter(self):
         assert EvidenceClass.from_string("A") == EvidenceClass.EXECUTION
-        assert EvidenceClass.from_string("F") == EvidenceClass.CONSERVATION
+        assert EvidenceClass.from_string("F") == EvidenceClass.PROVENANCE
 
     def test_from_string_name(self):
         assert EvidenceClass.from_string("EXECUTION") == EvidenceClass.EXECUTION
