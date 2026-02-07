@@ -728,6 +728,36 @@ class TestScoreSession:
         events = score_session(s)
         assert not any("Falsified" in e.description for e in events)
 
+    def test_false_positive_scenario_generates_penalty(self):
+        probe = _make_probe(falsification_scenarios=[
+            FalsificationScenario(
+                claim_id="C-001",
+                scenario="Original said 12 models but actual is 13 — wrong count.",
+                checked=True,
+                result="confirmed",
+                false_positive=True,
+            ),
+        ])
+        s = _make_complete_session(probe=probe)
+        events = score_session(s)
+        fp_events = [e for e in events if e.event_type == "false_positive"]
+        assert len(fp_events) == 1
+        assert fp_events[0].points == -10
+
+    def test_non_false_positive_scenario_no_penalty(self):
+        probe = _make_probe(falsification_scenarios=[
+            FalsificationScenario(
+                claim_id="C-002",
+                scenario="Pass a packet with /blob/main/ and verify E004 BLOCK.",
+                checked=True,
+                result="confirmed",
+                false_positive=False,
+            ),
+        ])
+        s = _make_complete_session(probe=probe)
+        events = score_session(s)
+        assert not any(e.event_type == "false_positive" for e in events)
+
     def test_complete_session_gets_bonus(self):
         s = _make_complete_session()
         events = score_session(s)

@@ -11,7 +11,7 @@ classification:
 
 ## Claim(s)
 
-1. Twelve unit tests verify the rating engine: score_session event generation for confirmed bugs, unconfirmed findings, falsified/unchecked scenarios, completion bonus, multi-bug accumulation; and calculate_rating aggregation, verifier filtering, and initial state.
+1. Twelve unit tests verify the rating engine: score_session event generation for confirmed defects, unconfirmed findings, falsified/unchecked scenarios, completion bonus, multi-defect accumulation; and calculate_rating aggregation, verifier filtering, and initial state.
 
 ## Evidence
 
@@ -19,7 +19,7 @@ classification:
 
 - **Link:** [SVP Spec §9](https://github.com/ImmortalDemonGod/aiv-protocol/blob/067ff2c/docs/specs/SVP-SUITE-SPEC-V1.0-CANONICAL-2025-12-20.md)
 - **Requirements Verified:**
-  1. Confirmed bugs generate correctly-typed rating events with correct point values.
+  1. Confirmed defects generate correctly-typed rating events with correct point values.
   2. Unconfirmed findings and unchecked scenarios produce no events.
   3. Multi-session aggregation filters by verifier_id and accumulates correctly.
 
