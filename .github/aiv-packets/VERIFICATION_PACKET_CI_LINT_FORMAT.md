@@ -46,7 +46,7 @@ classification:
 
 Files modified in this atomic commit series:
 
-<!-- CURRENT_FILE: src/aiv/lib/config.py (11/37) -->
+<!-- CURRENT_FILE: src/aiv/lib/errors.py (12/37) -->
 
 ---
 
