@@ -35,6 +35,11 @@ classification:
 
 - 384 tests pass with no regressions. 3 new regression tests specifically verify headings inside fences are NOT parsed.
 
+### Class F (Provenance)
+
+- No existing tests were deleted, skipped, or weakened during this fix.
+- All 374 pre-existing tests pass unchanged alongside the 10 new tests (384 total, 0 failures).
+
 ## Summary
 
 Fixes a header injection vulnerability where `##` inside fenced code blocks was parsed as a real section heading, potentially altering validation logic.
