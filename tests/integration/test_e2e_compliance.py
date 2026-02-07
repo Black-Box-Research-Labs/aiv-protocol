@@ -439,6 +439,47 @@ class TestEvidenceSubstance:
         e010 = [f for f in result.errors if f.rule_id == "E010"]
         assert len(e010) > 0, "Bug-fix claim should trigger E010 (missing Class F)"
 
+    def test_class_a_code_blob_link_warns(self):
+        """L2-08: Class A evidence pointing to a code file (not CI run) triggers E020."""
+        from aiv.lib.models import ArtifactLink
+
+        blob_link = ArtifactLink.from_url(
+            f"https://github.com/owner/repo/blob/{'a' * 40}/src/feature.py"
+        )
+        claim = Claim(
+            section_number=1,
+            description="All tests pass with zero regressions.",
+            evidence_class=EvidenceClass.EXECUTION,
+            artifact=blob_link,
+            reproduction="Zero-Touch Mandate: Verifier inspects artifacts only.",
+        )
+        from aiv.lib.validators.evidence import EvidenceValidator
+        validator = EvidenceValidator()
+        findings = validator._validate_execution(claim)
+        e020 = [f for f in findings if f.rule_id == "E020"]
+        assert len(e020) > 0, "Code blob link for Class A should trigger E020"
+        assert e020[0].severity == Severity.WARN
+
+    def test_class_a_ci_link_no_e020(self):
+        """L2-09: Class A evidence pointing to CI run does NOT trigger E020."""
+        from aiv.lib.models import ArtifactLink
+
+        ci_link = ArtifactLink.from_url(
+            "https://github.com/owner/repo/actions/runs/12345"
+        )
+        claim = Claim(
+            section_number=1,
+            description="All tests pass with zero regressions.",
+            evidence_class=EvidenceClass.EXECUTION,
+            artifact=ci_link,
+            reproduction="Zero-Touch Mandate: Verifier inspects artifacts only.",
+        )
+        from aiv.lib.validators.evidence import EvidenceValidator
+        validator = EvidenceValidator()
+        findings = validator._validate_execution(claim)
+        e020 = [f for f in findings if f.rule_id == "E020"]
+        assert len(e020) == 0, "CI link for Class A should not trigger E020"
+
     def test_bugfix_claims_with_class_f_passes(self):
         """L2-07: Bug-fix claims WITH Class F evidence pass E010."""
         evidence = (
@@ -627,6 +668,51 @@ class TestSecurityProperties:
         for finding in ac_result.findings:
             if finding.line_number is not None:
                 assert finding.line_number > 0
+
+    def test_context_shifting_attack_detected(self):
+        """L3-10: Deleted meaningful assertion flagged even when trivial assert True added.
+
+        Adversarial vector: implementer deletes a security assertion and
+        "compensates" by adding `assert True` to keep assertion count stable.
+        The scanner must flag the deletion regardless of the addition.
+        """
+        context_shift_diff = (
+            "diff --git a/tests/test_auth.py b/tests/test_auth.py\n"
+            "index abc1234..def5678 100644\n"
+            "--- a/tests/test_auth.py\n"
+            "+++ b/tests/test_auth.py\n"
+            "@@ -10,7 +10,7 @@ class TestAuth:\n"
+            "     def test_admin_access(self):\n"
+            "         user = create_user(role='admin')\n"
+            "-        assert user.is_admin\n"
+            "-        assert user.has_permission('delete_all')\n"
+            "+        assert True\n"
+            "+        assert True  # compensating assertion\n"
+            "         response = client.get('/admin')\n"
+            "         assert response.status_code == 200\n"
+        )
+        scanner = AntiCheatScanner()
+        ac_result = scanner.scan_diff(context_shift_diff)
+
+        # Both meaningful deletions must be flagged
+        deleted = [f for f in ac_result.findings if f.finding_type == "deleted_assertion"]
+        assert len(deleted) >= 2, (
+            f"Expected >= 2 deleted_assertion findings, got {len(deleted)}:\n"
+            + "\n".join(
+                f"  {f.finding_type}: {f.original_content}"
+                for f in ac_result.findings
+            )
+        )
+
+        # Verify the specific assertions are captured
+        deleted_content = " ".join(f.original_content for f in deleted)
+        assert "is_admin" in deleted_content, "Must flag deletion of is_admin assertion"
+        assert "has_permission" in deleted_content, "Must flag deletion of has_permission assertion"
+
+        # The trivial `assert True` additions must NOT suppress the findings
+        assert ac_result.requires_justification, (
+            "Context-shifting attack must still require Class F justification"
+        )
 
 
 # ============================================================================
@@ -871,6 +957,81 @@ class TestCanonicalCompliance:
         ok = validate_canonical(packet, ctx, result, ["src/a.py"])
         assert not ok
         assert any(f.rule_id == "B-002" for f in result.findings)
+
+    def test_canonical_stale_packet_rejected(self):
+        """L5-09: Packet head_sha != PR head_sha triggers CT-005 (stale packet drift)."""
+        ctx = _make_guard_context(head_sha="a" * 40)
+        packet = _make_canonical_packet(ctx)
+        # Simulate a stale packet: developer pushed new commit but didn't update packet
+        packet["identification"]["head_sha"] = "b" * 40  # Different from ctx
+
+        result = GuardResult()
+        ok = validate_canonical(packet, ctx, result, ["src/a.py"])
+        assert not ok, "Stale packet (head_sha mismatch) should be rejected"
+        assert any(
+            f.rule_id == "CT-005" and "head_sha" in f.description.lower()
+            for f in result.findings
+        ), (
+            "CT-005 should mention head_sha mismatch:\n"
+            + "\n".join(f"  [{f.rule_id}] {f.description}" for f in result.findings)
+        )
+
+    def test_canonical_tier_escalation_critical_surface(self):
+        """L5-10: Change touching critical surface but labelled R1 triggers CLS-002.
+
+        Adversarial vector: implementer modifies an authentication module
+        but labels the packet as R1 to avoid the stricter R3 evidence
+        requirements. The guard must detect the critical surface and
+        force escalation to R3.
+        """
+        from aiv.guard.runner import GuardRunner
+        from aiv.guard.github_api import ChangedFile
+
+        ctx = _make_guard_context()
+        runner = GuardRunner(ctx)
+        # Inject changed files that touch a critical surface (authentication)
+        runner._changed_files = [
+            ChangedFile(filename="src/auth/login.py", status="modified", patch=""),
+        ]
+        # Build an R1 canonical packet (should be R3 for auth files)
+        packet = _make_canonical_packet(ctx, risk_tier="R1")
+        runner.result.risk_tier_validated = "R1"
+
+        runner._check_critical_surfaces(packet, "R1")
+
+        cls002 = [f for f in runner.result.findings if f.rule_id == "CLS-002"]
+        assert len(cls002) > 0, (
+            "Critical surface (authentication) with R1 should trigger CLS-002:\n"
+            + "\n".join(f"  [{f.rule_id}] {f.description}" for f in runner.result.findings)
+        )
+        assert any("Authentication" in f.description for f in cls002), (
+            "CLS-002 should identify 'Authentication' as the critical surface"
+        )
+
+    def test_canonical_tier_escalation_r3_passes(self):
+        """L5-11: Critical surface with R3 and declared critical_surfaces passes."""
+        from aiv.guard.runner import GuardRunner
+        from aiv.guard.github_api import ChangedFile
+
+        ctx = _make_guard_context()
+        runner = GuardRunner(ctx)
+        runner._changed_files = [
+            ChangedFile(filename="src/auth/login.py", status="modified", patch=""),
+        ]
+        packet = _make_canonical_packet(
+            ctx, risk_tier="R3", sod_mode="S1",
+            evidence_classes=("A", "B", "C", "D", "E", "F"),
+        )
+        packet["classification"]["critical_surfaces"] = ["Authentication"]
+        runner.result.risk_tier_validated = "R3"
+
+        runner._check_critical_surfaces(packet, "R3")
+
+        cls002 = [f for f in runner.result.findings if f.rule_id == "CLS-002"]
+        assert len(cls002) == 0, (
+            "R3 with declared critical_surfaces should not trigger CLS-002:\n"
+            + "\n".join(f"  [{f.rule_id}] {f.description}" for f in cls002)
+        )
 
     def test_canonical_conditional_decision_validation(self):
         """L5-08: CONDITIONAL decision without conditions triggers CT-009."""
