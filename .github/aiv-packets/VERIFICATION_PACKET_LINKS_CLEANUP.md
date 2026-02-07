@@ -1,6 +1,6 @@
 # AIV Verification Packet (v2.1)
 
-**Commit:** `pending`  
+**Commit:** `3eedd50`  
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
 ---
@@ -29,7 +29,7 @@ classification:
 
 ### Class E (Intent Alignment)
 
-- **Link:** AUDIT_REPORT.md — Finding D08: "validate_link_format() defined but never called."
+- **Link:** [AUDIT_REPORT.md — Finding D08: "validate_link_format() defined but never called."](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3eedd50/AUDIT_REPORT.md)
 - **Requirements Verified:**
   1. ✅ Dead method removed
   2. ✅ Orphaned imports cleaned up
