@@ -36,6 +36,13 @@ from ..lib.models import (
     VerifierRating,
     VerifierTier,
 )
+from ..lib.rating import (
+    calculate_rating,
+    load_all_sessions,
+    load_ratings,
+    save_ratings,
+    score_session,
+)
 from ..lib.validators.session import validate_session
 
 svp_app = typer.Typer(
@@ -413,3 +420,62 @@ def validate(
 
     if not result.is_complete:
         raise typer.Exit(1)
+
+
+# ------------------------------------------------------------------ #
+# svp rating
+# ------------------------------------------------------------------ #
+
+@svp_app.command()
+def rating(
+    verifier_id: str = typer.Argument(
+        ..., help="Verifier ID to calculate rating for"
+    ),
+    save: bool = typer.Option(
+        True, help="Persist updated rating to .svp/ratings.json"
+    ),
+    verbose: bool = typer.Option(
+        False, "--verbose", "-v", help="Show individual rating events"
+    ),
+) -> None:
+    """Calculate and display ELO rating for a verifier from all sessions."""
+    sessions = load_all_sessions()
+    if not sessions:
+        typer.echo("No SVP sessions found in .svp/", err=True)
+        raise typer.Exit(1)
+
+    verifier_sessions = [s for s in sessions if s.verifier_id == verifier_id]
+    if not verifier_sessions:
+        typer.echo(
+            f"No sessions found for verifier '{verifier_id}'", err=True
+        )
+        typer.echo("Available verifiers:", err=True)
+        seen: set[str] = set()
+        for s in sessions:
+            if s.verifier_id not in seen:
+                typer.echo(f"  - {s.verifier_id}", err=True)
+                seen.add(s.verifier_id)
+        raise typer.Exit(1)
+
+    result, events = calculate_rating(verifier_id, sessions)
+
+    typer.echo(f"Verifier: {verifier_id}")
+    typer.echo(f"Sessions: {result.total_reviews}")
+    typer.echo(f"ELO:      {result.elo_rating}")
+    typer.echo(f"Tier:     {result.tier.value.upper()}")
+    typer.echo(f"Bugs:     {result.bugs_caught}")
+    typer.echo(f"FPs:      {result.false_positives}")
+
+    if verbose and events:
+        typer.echo()
+        typer.echo("Rating Events:")
+        for e in events:
+            sign = "+" if e.points >= 0 else ""
+            typer.echo(f"  [{sign}{e.points:>3}] {e.event_type}: {e.description}")
+
+    if save:
+        ratings = load_ratings()
+        ratings[verifier_id] = result
+        save_ratings(ratings)
+        typer.echo()
+        typer.echo(f"Rating saved to .svp/ratings.json")
