@@ -302,8 +302,10 @@ classification:
 
 ## Claim(s)
 
-1. TODO: Primary claim — what changed and why.
-2. TODO: Quality claim — tests pass, no regressions.
+1. [Component/Function] [assertive verb: rejects/returns/ensures/prevents/limits] [result] under [condition].
+   - *Example: "The `PacketParser` rejects packets where the version header is missing."*
+2. [Component] prevents [unwanted state] during [process/input].
+   - *Example: "The `LinkValidator` prevents mutable branch refs from passing E004."*
 3. No existing tests were modified or deleted during this change.
 
 ---
