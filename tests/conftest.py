@@ -117,7 +117,7 @@ classification:
 
 - [CI Run #9876](https://github.com/owner/repo/actions/runs/9876543) — 42 passed, 0 failed
 
-### Class C (Negative Evidence — Conservation)
+### Class C (Negative Evidence)
 
 **Claim 3: No regressions**
 - No existing tests modified or deleted.
