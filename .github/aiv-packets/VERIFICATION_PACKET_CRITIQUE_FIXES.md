@@ -1,6 +1,6 @@
 # AIV Verification Packet (v2.1) — Re-Audit Critique Remediation
 
-**Commit:** `pending`
+**Commit:** `pending` (pre-commit hook)
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
 ---

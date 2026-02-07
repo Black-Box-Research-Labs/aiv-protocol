@@ -115,6 +115,67 @@ print_aiv_rubric() {
   echo "==============================================================================="
 }
 
+# --- PACKET VALIDATION ---
+# If a packet is staged, validate it with the real Python validator (aiv check).
+# This ensures the packet is structurally valid, not just present.
+validate_staged_packet() {
+    if [ -z "$HAS_PACKET" ]; then
+        return 0
+    fi
+
+    # Extract the packet file path from staged files
+    PACKET_FILE=$(echo "$STAGED_LIST" | grep -E "$PACKET_PATTERN" | head -n 1)
+    if [ -z "$PACKET_FILE" ]; then
+        return 0
+    fi
+
+    # Check if Python and aiv are available
+    if ! command -v python >/dev/null 2>&1 && ! command -v python3 >/dev/null 2>&1; then
+        echo "⚠️  WARNING: Python not found — skipping packet content validation." 1>&2
+        return 0
+    fi
+
+    PYTHON_CMD="python"
+    if ! command -v python >/dev/null 2>&1; then
+        PYTHON_CMD="python3"
+    fi
+
+    # Validate the staged version of the packet (not the working tree version)
+    PACKET_CONTENT=$(git show ":${PACKET_FILE}" 2>/dev/null)
+    if [ -z "$PACKET_CONTENT" ]; then
+        return 0
+    fi
+
+    # Write staged content to a temp file for validation
+    TMPFILE=$(mktemp "${TMPDIR:-/tmp}/aiv-packet-check.XXXXXX.md")
+    echo "$PACKET_CONTENT" > "$TMPFILE"
+
+    # Run aiv check (non-strict mode — warnings don't block)
+    RESULT=$($PYTHON_CMD -m aiv check "$TMPFILE" 2>&1) || {
+        # Check if the failure is from blocking errors (not just warnings)
+        BLOCKING=$(echo "$RESULT" | grep -c "blocking error" || true)
+        if echo "$RESULT" | grep -q "0 blocking error"; then
+            # Only warnings — allow commit
+            rm -f "$TMPFILE"
+            return 0
+        fi
+        echo ""
+        echo "🛑 PACKET VALIDATION FAILED"
+        echo "==============================================================================="
+        echo "The staged verification packet failed content validation:"
+        echo ""
+        echo "$RESULT"
+        echo ""
+        echo "Fix the packet errors before committing."
+        echo "==============================================================================="
+        rm -f "$TMPFILE"
+        return 1
+    }
+
+    rm -f "$TMPFILE"
+    return 0
+}
+
 # --- ATOMICITY RULES ---
 
 # Rule 1: Dependency Pair Exception
@@ -127,26 +188,31 @@ fi
 
 # Rule 2: The AIV Atomic Unit (Allow 1 Functional File + 1 Packet)
 if [ "$STAGED_COUNT" -eq 2 ] && [ -n "$HAS_PACKET" ] && [ -n "$IS_FUNCTIONAL" ]; then
+    validate_staged_packet || exit 1
     exit 0
 fi
 
 # Rule 2.5: Packet directory tracking file may be committed with a packet
 if [ "$STAGED_COUNT" -eq 2 ] && [ -n "$HAS_PACKET" ] && [ -n "$HAS_AIV_PACKETS_GITKEEP" ]; then
+    validate_staged_packet || exit 1
     exit 0
 fi
 
 # Rule 2.6: Submodule update (Allow 1 submodule path + 1 Packet)
 if [ "$STAGED_COUNT" -eq 2 ] && [ -n "$HAS_PACKET" ] && [ -n "$HAS_SUBMODULE_PATH" ]; then
+    validate_staged_packet || exit 1
     exit 0
 fi
 
 # Rule 2.7: Submodule add (Allow .gitmodules + submodule path + 1 Packet)
 if [ "$STAGED_COUNT" -eq 3 ] && [ -n "$HAS_PACKET" ] && [ -n "$HAS_GITMODULES" ] && [ -n "$HAS_SUBMODULE_PATH" ]; then
+    validate_staged_packet || exit 1
     exit 0
 fi
 
 # Rule 3: Packet-Only Update (Allow 1 file if it's the packet)
 if [ "$STAGED_COUNT" -eq 1 ] && [ -n "$HAS_PACKET" ]; then
+    validate_staged_packet || exit 1
     exit 0
 fi
 
