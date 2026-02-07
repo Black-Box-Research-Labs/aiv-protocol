@@ -243,7 +243,7 @@
         "line_number": null,
         "description": "E020 rule_id collision between pipeline.py (optional evidence tier info) and evidence.py (Class A code blob warning) - two different rules share the same ID",
         "severity": "medium",
-        "is_confirmed_bug": false
+        "is_confirmed_bug": true
       }
     ],
     "why_questions": [
