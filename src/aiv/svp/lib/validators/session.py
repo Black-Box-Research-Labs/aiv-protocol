@@ -7,6 +7,7 @@ SVP session validator — orchestrates validation of all phases (S001-S013).
 from __future__ import annotations
 
 from ..models import (
+    SessionType,
     SVPPhase,
     SVPSession,
     SVPStatus,
@@ -18,7 +19,7 @@ from ..models import (
 
 def validate_session(session: SVPSession) -> SVPValidationResult:
     """
-    Validate a complete SVP session against rules S001-S013.
+    Validate a complete SVP session against rules S001-S016.
 
     Returns a SVPValidationResult with all errors and warnings.
     """
@@ -120,7 +121,7 @@ def _validate_trace(
     errors: list[SVPValidationError],
     warnings: list[SVPValidationError],
 ) -> bool:
-    """S005-S007: Trace validation."""
+    """S005-S007, S015: Trace validation."""
     if len(session.traces) == 0:
         errors.append(SVPValidationError(
             rule_id="S005",
@@ -130,6 +131,8 @@ def _validate_trace(
             suggestion="Run 'svp trace' to record mental execution trace.",
         ))
         return False
+
+    is_ai = session.session_type == SessionType.AI_ADVERSARIAL_TRIAGE
 
     for trace in session.traces:
         # S006: Edge case test
@@ -151,6 +154,21 @@ def _validate_trace(
                 message=f"Trace notes for {trace.function_path} should be ≥100 characters.",
             ))
 
+        # S015: AI sessions must include verified_output (execution evidence)
+        if is_ai and not trace.verified_output:
+            errors.append(SVPValidationError(
+                rule_id="S015",
+                phase=SVPPhase.TRACE,
+                severity=ValidationSeverity.BLOCK,
+                message=(
+                    f"AI session trace for {trace.function_path} must include "
+                    f"verified_output from actual execution. Mental simulation "
+                    f"is not sufficient for AI verifiers."
+                ),
+                suggestion="Run the edge case and capture stdout/return value in verified_output.",
+            ))
+            return False
+
     return True
 
 
@@ -159,7 +177,7 @@ def _validate_probe(
     errors: list[SVPValidationError],
     warnings: list[SVPValidationError],
 ) -> bool:
-    """S008-S009, S014: Probe validation."""
+    """S008-S009, S014, S016: Probe validation."""
     probe = session.probe
 
     if probe is None:
@@ -204,6 +222,26 @@ def _validate_probe(
             ),
         ))
         return False
+
+    # S016: AI sessions must have test_code on falsification scenarios
+    is_ai = session.session_type == SessionType.AI_ADVERSARIAL_TRIAGE
+    if is_ai:
+        prose_only = [
+            s for s in probe.falsification_scenarios
+            if not s.test_code
+        ]
+        if prose_only:
+            errors.append(SVPValidationError(
+                rule_id="S016",
+                phase=SVPPhase.PROBE,
+                severity=ValidationSeverity.BLOCK,
+                message=(
+                    f"{len(prose_only)} falsification scenario(s) have no test_code. "
+                    f"AI sessions require executable pytest snippets, not prose descriptions."
+                ),
+                suggestion="Provide a pytest function in test_code that validates the scenario.",
+            ))
+            return False
 
     return True
 
