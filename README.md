@@ -25,8 +25,17 @@ aiv check --strict .github/aiv-packets/VERIFICATION_PACKET_AIV_IMPLEMENTATION.md
 # Validate with anti-cheat diff scanning
 aiv check packet.md --diff changes.patch
 
+# Scaffold a new verification packet
+aiv generate my-feature --tier R1
+
 # Initialize AIV in a repository
 aiv init
+
+# SVP cognitive verification (per-PR workflow)
+aiv svp predict 42 --verifier alice --test-file tests/test_auth.py --approach "..." --edge-cases "..."
+aiv svp trace 42 --verifier alice --function src/auth.py::login --notes "..." --edge-case "..." --predicted-output "..."
+aiv svp probe 42 --verifier alice --assessment "..." --why-question "..."
+aiv svp status 42
 ```
 
 ## CLI Commands
@@ -56,6 +65,32 @@ $ aiv check .github/aiv-packets/VERIFICATION_PACKET_GITIGNORE.md
 ### `aiv init`
 
 Creates a `.aiv.yml` configuration file in the target directory.
+
+### `aiv generate`
+
+Scaffolds a new verification packet with tier-appropriate evidence sections:
+
+```bash
+# Generate an R2 packet with auto-detected git scope
+aiv generate auth-fix --tier R2
+
+# Generate with rationale
+aiv generate cleanup --tier R0 --rationale "Remove dead code"
+```
+
+Auto-detects staged/unstaged files via `git diff` and populates the scope inventory.
+
+### `aiv svp` (SVP Protocol Suite)
+
+Cognitive verification commands for the Systematic Verifier Protocol:
+
+| Command | Phase | Description |
+| --- | --- | --- |
+| `aiv svp status <PR>` | — | Show SVP completion status and phase checklist |
+| `aiv svp predict <PR>` | 1 | Record a Black Box Prediction before seeing the diff |
+| `aiv svp trace <PR>` | 2 | Record a Mental Trace (simulate execution flow) |
+| `aiv svp probe <PR>` | 3 | Submit an Adversarial Probe checklist |
+| `aiv svp validate <PR>` | — | Validate session completeness (JSON output) |
 
 ## The Problem
 
@@ -115,19 +150,40 @@ aiv-protocol/
 │   │       ├── links.py             # SHA-pinned immutability
 │   │       ├── zero_touch.py        # Zero-Touch mandate (E008)
 │   │       └── anti_cheat.py        # Test manipulation scanner (E011)
+│   ├── guard/                       # Python AIV Guard (CI module)
+│   │   ├── models.py                # Guard-specific Pydantic models
+│   │   ├── github_api.py            # GitHub API client
+│   │   ├── canonical.py             # Canonical packet validation
+│   │   ├── manifest.py              # CI artifact manifest validation
+│   │   ├── runner.py                # Guard orchestrator
+│   │   └── __main__.py              # python -m aiv.guard support
+│   ├── svp/                         # SVP Protocol Suite
+│   │   ├── cli/main.py              # SVP CLI commands (typer)
+│   │   └── lib/
+│   │       ├── models.py            # SVP Pydantic models (sessions, ratings)
+│   │       └── validators/
+│   │           └── session.py       # Session rules S001–S013
 │   └── __main__.py                  # python -m aiv support
-├── tests/                           # 84 tests (unit + integration)
+├── tests/                           # 188 tests (unit + integration)
 │   ├── unit/
 │   │   ├── test_models.py
 │   │   ├── test_parser.py
-│   │   └── test_validators.py
+│   │   ├── test_validators.py
+│   │   ├── test_guard.py            # Guard module tests (36)
+│   │   ├── test_svp.py              # SVP module tests (43)
+│   │   └── test_coverage.py         # Coverage gap tests
 │   └── integration/
 │       └── test_full_workflow.py
 ├── .github/
 │   ├── workflows/
-│   │   ├── aiv-guard.yml            # PR validation (live)
+│   │   ├── aiv-guard.yml            # PR validation — JS (live)
+│   │   ├── aiv-guard-python.yml     # PR validation — Python (live)
 │   │   └── verify-architecture.yml  # Evidence generation (live)
-│   └── aiv-packets/                 # 24 verification packets
+│   └── aiv-packets/                 # 30 verification packets
+├── docs/specs/
+│   ├── AIV-SUITE-SPEC-V1.0-CANONICAL_2025-12-19.md
+│   ├── SVP-SUITE-SPEC-V1.0-CANONICAL-2025-12-20.md
+│   └── E2E_COMPLIANCE_TEST_SUITE_SPEC.md
 ├── .husky/pre-commit                # Atomic commit enforcement
 ├── SPECIFICATION.md                 # Canonical AIV standard (v1.0.0)
 ├── AUDIT_REPORT.md                  # Comprehensive codebase audit
@@ -142,14 +198,16 @@ aiv-protocol/
 | [`AUDIT_REPORT.md`](AUDIT_REPORT.md) | Comprehensive codebase audit with cross-analysis |
 | [`docs/specs/AIV-SUITE-SPEC-V1.0-CANONICAL_2025-12-19.md`](docs/specs/AIV-SUITE-SPEC-V1.0-CANONICAL_2025-12-19.md) | AIV automation suite implementation spec |
 | [`docs/specs/SVP-SUITE-SPEC-V1.0-CANONICAL-2025-12-20.md`](docs/specs/SVP-SUITE-SPEC-V1.0-CANONICAL-2025-12-20.md) | SVP cognitive verification suite implementation spec |
+| [`docs/specs/E2E_COMPLIANCE_TEST_SUITE_SPEC.md`](docs/specs/E2E_COMPLIANCE_TEST_SUITE_SPEC.md) | End-to-end compliance test suite specification |
 
 ## Enforcement (Live)
 
-Three enforcement layers, all active:
+Four enforcement layers, all active:
 
 1. **Pre-commit hook** — Blocks commits without atomic unit pattern (1 functional file + 1 verification packet)
 2. **`aiv check` CLI** — Local validation with 8-stage pipeline, strict mode, anti-cheat scanning
-3. **AIV Guard CI** — PR-level validation: structure, immutable links, evidence requirements, critical surface detection, SoD checks
+3. **AIV Guard CI (JS)** — PR-level validation: structure, immutable links, evidence requirements, critical surface detection, SoD checks
+4. **AIV Guard CI (Python)** — Refactored guard as a Python module (`src/aiv/guard/`) with canonical packet validation, manifest verification, and GitHub API integration
 
 ## Configuration
 
