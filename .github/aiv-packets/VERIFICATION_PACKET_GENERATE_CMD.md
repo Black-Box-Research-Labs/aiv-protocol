@@ -1,6 +1,6 @@
 # AIV Verification Packet (v2.1)
 
-**Commit:** `pending`  
+**Commit:** `d56b589`  
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
 ---
@@ -31,7 +31,7 @@ classification:
 
 ### Class E (Intent Alignment)
 
-- **Link:** AUDIT_REPORT.md — §7.5 P3: "`aiv generate` command for packet scaffolding."
+- **Link:** [AUDIT_REPORT.md — §7.5 P3: "`aiv generate` command for packet scaffolding."](https://github.com/ImmortalDemonGod/aiv-protocol/blob/d56b589/AUDIT_REPORT.md)
 - **Requirements Verified:**
   1. ✅ Command creates properly structured packet file
   2. ✅ Tier-specific evidence sections generated
