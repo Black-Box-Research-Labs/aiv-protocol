@@ -457,10 +457,10 @@ All validators implement `BaseValidator.validate(packet) → list[ValidationFind
 
 ### 4.4 Structural/Architectural Weaknesses
 
-1. ⚠️ PARTIALLY FIXED: **Two parallel enforcement systems:**
-   - The Python guard module (`src/aiv/guard/`) now **uses `aiv-lib` internally** — `runner.py:215` calls `ValidationPipeline`. This means the Python guard and CLI share the same validation logic for markdown packets.
-   - The JS workflow (`aiv-guard.yml`, 2243 lines) is **preserved unchanged** alongside the new `aiv-guard-python.yml` (45 lines). Two CI workflows now exist.
-   - The Python guard adds canonical JSON validation on top of `aiv-lib`, using its own rule IDs (`CT-001`, `CLS-002`, `A-001`, etc.) distinct from `aiv-lib` rule IDs (`E001`–`E018`). This is intentional (canonical validation is a superset), but the two rule ID namespaces are still separate.
+1. ✅ FIXED: **Two parallel enforcement systems → unified:**
+   - The Python guard module (`src/aiv/guard/`) **uses `aiv-lib` internally** — `runner.py:211` calls `ValidationPipeline`. The Python guard and CLI share the same validation logic for markdown packets.
+   - The legacy JS workflow (`aiv-guard.yml`, 2,244 lines) has been **deleted** (commit `59167a1`). Only `aiv-guard-python.yml` (44 lines) remains.
+   - The Python guard adds canonical JSON validation on top of `aiv-lib`, using its own rule IDs (`CT-001`, `CLS-002`, `A-001`, etc.) distinct from `aiv-lib` rule IDs (`E001`–`E022`). This is intentional (canonical validation is a superset).
 
 2. ✅ FIXED: **Spec/Implementation naming aligned:**
    - `EvidenceClass.STATE` renamed to `DIFFERENTIAL` (Class D) and `EvidenceClass.CONSERVATION` renamed to `PROVENANCE` (Class F), matching the canonical spec.
