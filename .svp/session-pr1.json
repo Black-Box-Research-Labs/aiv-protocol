@@ -31,7 +31,13 @@
       "verifier_id": "cascade-ai-first-pass",
       "function_path": "src/aiv/lib/models.py::ArtifactLink.from_url",
       "trace_notes": "Traced ArtifactLink.from_url for Claim 1. Step 1: urlparse(url) extracts netloc and path. Step 2: if github.com in netloc, splits path by /. Step 3: if actions+runs in path, returns immutable github_actions immediately. Step 4: if blob/tree in path, extracts the ref segment (path_parts[idx+1]). Step 5: checks if ref is a hex SHA >= min_sha_length chars. Step 6: checks if ref matches known mutable branches (main/master/develop/staging/trunk/dev/HEAD). Step 7: SHA returns immutable, mutable branch returns is_immutable=False, else returns unknown non-SHA reference. Step 8: GitHub PR links (pull in path) always immutable. Step 9: all other URLs return external+mutable. PREDICTION COMPARISON: I predicted from_url as a classmethod with mutable branch detection - CONFIRMED. I did NOT predict the configurable mutable_branches parameter or the min_sha_length parameter. OBSERVATION: A 7-char hex string like 'abcdef1' passes the SHA check but could be a branch name. The min_sha_length=7 default is reasonable but not foolproof.",
-      "state_transitions": [],
+      "state_transitions": [
+        {"step_number": 1, "variable_name": "parsed.netloc", "before_value": "(raw url string)", "after_value": "github.com", "line_number": 106},
+        {"step_number": 2, "variable_name": "path_parts", "before_value": "(raw path)", "after_value": "['owner', 'repo', 'blob', 'abcdef1', 'file.py']", "line_number": 110},
+        {"step_number": 3, "variable_name": "ref", "before_value": "None", "after_value": "abcdef1", "line_number": 130},
+        {"step_number": 4, "variable_name": "is_sha", "before_value": "(not set)", "after_value": "True (7 hex chars >= min_sha_length=7)", "line_number": 136},
+        {"step_number": 5, "variable_name": "return", "before_value": "(not set)", "after_value": "ArtifactLink(is_immutable=True, link_type='github_blob')", "line_number": 149}
+      ],
       "edge_case_tested": "URL with /blob/abcdef1/ where abcdef1 is actually a branch name",
       "predicted_output": "Returns is_immutable=True incorrectly because 7 hex chars passes the SHA check",
       "confidence": "medium",
@@ -45,7 +51,12 @@
       "verifier_id": "cascade-ai-first-pass",
       "function_path": "src/aiv/lib/parser.py::PacketParser.parse",
       "trace_notes": "Traced PacketParser.parse for Claim 1. Step 1: HEADER_PATTERN.search checks for '# AIV Verification Packet', raises PacketParseError if missing. Step 2: _extract_sections splits by newline, iterates lines, matches HEADING_PATTERN (^#{1,6}\\s+), builds ParsedSection list with level/title/content/line ranges. Step 3: _parse_intent finds section with 'Class E' in title, extracts URL links and requirements. Step 4: _parse_claims finds section with 'Claim' in title, matches NUMBERED_ITEM_PATTERN on each content line. Step 5: _enrich_claims_with_evidence attaches evidence_class/artifact to each claim from evidence subsections. Step 6: _collect_evidence_classes scans for all ### Class X subsections. Step 7: _parse_classification extracts risk_tier from yaml block. PREDICTION COMPARISON: I predicted regex-based section splitting - CONFIRMED. I did NOT predict the substance checking (_MIN_SUBSTANCE_ALPHA=10, _ALWAYS_PLACEHOLDER_RE) or the enrichment step. OBSERVATION: _extract_sections matches HEADING_PATTERN against every line including inside fenced code blocks. A code block containing '## Heading' would be misidentified as a section boundary. This confirms my edge case prediction.",
-      "state_transitions": [],
+      "state_transitions": [
+        {"step_number": 1, "variable_name": "header_match", "before_value": "None", "after_value": "Match('# AIV Verification Packet (v2.1)', version='2.1')", "line_number": 124},
+        {"step_number": 2, "variable_name": "sections", "before_value": "[]", "after_value": "[ParsedSection(level=2, title='Claim(s)'), ParsedSection(level=2, title='Evidence'), ...]", "line_number": 133},
+        {"step_number": 3, "variable_name": "claims", "before_value": "[]", "after_value": "[Claim(section_number=1, description='...'), ...]", "line_number": 143},
+        {"step_number": 4, "variable_name": "evidence_classes_present", "before_value": "{INTENT}", "after_value": "{INTENT, EXECUTION, REFERENTIAL, NEGATIVE}", "line_number": 158}
+      ],
       "edge_case_tested": "Markdown with ## inside a fenced code block (triple backtick)",
       "predicted_output": "Parser incorrectly splits at the code block heading, creating a malformed section with partial code as content",
       "confidence": "high",
@@ -59,7 +70,12 @@
       "verifier_id": "cascade-ai-first-pass",
       "function_path": "src/aiv/lib/validators/pipeline.py::ValidationPipeline.validate",
       "trace_notes": "Traced the 7-stage pipeline for Claim 2. Stage 1 (Parse): parser.parse(body) catches PacketParseError, returns FAIL with E001 immediately — this is the only early-return stage. Stage 2 (Structure): StructureValidator checks intent section exists, claims present, claim descriptions >=10 chars, reproduction instructions, evidence class+artifact. Stage 3 (Links): LinkValidator calls ArtifactLink.from_url on each link, blocks on mutable branches (E004), warns on non-SHA refs (E009). Stage 4 (Evidence): EvidenceValidator dispatches to 6 class-specific validators, checks bug fixes have Class F (E010). Stage 5 (Risk-Tier): _check_tier_requirements uses _TIER_REQUIRED dict to enforce evidence classes per tier — R0 needs A+B, R1 needs A+B+E, R2 needs A+B+C+E, R3 needs all six. Missing required class blocks with E019. Stage 6 (Zero-Touch): ZeroTouchValidator scans for prohibited patterns like 'run locally' or 'execute the script', blocks with E008. Stage 7 (Anti-Cheat): if diff provided, AntiCheatScanner.scan_diff checks for deleted assertions, skip decorators, mock.patch additions. Stage 8 (Cross-Reference): unjustified anti-cheat findings block with E011. Final: strict_mode makes warnings blocking too. OBSERVATION: Claim 2 says 7-stage pipeline but code has 8 stages (anti-cheat cross-reference is separate). The docstring also says 7. This is a minor documentation drift, not a code bug.",
-      "state_transitions": [],
+      "state_transitions": [
+        {"step_number": 1, "variable_name": "ctx.packet", "before_value": "None", "after_value": "VerificationPacket(version='2.1', risk_tier=R2, claims=[...])", "line_number": 92},
+        {"step_number": 2, "variable_name": "all_errors", "before_value": "[]", "after_value": "[ValidationFinding(rule_id='E004', severity=BLOCK, message='Mutable branch link')]", "line_number": 119},
+        {"step_number": 3, "variable_name": "has_failures", "before_value": "(not set)", "after_value": "True (len(all_errors) > 0)", "line_number": 163},
+        {"step_number": 4, "variable_name": "status", "before_value": "(not set)", "after_value": "ValidationStatus.FAIL", "line_number": 165}
+      ],
       "edge_case_tested": "Packet with all required evidence classes but a mutable branch link in Class E",
       "predicted_output": "Stage 3 (Links) produces E004 BLOCK finding, but Stages 4-8 still run and may produce additional findings. Final result: FAIL with E004 plus any other findings.",
       "confidence": "high",
@@ -73,7 +89,11 @@
       "verifier_id": "cascade-ai-first-pass",
       "function_path": "src/aiv/cli/main.py::check",
       "trace_notes": "Traced the check command for Claim 3. Step 1: Reads config from --config flag or creates default AIVConfig with strict_mode. Step 2: Body input handling has 4 paths: stdin (body=='-'), file path (Path(body).exists()), raw string, or missing (exit 1). Step 3: Reads diff from --diff file path if provided. Step 4: Creates ValidationPipeline(cfg) and calls pipeline.validate(body_text, diff_text). Step 5: Rich output - creates a Table with rule_id, severity, message, location columns. Iterates errors first (red), then warnings (yellow), then info (dim). Step 6: Exit code is 1 if result.status != PASS. PREDICTION COMPARISON: I predicted Typer + Rich - CONFIRMED. I predicted check and init commands - need to verify init exists separately. OBSERVATION: The check command reads stdin when body=='-' but does not handle the case where body is None and stdin has data piped in. A user doing 'cat packet.md | aiv check' without the '-' argument gets the 'No packet body provided' error.",
-      "state_transitions": [],
+      "state_transitions": [
+        {"step_number": 1, "variable_name": "cfg", "before_value": "(not set)", "after_value": "AIVConfig(strict_mode=True)", "line_number": 66},
+        {"step_number": 2, "variable_name": "body_text", "before_value": "None", "after_value": "(piped stdin content — but body arg is None, not '-')", "line_number": 75},
+        {"step_number": 3, "variable_name": "typer.Exit", "before_value": "(not raised)", "after_value": "Exit(1) — 'No packet body provided'", "line_number": 77}
+      ],
       "edge_case_tested": "Piping stdin without the '-' argument: cat packet.md | aiv check",
       "predicted_output": "Error: No packet body provided, exit code 1 - the stdin data is silently ignored",
       "confidence": "high",
@@ -87,7 +107,12 @@
       "verifier_id": "cascade-ai-first-pass",
       "function_path": "src/aiv/lib/validators/anti_cheat.py::AntiCheatScanner.scan_diff",
       "trace_notes": "Traced AntiCheatScanner.scan_diff for Claim 2 (anti-cheat portion). Step 1: Splits diff by newline, iterates lines. Step 2: On 'diff --git' line, extracts file path via regex r'b/(.+)$', increments files_analyzed, checks _is_test_file. Step 3: On @@ hunk header, extracts line number. Step 4: On deleted lines (starting with -), checks: assertion_patterns for deleted asserts (DELETED_ASSERTION), skip_patterns for added @skip decorators (SKIPPED_TEST), bypass_patterns for added mock.patch (BYPASS_FLAG). Step 5: On added lines (starting with +), checks skip and bypass patterns. Step 6: Separately checks for removed test files via 'deleted file mode' in diff. Step 7: Returns AntiCheatResult with all findings, files_analyzed, test_files_modified counts, and requires_justification computed property. OBSERVATION: The scanner only looks at test files (matched by test_file_patterns). If someone deletes an assertion in a non-test file (e.g. a validation check in production code), it is NOT flagged. This is by design per the spec but is a potential blind spot. Also, the regex r'b/(.+)$' for file path extraction could match incorrectly if the filename itself contains 'b/' — unlikely but possible with unusual directory names.",
-      "state_transitions": [],
+      "state_transitions": [
+        {"step_number": 1, "variable_name": "current_file", "before_value": "None", "after_value": "src/auth.py", "line_number": 74},
+        {"step_number": 2, "variable_name": "_is_test_file(current_file)", "before_value": "(not called)", "after_value": "False (src/auth.py does not match test_file_patterns)", "line_number": 77},
+        {"step_number": 3, "variable_name": "findings", "before_value": "[]", "after_value": "[] (deleted assertion on '-assert user.is_admin' line skipped — not a test file)", "line_number": null},
+        {"step_number": 4, "variable_name": "return", "before_value": "(not set)", "after_value": "AntiCheatResult(findings=[], files_analyzed=1, test_files_modified=0)", "line_number": null}
+      ],
       "edge_case_tested": "Diff where production code assertion 'assert user.is_admin' is deleted from src/auth.py (not a test file)",
       "predicted_output": "No finding produced because src/auth.py does not match test_file_patterns - the deletion is invisible to anti-cheat",
       "confidence": "high",

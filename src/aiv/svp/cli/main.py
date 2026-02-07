@@ -174,8 +174,17 @@ def trace(
     edge_case: str = typer.Option(..., help="Edge case tested (≥10 chars)"),
     predicted_output: str = typer.Option(..., help="Predicted output for edge case"),
     confidence: str = typer.Option("medium", help="Confidence: high/medium/low"),
+    transition_var: list[str] = typer.Option([], help="Variable name for state transition (repeatable)"),
+    transition_before: list[str] = typer.Option([], help="Value before, paired with --transition-var"),
+    transition_after: list[str] = typer.Option([], help="Value after, paired with --transition-var"),
+    transition_line: list[str] = typer.Option([], help="Line number, paired with --transition-var"),
 ) -> None:
-    """Record a Mental Trace (Phase 2)."""
+    """Record a Mental Trace (Phase 2).
+
+    Supports state transitions via repeated options:
+        --transition-var result --transition-before None
+        --transition-after "FAIL" --transition-line 107
+    """
     session = _load_session(pr)
     if session is None:
         session = SVPSession(
@@ -187,12 +196,26 @@ def trace(
 
     conf = Confidence(confidence) if confidence in [c.value for c in Confidence] else Confidence.MEDIUM
 
+    transitions: list[StateTransition] = []
+    for i, (var, before, after) in enumerate(
+        zip(transition_var, transition_before, transition_after), start=1
+    ):
+        line = int(transition_line[i - 1]) if i - 1 < len(transition_line) and transition_line[i - 1].isdigit() else None
+        transitions.append(StateTransition(
+            step_number=i,
+            variable_name=var,
+            before_value=before,
+            after_value=after,
+            line_number=line,
+        ))
+
     tr = TraceRecord(
         pr_number=pr,
         repository=repo,
         verifier_id=verifier,
         function_path=function,
         trace_notes=notes,
+        state_transitions=transitions,
         edge_case_tested=edge_case,
         predicted_output=predicted_output,
         confidence=conf,
@@ -203,6 +226,7 @@ def trace(
     typer.echo(f"[OK] Trace recorded for {function}")
     typer.echo(f"   Edge case: {edge_case[:60]}")
     typer.echo(f"   Confidence: {conf.value}")
+    typer.echo(f"   State transitions: {len(transitions)}")
     typer.echo(f"   Total traces: {len(session.traces)}")
 
 
