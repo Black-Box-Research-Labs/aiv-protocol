@@ -230,6 +230,102 @@ class EvidenceValidator(BaseValidator):
 
         return errors
 
+    def validate_file_type_triggers(
+        self,
+        packet: VerificationPacket,
+        changed_files: list[str],
+    ) -> list[ValidationFinding]:
+        """
+        File-type-aware triggers for Class D evidence.
+
+        Inspects changed files and demands specific evidence types
+        when high-risk file patterns are detected.
+        """
+        errors: list[ValidationFinding] = []
+
+        # Define file-type triggers: pattern → (required evidence, message)
+        triggers: list[tuple[list[str], str, str, str]] = [
+            # (extensions/patterns, evidence_keyword, rule_message, suggestion)
+            (
+                [".sql", ".migration", "alembic/", "migrations/"],
+                "schema",
+                "Database changes detected — Class D must include schema diff or migration plan",
+                "Add a before/after schema diff or link to the migration plan artifact",
+            ),
+            (
+                ["pyproject.toml", "setup.py", "setup.cfg", "requirements.txt", "package.json", "Cargo.toml"],
+                "dependenc",
+                "Dependency file changes detected — Class D must include dependency analysis",
+                "Add a dependency diff showing added/removed/changed packages and version ranges",
+            ),
+            (
+                [".proto", "openapi.yaml", "openapi.json", "swagger.", "schema.graphql"],
+                "api",
+                "API schema changes detected — Class D must include API compatibility analysis",
+                "Add before/after API diff showing breaking vs non-breaking changes",
+            ),
+            (
+                ["Dockerfile", "docker-compose", ".dockerignore", "k8s/", "helm/"],
+                "deploy",
+                "Infrastructure changes detected — Class D should include deployment diff",
+                "Show before/after container or orchestration config changes",
+            ),
+        ]
+
+        # Collect all Class D evidence text from the packet
+        class_d_text = ""
+        for claim in packet.claims:
+            if claim.evidence_class == EvidenceClass.DIFFERENTIAL:
+                class_d_text += " " + claim.description.lower()
+                if isinstance(claim.artifact, str):
+                    class_d_text += " " + claim.artifact.lower()
+                elif isinstance(claim.artifact, ArtifactLink):
+                    class_d_text += " " + str(claim.artifact.url).lower()
+
+        for extensions, keyword, message, suggestion in triggers:
+            # Check if any changed file matches this trigger
+            triggered = False
+            trigger_files = []
+            for f in changed_files:
+                f_lower = f.lower()
+                for ext in extensions:
+                    if (ext.startswith(".") and f_lower.endswith(ext)) or (not ext.startswith(".") and ext in f_lower):
+                        triggered = True
+                        trigger_files.append(f)
+                        break
+
+            if not triggered:
+                continue
+
+            # Check if Class D section exists and mentions the expected keyword
+            has_class_d = any(c.evidence_class == EvidenceClass.DIFFERENTIAL for c in packet.claims)
+
+            if not has_class_d:
+                errors.append(
+                    self._make_finding(
+                        rule_id="E021",
+                        severity="warn",
+                        message=f"{message} (triggered by: {', '.join(trigger_files[:3])})",
+                        location="Packet-wide",
+                        suggestion=suggestion,
+                    )
+                )
+            elif keyword not in class_d_text:
+                errors.append(
+                    self._make_finding(
+                        rule_id="E022",
+                        severity="info",
+                        message=(
+                            f"Class D evidence present but does not mention '{keyword}' — "
+                            f"verify it covers: {', '.join(trigger_files[:3])}"
+                        ),
+                        location="Packet-wide",
+                        suggestion=suggestion,
+                    )
+                )
+
+        return errors
+
     def _validate_intent(self, claim: Claim) -> list[ValidationFinding]:
         """
         Class E: Intent Alignment
