@@ -2,9 +2,12 @@
 
 ## Classification
 
-- **Risk Tier:** R1
-- **Blast Radius:** tooling
-- **SoD Mode:** S0
+```yaml
+classification:
+  risk_tier: R1
+  blast_radius: tooling
+  sod_mode: S0
+```
 
 ## Claim(s)
 
