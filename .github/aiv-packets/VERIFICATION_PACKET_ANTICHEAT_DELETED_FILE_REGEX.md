@@ -46,6 +46,12 @@ classification:
 
 - 285/287 tests pass (2 expected RED per Red-Green-Refactor)
 
+### Class F (Provenance Evidence)
+
+**Claim 3: No tests weakened**
+- No existing tests were modified, deleted, or skipped during this change.
+- All pre-existing tests pass unchanged alongside the regex fix.
+
 ---
 
 ## Verification Methodology
