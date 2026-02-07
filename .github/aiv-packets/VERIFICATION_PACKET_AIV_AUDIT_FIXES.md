@@ -1,6 +1,6 @@
 # AIV Verification Packet (v2.1)
 
-**Commit:** `pending`  
+**Commit:** `079364f`  
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
 ---
@@ -35,7 +35,7 @@ classification:
 
 ### Class E (Intent Alignment)
 
-- **Link:** AUDIT_REPORT.md (directives for all changes below)
+- **Link:** [AUDIT_REPORT.md (directives for all changes below)](https://github.com/ImmortalDemonGod/aiv-protocol/blob/079364f/AUDIT_REPORT.md)
 - **Requirements Verified:**
   1. L09 (Rec #19): Broad exception catch narrowed
   2. L10: Overloaded E014 split into E014/E019/E020
