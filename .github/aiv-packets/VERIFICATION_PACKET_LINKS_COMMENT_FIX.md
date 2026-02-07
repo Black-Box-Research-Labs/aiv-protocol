@@ -1,6 +1,6 @@
 # AIV Verification Packet (v2.1)
 
-**Commit:** `pending`
+**Commit:** `c01ae20`
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
 ---
