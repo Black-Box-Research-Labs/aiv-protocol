@@ -20,6 +20,10 @@ classification:
 
 ## Evidence
 
+### Class E (Intent Alignment)
+
+- **Directive:** Provide traceability between source files and their verification packets across the entire commit history, enabling coverage analysis and gap detection.
+
 ### Class B (Referential Evidence)
 
 **Scope Inventory**
