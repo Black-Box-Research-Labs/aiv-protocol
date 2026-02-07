@@ -7,24 +7,24 @@ and risk-tier evidence enforcement.
 """
 
 import pytest
+
+from aiv.lib.config import AIVConfig
 from aiv.lib.models import (
     Claim,
     EvidenceClass,
-    FrictionScore,
     IntentSection,
     RiskTier,
     Severity,
     VerificationPacket,
 )
-from aiv.lib.validators.zero_touch import ZeroTouchValidator
 from aiv.lib.validators.evidence import EvidenceValidator
 from aiv.lib.validators.pipeline import ValidationPipeline
-from aiv.lib.config import AIVConfig
-
+from aiv.lib.validators.zero_touch import ZeroTouchValidator
 
 # ============================================================================
 # Zero-Touch Validator Tests
 # ============================================================================
+
 
 class TestZeroTouchCodeBlockStripping:
     """Tests for code block stripping in zero-touch validator."""
@@ -62,9 +62,7 @@ class TestZeroTouchCodeBlockStripping:
 
     def test_compliance_phrase_early_exit(self, validator):
         """Compliance phrases should cause immediate pass."""
-        claim = self._make_claim(
-            "**Zero-Touch Mandate:** Verifier inspects artifacts only."
-        )
+        claim = self._make_claim("**Zero-Touch Mandate:** Verifier inspects artifacts only.")
         errors, friction = validator.validate_claim(claim)
         assert len(errors) == 0
         assert friction.is_zero_touch_compliant is True
@@ -87,6 +85,7 @@ class TestZeroTouchCodeBlockStripping:
 # ============================================================================
 # Bug-Fix Heuristic Tests
 # ============================================================================
+
 
 class TestBugFixHeuristic:
     """Tests for word-boundary bug-fix detection in EvidenceValidator."""
@@ -176,6 +175,7 @@ class TestBugFixHeuristic:
 # Provenance Negative Framing Tests
 # ============================================================================
 
+
 class TestProvenanceNegativeFraming:
     """Tests for provenance validator negative framing logic."""
 
@@ -194,25 +194,19 @@ class TestProvenanceNegativeFraming:
 
     def test_negative_framing_no_justification_needed(self, validator):
         """'No existing tests modified' should NOT require justification."""
-        claim = self._make_provenance_claim(
-            "No existing tests were modified or deleted during this change."
-        )
+        claim = self._make_provenance_claim("No existing tests were modified or deleted during this change.")
         errors = validator._validate_provenance(claim)
         assert len(errors) == 0
 
     def test_preserved_framing_no_justification_needed(self, validator):
         """'Tests preserved' should NOT require justification."""
-        claim = self._make_provenance_claim(
-            "All existing test assertions were preserved unchanged."
-        )
+        claim = self._make_provenance_claim("All existing test assertions were preserved unchanged.")
         errors = validator._validate_provenance(claim)
         assert len(errors) == 0
 
     def test_test_modification_requires_justification(self, validator):
         """Test modification without negative framing SHOULD warn."""
-        claim = self._make_provenance_claim(
-            "Updated test assertions to match new API response format."
-        )
+        claim = self._make_provenance_claim("Updated test assertions to match new API response format.")
         errors = validator._validate_provenance(claim)
         e011 = [e for e in errors if e.rule_id == "E011"]
         assert len(e011) == 1
@@ -220,9 +214,7 @@ class TestProvenanceNegativeFraming:
 
     def test_non_test_claim_no_warning(self, validator):
         """Provenance claim without test keywords should not warn."""
-        claim = self._make_provenance_claim(
-            "Configuration file backed up before migration."
-        )
+        claim = self._make_provenance_claim("Configuration file backed up before migration.")
         errors = validator._validate_provenance(claim)
         assert len(errors) == 0
 
@@ -231,6 +223,7 @@ class TestProvenanceNegativeFraming:
 # Risk-Tier Evidence Enforcement Tests
 # ============================================================================
 
+
 class TestRiskTierEnforcement:
     """Tests for pipeline risk-tier evidence requirement enforcement."""
 
@@ -238,26 +231,28 @@ class TestRiskTierEnforcement:
     def pipeline(self):
         return ValidationPipeline(AIVConfig(strict_mode=False))
 
-    def _make_packet_with_classes(
-        self, tier: RiskTier, classes: set[EvidenceClass]
-    ) -> VerificationPacket:
+    def _make_packet_with_classes(self, tier: RiskTier, classes: set[EvidenceClass]) -> VerificationPacket:
         claims = []
         for i, ec in enumerate(classes - {EvidenceClass.INTENT}, start=1):
-            claims.append(Claim(
-                section_number=i,
-                description=f"Claim {i} with sufficient description for validation.",
-                evidence_class=ec,
-                artifact="See evidence section",
-                reproduction="N/A",
-            ))
+            claims.append(
+                Claim(
+                    section_number=i,
+                    description=f"Claim {i} with sufficient description for validation.",
+                    evidence_class=ec,
+                    artifact="See evidence section",
+                    reproduction="N/A",
+                )
+            )
         if not claims:
-            claims.append(Claim(
-                section_number=1,
-                description="Default claim with enough text for validation checks.",
-                evidence_class=EvidenceClass.REFERENTIAL,
-                artifact="See evidence section",
-                reproduction="N/A",
-            ))
+            claims.append(
+                Claim(
+                    section_number=1,
+                    description="Default claim with enough text for validation checks.",
+                    evidence_class=EvidenceClass.REFERENTIAL,
+                    artifact="See evidence section",
+                    reproduction="N/A",
+                )
+            )
         return VerificationPacket(
             version="2.1",
             risk_tier=tier,
@@ -273,10 +268,7 @@ class TestRiskTierEnforcement:
     def test_r0_needs_a_and_b(self, pipeline):
         """R0 requires Class A and B."""
         findings = pipeline._check_tier_requirements(
-            self._make_packet_with_classes(
-                RiskTier.R0,
-                {EvidenceClass.EXECUTION, EvidenceClass.REFERENTIAL}
-            )
+            self._make_packet_with_classes(RiskTier.R0, {EvidenceClass.EXECUTION, EvidenceClass.REFERENTIAL})
         )
         blocking = [f for f in findings if f.severity == Severity.BLOCK]
         assert len(blocking) == 0
@@ -284,10 +276,7 @@ class TestRiskTierEnforcement:
     def test_r0_missing_a_blocks(self, pipeline):
         """R0 missing Class A should block."""
         findings = pipeline._check_tier_requirements(
-            self._make_packet_with_classes(
-                RiskTier.R0,
-                {EvidenceClass.REFERENTIAL}
-            )
+            self._make_packet_with_classes(RiskTier.R0, {EvidenceClass.REFERENTIAL})
         )
         blocking = [f for f in findings if f.severity == Severity.BLOCK]
         assert len(blocking) == 1
@@ -297,8 +286,7 @@ class TestRiskTierEnforcement:
         """R1 requires A, B, E."""
         findings = pipeline._check_tier_requirements(
             self._make_packet_with_classes(
-                RiskTier.R1,
-                {EvidenceClass.EXECUTION, EvidenceClass.REFERENTIAL, EvidenceClass.INTENT}
+                RiskTier.R1, {EvidenceClass.EXECUTION, EvidenceClass.REFERENTIAL, EvidenceClass.INTENT}
             )
         )
         blocking = [f for f in findings if f.severity == Severity.BLOCK]
@@ -308,8 +296,7 @@ class TestRiskTierEnforcement:
         """R2 requires A, B, E, C. Missing C should block."""
         findings = pipeline._check_tier_requirements(
             self._make_packet_with_classes(
-                RiskTier.R2,
-                {EvidenceClass.EXECUTION, EvidenceClass.REFERENTIAL, EvidenceClass.INTENT}
+                RiskTier.R2, {EvidenceClass.EXECUTION, EvidenceClass.REFERENTIAL, EvidenceClass.INTENT}
             )
         )
         blocking = [f for f in findings if f.severity == Severity.BLOCK]
@@ -321,10 +308,13 @@ class TestRiskTierEnforcement:
             self._make_packet_with_classes(
                 RiskTier.R3,
                 {
-                    EvidenceClass.EXECUTION, EvidenceClass.REFERENTIAL,
-                    EvidenceClass.NEGATIVE, EvidenceClass.DIFFERENTIAL,
-                    EvidenceClass.INTENT, EvidenceClass.PROVENANCE,
-                }
+                    EvidenceClass.EXECUTION,
+                    EvidenceClass.REFERENTIAL,
+                    EvidenceClass.NEGATIVE,
+                    EvidenceClass.DIFFERENTIAL,
+                    EvidenceClass.INTENT,
+                    EvidenceClass.PROVENANCE,
+                },
             )
         )
         blocking = [f for f in findings if f.severity == Severity.BLOCK]
@@ -336,10 +326,12 @@ class TestRiskTierEnforcement:
             self._make_packet_with_classes(
                 RiskTier.R3,
                 {
-                    EvidenceClass.EXECUTION, EvidenceClass.REFERENTIAL,
-                    EvidenceClass.NEGATIVE, EvidenceClass.INTENT,
+                    EvidenceClass.EXECUTION,
+                    EvidenceClass.REFERENTIAL,
+                    EvidenceClass.NEGATIVE,
+                    EvidenceClass.INTENT,
                     EvidenceClass.PROVENANCE,
-                }
+                },
             )
         )
         blocking = [f for f in findings if f.severity == Severity.BLOCK]
@@ -354,13 +346,15 @@ class TestRiskTierEnforcement:
                 evidence_link="Spec reference with enough text for validation",
                 verifier_check="Verify the implementation matches spec requirements",
             ),
-            claims=[Claim(
-                section_number=1,
-                description="Claim with enough text for validation checks to pass.",
-                evidence_class=EvidenceClass.REFERENTIAL,
-                artifact="See evidence section",
-                reproduction="N/A",
-            )],
+            claims=[
+                Claim(
+                    section_number=1,
+                    description="Claim with enough text for validation checks to pass.",
+                    evidence_class=EvidenceClass.REFERENTIAL,
+                    artifact="See evidence section",
+                    reproduction="N/A",
+                )
+            ],
             raw_markdown="# AIV Verification Packet (v2.1)\n...",
         )
         findings = pipeline._check_tier_requirements(packet)
@@ -372,9 +366,11 @@ class TestRiskTierEnforcement:
             self._make_packet_with_classes(
                 RiskTier.R2,
                 {
-                    EvidenceClass.EXECUTION, EvidenceClass.REFERENTIAL,
-                    EvidenceClass.INTENT, EvidenceClass.NEGATIVE,
-                }
+                    EvidenceClass.EXECUTION,
+                    EvidenceClass.REFERENTIAL,
+                    EvidenceClass.INTENT,
+                    EvidenceClass.NEGATIVE,
+                },
             )
         )
         info = [f for f in findings if f.severity == Severity.INFO]
