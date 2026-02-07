@@ -742,3 +742,45 @@ The external analysis is a high-level gap assessment against the specification. 
 | **Maintainability** | 5/10 | **8/10** | Dead code eliminated. Rule IDs unique. Config wired. |
 | **Spec Fidelity** | 3/10 | **7/10** | Risk tiers enforced. Classification parsed. Class D/F naming still wrong. |
 | **Production Readiness** | 2/10 | **7/10** | Python guard can replace JS guard. Missing PR comments and `action.yml`. |
+
+---
+
+## 8. Re-Audit Delta Summary
+
+### 8.1 Remediation Statistics
+
+| Metric | Previous | Current | Change |
+|--------|----------|---------|--------|
+| Python source files | 22 | 32 | +10 |
+| Python source lines | ~2,318 | ~6,500+ | +180% |
+| Test files | 3 | 7 | +4 |
+| Tests passing | 39 | 163 | +318% |
+| Dead code lines | ~691 (30%) | ~99 (2%) | -86% |
+| Logical flaws (HIGH/MEDIUM) | 5 | 0 | -100% |
+| Logical flaws (LOW) | 3 | 7 | +4 (3 carried + 4 new) |
+| Dead code findings | 10 | 4 | -60% |
+| Recommendations completed | 0/19 | 14/19 | 74% |
+
+### 8.2 Finding Resolution Summary
+
+| Category | Total | ✅ Fixed | ⚠️ Partial | ❌ Still Present | 🆕 New |
+|----------|-------|----------|------------|-----------------|--------|
+| Logical Flaws (L01–L12) | 12 | 8 | 0 | 1 carried + 3 new | 4 |
+| Dead Code (D01–D12) | 12 | 8 | 0 | 2 carried | 2 |
+| Dependencies | 2 | 1 | 0 | 1 | 0 |
+| Structural Weaknesses | 5 | 2 | 1 | 2 | 0 |
+| Recommendations (§5) | 25 | 14 | 2 | 5 | 6 new |
+
+### 8.3 New Modules Added Since Previous Audit
+
+| Module | Files | Lines | Tests | Purpose |
+|--------|-------|-------|-------|---------|
+| `src/aiv/guard/` | 6 | ~1,571 | 36 | Python AIV Guard (replaces JS inline) |
+| `src/svp/` | 6 | ~1,200 | 43 | SVP Protocol Suite (cognitive verification) |
+| `aiv generate` command | 1 (cli/main.py) | ~200 | 0 | Packet scaffold generation |
+| `test_parser.py` | 1 | 251 | 11 | Parser unit tests |
+| `test_validators.py` | 1 | 382 | 25 | Validator unit tests |
+
+### 8.4 Overall Assessment
+
+The codebase has transitioned from a **proof-of-concept** (previous audit) to a **production-capable** validation suite. The average scorecard rating improved from **4.4/10** to **7.7/10**. All critical and medium-severity findings have been resolved. The remaining work is cleanup, edge-case testing, and the Class D/F naming alignment with the canonical specification.
