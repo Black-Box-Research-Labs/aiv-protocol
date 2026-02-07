@@ -61,6 +61,7 @@ classification:
   - `src/aiv/lib/parser.py` — Delete legacy _build_intent_from_legacy (L12/D09), make stateless (Rec #18)
   - `src/aiv/lib/validators/pipeline.py` — Narrow except (L09), split E014→E019/E020 (L10), update tier refs
   - `src/aiv/lib/validators/evidence.py` — Rename _validate_state→_validate_differential, _validate_conservation→_validate_provenance (Rec #13)
+  - `src/aiv/lib/validators/anti_cheat.py` — Fix line number tracking for multi-hunk diffs (L11)
 - Created: (committed incrementally below)
 - Deleted: (committed incrementally below)
 

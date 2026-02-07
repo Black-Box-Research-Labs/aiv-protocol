@@ -130,10 +130,12 @@ class AntiCheatScanner:
                         ))
                         break
 
-            # Track line numbers for additions
+            # Advance line counter for lines that exist in the new file:
+            # '+' lines (additions) and context lines (no prefix) advance;
+            # '-' lines (deletions) and '\ No newline' do NOT advance.
             if line.startswith("+") and not line.startswith("+++"):
                 current_line += 1
-            elif not line.startswith("-") and not line.startswith("\\"):
+            elif not line.startswith("-") and not line.startswith("\\") and not line.startswith("diff "):
                 current_line += 1
 
         # Check for removed test files
