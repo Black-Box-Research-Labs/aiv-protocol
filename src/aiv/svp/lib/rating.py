@@ -12,7 +12,6 @@ import json
 from pathlib import Path
 
 from .models import (
-    BugSeverity,
     RATING_POINTS,
     RatingEvent,
     SVPSession,
@@ -44,17 +43,16 @@ def score_session(session: SVPSession) -> list[RatingEvent]:
                 event_type = f"bug_caught_{finding.severity.value}"
                 points = RATING_POINTS.get(event_type, 0)
                 if points:
-                    events.append(RatingEvent(
-                        verifier_id=vid,
-                        event_type=event_type,
-                        points=points,
-                        pr_number=pr,
-                        repository=repo,
-                        description=(
-                            f"Confirmed bug in {finding.file_path}: "
-                            f"{finding.description[:80]}"
-                        ),
-                    ))
+                    events.append(
+                        RatingEvent(
+                            verifier_id=vid,
+                            event_type=event_type,
+                            points=points,
+                            pr_number=pr,
+                            repository=repo,
+                            description=(f"Confirmed bug in {finding.file_path}: {finding.description[:80]}"),
+                        )
+                    )
 
     # --- Falsification scenario results ---
     if session.probe:
@@ -64,17 +62,16 @@ def score_session(session: SVPSession) -> list[RatingEvent]:
             if scenario.result == "falsified":
                 # Verifier correctly identified a false claim — reward
                 points = RATING_POINTS["bug_caught_medium"]
-                events.append(RatingEvent(
-                    verifier_id=vid,
-                    event_type="bug_caught_medium",
-                    points=points,
-                    pr_number=pr,
-                    repository=repo,
-                    description=(
-                        f"Falsified {scenario.claim_id}: "
-                        f"{scenario.scenario[:60]}"
-                    ),
-                ))
+                events.append(
+                    RatingEvent(
+                        verifier_id=vid,
+                        event_type="bug_caught_medium",
+                        points=points,
+                        pr_number=pr,
+                        repository=repo,
+                        description=(f"Falsified {scenario.claim_id}: {scenario.scenario[:60]}"),
+                    )
+                )
             elif scenario.result == "inconclusive":
                 # No penalty, no reward — ambiguous result
                 pass
@@ -83,43 +80,46 @@ def score_session(session: SVPSession) -> list[RatingEvent]:
             # wrong count, untestable).  Scored independently of result.
             if scenario.false_positive:
                 fp_points = RATING_POINTS["false_positive"]
-                events.append(RatingEvent(
-                    verifier_id=vid,
-                    event_type="false_positive",
-                    points=fp_points,
-                    pr_number=pr,
-                    repository=repo,
-                    description=(
-                        f"False positive scenario {scenario.claim_id}: "
-                        f"{scenario.scenario[:60]}"
-                    ),
-                ))
+                events.append(
+                    RatingEvent(
+                        verifier_id=vid,
+                        event_type="false_positive",
+                        points=fp_points,
+                        pr_number=pr,
+                        repository=repo,
+                        description=(f"False positive scenario {scenario.claim_id}: {scenario.scenario[:60]}"),
+                    )
+                )
 
     # --- Ownership quality ---
     if session.ownership_commit is not None:
         score = session.ownership_commit.docstring_quality_score
         if score >= 80:
             points = RATING_POINTS["ownership_high_quality"]
-            events.append(RatingEvent(
-                verifier_id=vid,
-                event_type="ownership_high_quality",
-                points=points,
-                pr_number=pr,
-                repository=repo,
-                description=f"High-quality ownership commit (score={score}%)",
-            ))
+            events.append(
+                RatingEvent(
+                    verifier_id=vid,
+                    event_type="ownership_high_quality",
+                    points=points,
+                    pr_number=pr,
+                    repository=repo,
+                    description=f"High-quality ownership commit (score={score}%)",
+                )
+            )
 
     # --- SVP completion bonus ---
     if session.status == SVPStatus.COMPLETE:
         points = RATING_POINTS["svp_completed"]
-        events.append(RatingEvent(
-            verifier_id=vid,
-            event_type="svp_completed",
-            points=points,
-            pr_number=pr,
-            repository=repo,
-            description="SVP session completed with all phases.",
-        ))
+        events.append(
+            RatingEvent(
+                verifier_id=vid,
+                event_type="svp_completed",
+                points=points,
+                pr_number=pr,
+                repository=repo,
+                description="SVP session completed with all phases.",
+            )
+        )
 
     return events
 
@@ -143,15 +143,9 @@ def calculate_rating(
             rating.apply_event(event)
         all_events.extend(events)
 
-    rating.total_reviews = len([
-        s for s in sessions if s.verifier_id == verifier_id
-    ])
-    rating.bugs_caught = len([
-        e for e in all_events if e.event_type.startswith("bug_caught")
-    ])
-    rating.false_positives = len([
-        e for e in all_events if e.event_type == "false_positive"
-    ])
+    rating.total_reviews = len([s for s in sessions if s.verifier_id == verifier_id])
+    rating.bugs_caught = len([e for e in all_events if e.event_type.startswith("bug_caught")])
+    rating.false_positives = len([e for e in all_events if e.event_type == "false_positive"])
 
     return rating, all_events
 
@@ -168,10 +162,7 @@ def load_ratings() -> dict[str, VerifierRating]:
     if not RATINGS_FILE.exists():
         return {}
     data = json.loads(RATINGS_FILE.read_text(encoding="utf-8"))
-    return {
-        vid: VerifierRating.model_validate(r)
-        for vid, r in data.items()
-    }
+    return {vid: VerifierRating.model_validate(r) for vid, r in data.items()}
 
 
 def save_ratings(ratings: dict[str, VerifierRating]) -> None:

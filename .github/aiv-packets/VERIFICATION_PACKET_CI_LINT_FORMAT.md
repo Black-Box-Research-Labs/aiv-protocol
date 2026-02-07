@@ -46,7 +46,7 @@ classification:
 
 Files modified in this atomic commit series:
 
-<!-- CURRENT_FILE: src/aiv/svp/lib/models.py (22/37) -->
+<!-- CURRENT_FILE: src/aiv/svp/lib/rating.py (23/37) -->
 
 ---
 
