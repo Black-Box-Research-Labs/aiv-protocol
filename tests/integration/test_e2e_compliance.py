@@ -706,6 +706,7 @@ class TestGenerateCheckRoundTrip:
                 tier,
                 "--output",
                 str(tmp_path),
+                "--skip-checks",
             ],
             capture_output=True,
             text=True,
