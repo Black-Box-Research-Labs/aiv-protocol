@@ -32,7 +32,7 @@ classification:
 
 ### Class E (Intent Alignment)
 
-- **Link:** AIV Protocol Addendum 2.5 — Sovereign AIV atomic unit enforcement at commit-time.
+- **Link:** [AIV Protocol Addendum 2.5](https://github.com/ImmortalDemonGod/aiv-protocol/blob/9a41695/SPECIFICATION.md) — Sovereign AIV atomic unit enforcement at commit-time.
 - **Requirements Verified:**
   1. ✅ Atomic commit policy enforced (1 functional file + 1 packet)
   2. ✅ Safety snapshots created before each commit
