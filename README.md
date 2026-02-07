@@ -255,7 +255,11 @@ aiv-protocol/
 │   ├── AUDIT_AI_FIRST_PASS.md       # AI First-Pass empirical audit
 │   ├── session-pr*.json             # SVP verification sessions
 │   └── ratings.json                 # Verifier ELO ratings
+├── scripts/
+│   └── map_packets.py               # Source-file-to-packet mapping generator
 ├── .husky/pre-commit                # Atomic commit enforcement
+├── FILE_PACKET_MAP.md               # Evidence index: file ↔ packet mapping
+├── FILE_PACKET_MAP.json             # Machine-readable mapping (same data)
 ├── SPECIFICATION.md                 # Canonical AIV standard (v1.0.0)
 ├── AUDIT_REPORT.md                  # Comprehensive codebase audit
 └── pyproject.toml                   # Build config (hatchling)
@@ -271,6 +275,7 @@ aiv-protocol/
 | [`docs/specs/SVP-SUITE-SPEC-V1.0-CANONICAL-2025-12-20.md`](docs/specs/SVP-SUITE-SPEC-V1.0-CANONICAL-2025-12-20.md) | SVP cognitive verification suite implementation spec |
 | [`docs/specs/E2E_COMPLIANCE_TEST_SUITE_SPEC.md`](docs/specs/E2E_COMPLIANCE_TEST_SUITE_SPEC.md) | End-to-end compliance test suite specification |
 | [`.svp/AUDIT_AI_FIRST_PASS.md`](.svp/AUDIT_AI_FIRST_PASS.md) | AI First-Pass audit — empirical proof of Hunter vs. Validator dichotomy |
+| [`FILE_PACKET_MAP.md`](FILE_PACKET_MAP.md) | Evidence index — maps every source file to its verification packets (and vice versa) |
 
 ## Enforcement (Live)
 
