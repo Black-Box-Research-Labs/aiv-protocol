@@ -67,6 +67,7 @@ classification:
   - `src/aiv/cli/main.py` — Fix frozen model mutation (§2.15), update SVP import path (Rec #24), Provenance label
   - `pyproject.toml` — Remove unused pyperclip extra (§4.3), update wheel packages for SVP relocation
   - `tests/conftest.py` — Update fixture markdown for Provenance rename
+  - `tests/unit/test_guard.py` — Remove stale FAST_TRACK_EXT/FAST_TRACK_NAMES imports
 - Created:
   - `src/aiv/svp/__init__.py` — SVP package under aiv namespace (Rec #24)
   - `src/aiv/svp/cli/__init__.py` — SVP CLI subpackage (Rec #24)

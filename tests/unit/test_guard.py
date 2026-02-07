@@ -30,7 +30,7 @@ from aiv.guard.manifest import (
     validate_semantic_manifest,
     validate_durable_manifest,
 )
-from aiv.guard.runner import GuardRunner, FAST_TRACK_EXT, FAST_TRACK_NAMES
+from aiv.guard.runner import GuardRunner
 from aiv.guard.github_api import GitHubAPI, ChangedFile
 
 
