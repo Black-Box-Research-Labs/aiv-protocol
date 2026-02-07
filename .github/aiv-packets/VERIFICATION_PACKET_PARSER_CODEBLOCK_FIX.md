@@ -2,9 +2,12 @@
 
 ## Classification
 
-- **Risk Tier:** R2
-- **Blast Radius:** component
-- **SoD Mode:** S1
+```yaml
+classification:
+  risk_tier: R2
+  blast_radius: component
+  sod_mode: S1
+```
 
 ## Claim(s)
 
@@ -27,6 +30,10 @@
 
 - 384 tests pass after change (374 before + 3 new parser regression tests + 7 other new tests).
 - Edge case verified by execution: `## heading` inside ``` block no longer parsed as section.
+
+### Class C (Negative Evidence)
+
+- 384 tests pass with no regressions. 3 new regression tests specifically verify headings inside fences are NOT parsed.
 
 ## Summary
 
