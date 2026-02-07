@@ -23,20 +23,20 @@ from pathlib import Path
 
 import pytest
 
+from aiv.guard.canonical import validate_canonical
+from aiv.guard.models import GuardContext, GuardResult
 from aiv.lib.config import AIVConfig
 from aiv.lib.models import (
     Claim,
     EvidenceClass,
     RiskTier,
-    ValidationStatus,
     Severity,
+    ValidationStatus,
 )
 from aiv.lib.parser import PacketParser
 from aiv.lib.validators.anti_cheat import AntiCheatScanner
 from aiv.lib.validators.pipeline import ValidationPipeline
 from aiv.lib.validators.zero_touch import ZeroTouchValidator
-from aiv.guard.canonical import validate_canonical, REQUIRED_CLASSES
-from aiv.guard.models import GuardContext, GuardResult
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -52,12 +52,10 @@ pytestmark = pytest.mark.integration
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _collect_real_packets() -> list[Path]:
     """Return all VERIFICATION_PACKET_*.md files excluding TEMPLATE."""
-    return sorted(
-        p for p in PACKETS_DIR.glob("VERIFICATION_PACKET_*.md")
-        if "TEMPLATE" not in p.name
-    )
+    return sorted(p for p in PACKETS_DIR.glob("VERIFICATION_PACKET_*.md") if "TEMPLATE" not in p.name)
 
 
 def _build_packet(
@@ -69,10 +67,7 @@ def _build_packet(
     """Build a complete packet from parts."""
     cls_block = ""
     if classification_yaml:
-        cls_block = (
-            "\n## Classification (required)\n\n"
-            f"```yaml\n{classification_yaml}\n```\n"
-        )
+        cls_block = f"\n## Classification (required)\n\n```yaml\n{classification_yaml}\n```\n"
 
     return f"""\
 # AIV Verification Packet (v2.1)
@@ -154,9 +149,7 @@ def _make_canonical_packet(
             "artifacts": [],
         }
         if cls == "B":
-            item["artifacts"] = [
-                {"type": "scope_inventory", "reference": 'inline-json:["src/a.py"]'}
-            ]
+            item["artifacts"] = [{"type": "scope_inventory", "reference": 'inline-json:["src/a.py"]'}]
         else:
             item["artifacts"] = [
                 {
@@ -263,9 +256,7 @@ class TestSelfCompliance:
         parser = PacketParser()
         packet = parser.parse(body)
         assert packet is not None
-        assert packet.risk_tier is not None, (
-            f"{packet_path.name}: ## Classification present but risk_tier is None"
-        )
+        assert packet.risk_tier is not None, f"{packet_path.name}: ## Classification present but risk_tier is None"
         assert isinstance(packet.risk_tier, RiskTier)
 
     def test_cli_subprocess_check_passes(self):
@@ -378,9 +369,8 @@ class TestEvidenceSubstance:
         cfg = AIVConfig(strict_mode=False)
         pipeline = ValidationPipeline(cfg)
         result = pipeline.validate(body)
-        assert result.status == ValidationStatus.PASS, (
-            "R3 with substantive evidence should pass:\n"
-            + "\n".join(f"  [{e.rule_id}] {e.message}" for e in result.errors)
+        assert result.status == ValidationStatus.PASS, "R3 with substantive evidence should pass:\n" + "\n".join(
+            f"  [{e.rule_id}] {e.message}" for e in result.errors
         )
 
     def test_r0_scaffold_passes_without_optional(self):
@@ -401,9 +391,8 @@ class TestEvidenceSubstance:
         result = pipeline.validate(body)
 
         e019_blocks = [f for f in result.errors if f.rule_id == "E019"]
-        assert len(e019_blocks) == 0, (
-            "R0 should not require optional evidence classes:\n"
-            + "\n".join(f"  [{e.rule_id}] {e.message}" for e in e019_blocks)
+        assert len(e019_blocks) == 0, "R0 should not require optional evidence classes:\n" + "\n".join(
+            f"  [{e.rule_id}] {e.message}" for e in e019_blocks
         )
 
     def test_r2_missing_required_class_fails(self):
@@ -443,9 +432,7 @@ class TestEvidenceSubstance:
         """L2-08: Class A evidence pointing to a code file (not CI run) triggers E020."""
         from aiv.lib.models import ArtifactLink
 
-        blob_link = ArtifactLink.from_url(
-            f"https://github.com/owner/repo/blob/{'a' * 40}/src/feature.py"
-        )
+        blob_link = ArtifactLink.from_url(f"https://github.com/owner/repo/blob/{'a' * 40}/src/feature.py")
         claim = Claim(
             section_number=1,
             description="All tests pass with zero regressions.",
@@ -454,6 +441,7 @@ class TestEvidenceSubstance:
             reproduction="Zero-Touch Mandate: Verifier inspects artifacts only.",
         )
         from aiv.lib.validators.evidence import EvidenceValidator
+
         validator = EvidenceValidator()
         findings = validator._validate_execution(claim)
         e020 = [f for f in findings if f.rule_id == "E020"]
@@ -464,9 +452,7 @@ class TestEvidenceSubstance:
         """L2-09: Class A evidence pointing to CI run does NOT trigger E020."""
         from aiv.lib.models import ArtifactLink
 
-        ci_link = ArtifactLink.from_url(
-            "https://github.com/owner/repo/actions/runs/12345"
-        )
+        ci_link = ArtifactLink.from_url("https://github.com/owner/repo/actions/runs/12345")
         claim = Claim(
             section_number=1,
             description="All tests pass with zero regressions.",
@@ -475,6 +461,7 @@ class TestEvidenceSubstance:
             reproduction="Zero-Touch Mandate: Verifier inspects artifacts only.",
         )
         from aiv.lib.validators.evidence import EvidenceValidator
+
         validator = EvidenceValidator()
         findings = validator._validate_execution(claim)
         e020 = [f for f in findings if f.rule_id == "E020"]
@@ -501,9 +488,8 @@ class TestEvidenceSubstance:
         result = pipeline.validate(body)
 
         e010 = [f for f in result.errors if f.rule_id == "E010"]
-        assert len(e010) == 0, (
-            "Bug-fix with Class F should not trigger E010:\n"
-            + "\n".join(f"  [{e.rule_id}] {e.message}" for e in e010)
+        assert len(e010) == 0, "Bug-fix with Class F should not trigger E010:\n" + "\n".join(
+            f"  [{e.rule_id}] {e.message}" for e in e010
         )
 
 
@@ -531,14 +517,11 @@ class TestSecurityProperties:
         result = pipeline.validate(valid_minimal_packet)
 
         e004 = [f for f in result.errors if f.rule_id == "E004"]
-        assert len(e004) == 0, (
-            "SHA-pinned link should not trigger E004:\n"
-            + "\n".join(f"  [{e.rule_id}] {e.message}" for e in e004)
+        assert len(e004) == 0, "SHA-pinned link should not trigger E004:\n" + "\n".join(
+            f"  [{e.rule_id}] {e.message}" for e in e004
         )
 
-    def test_deleted_assertion_in_diff_blocked(
-        self, valid_minimal_packet, diff_with_deleted_assertion
-    ):
+    def test_deleted_assertion_in_diff_blocked(self, valid_minimal_packet, diff_with_deleted_assertion):
         """L3-03: Deleted assertion triggers E011."""
         cfg = AIVConfig(strict_mode=False)
         pipeline = ValidationPipeline(cfg)
@@ -548,9 +531,7 @@ class TestSecurityProperties:
         assert len(e011) > 0, "Deleted assertion should trigger E011"
         assert any("deleted_assertion" in f.message for f in e011)
 
-    def test_added_skip_decorator_blocked(
-        self, valid_minimal_packet, diff_with_skip_decorator
-    ):
+    def test_added_skip_decorator_blocked(self, valid_minimal_packet, diff_with_skip_decorator):
         """L3-04: Added skip decorator triggers E011."""
         cfg = AIVConfig(strict_mode=False)
         pipeline = ValidationPipeline(cfg)
@@ -560,9 +541,7 @@ class TestSecurityProperties:
         assert len(e011) > 0, "Skip decorator should trigger E011"
         assert any("skipped_test" in f.message for f in e011)
 
-    def test_deleted_test_file_blocked(
-        self, valid_minimal_packet, diff_deleted_test_file
-    ):
+    def test_deleted_test_file_blocked(self, valid_minimal_packet, diff_deleted_test_file):
         """L3-05: Deleted test file triggers E011."""
         cfg = AIVConfig(strict_mode=False)
         pipeline = ValidationPipeline(cfg)
@@ -581,9 +560,7 @@ class TestSecurityProperties:
         e011 = [f for f in result.errors if f.rule_id == "E011"]
         assert len(e011) == 0, "Clean diff should not trigger E011"
 
-    def test_class_f_justification_overrides_anticheat(
-        self, diff_with_deleted_assertion
-    ):
+    def test_class_f_justification_overrides_anticheat(self, diff_with_deleted_assertion):
         """L3-07: Class F justification overrides anti-cheat findings."""
         evidence = (
             "### Class F (Provenance Evidence)\n\n"
@@ -591,7 +568,7 @@ class TestSecurityProperties:
             "- Removed redundant assertion that duplicated the check on the next line.\n"
             "- All remaining assertions still verify the complete behavior.\n"
         )
-        body = _build_packet(
+        _build_packet(
             claims_text=(
                 "1. Cleaned up redundant test assertions in auth module.\n"
                 "3. No existing tests were weakened or deleted during this change."
@@ -619,9 +596,8 @@ class TestSecurityProperties:
             justification="Removed redundant assertion that duplicated the is_authenticated check on the following line.",
         )
         unjustified = scanner.check_justification(ac_result, [justified_claim])
-        assert len(unjustified) == 0, (
-            "Class F justification should override anti-cheat:\n"
-            + "\n".join(f"  {f.finding_type} in {f.file_path}" for f in unjustified)
+        assert len(unjustified) == 0, "Class F justification should override anti-cheat:\n" + "\n".join(
+            f"  {f.finding_type} in {f.file_path}" for f in unjustified
         )
 
     def test_strict_mode_promotes_warnings_to_failures(self):
@@ -639,24 +615,16 @@ class TestSecurityProperties:
 
         # We only assert strict fails if lenient had warnings
         if lenient_result.warnings:
-            assert strict_result.status == ValidationStatus.FAIL, (
-                "Strict mode should promote warnings to failures"
-            )
+            assert strict_result.status == ValidationStatus.FAIL, "Strict mode should promote warnings to failures"
 
-    def test_multi_hunk_multi_file_diff(
-        self, valid_minimal_packet, diff_multi_hunk_multi_file
-    ):
+    def test_multi_hunk_multi_file_diff(self, valid_minimal_packet, diff_multi_hunk_multi_file):
         """L3-09: Multi-hunk, multi-file diff detects all violations."""
         scanner = AntiCheatScanner()
         ac_result = scanner.scan_diff(diff_multi_hunk_multi_file)
 
         # Expect at least 3 findings: 2 deleted assertions + 1 skip
-        assert len(ac_result.findings) >= 3, (
-            f"Expected >= 3 findings, got {len(ac_result.findings)}:\n"
-            + "\n".join(
-                f"  {f.finding_type} in {f.file_path}:{f.line_number}"
-                for f in ac_result.findings
-            )
+        assert len(ac_result.findings) >= 3, f"Expected >= 3 findings, got {len(ac_result.findings)}:\n" + "\n".join(
+            f"  {f.finding_type} in {f.file_path}:{f.line_number}" for f in ac_result.findings
         )
 
         # Verify file paths track correctly across hunks
@@ -696,12 +664,8 @@ class TestSecurityProperties:
 
         # Both meaningful deletions must be flagged
         deleted = [f for f in ac_result.findings if f.finding_type == "deleted_assertion"]
-        assert len(deleted) >= 2, (
-            f"Expected >= 2 deleted_assertion findings, got {len(deleted)}:\n"
-            + "\n".join(
-                f"  {f.finding_type}: {f.original_content}"
-                for f in ac_result.findings
-            )
+        assert len(deleted) >= 2, f"Expected >= 2 deleted_assertion findings, got {len(deleted)}:\n" + "\n".join(
+            f"  {f.finding_type}: {f.original_content}" for f in ac_result.findings
         )
 
         # Verify the specific assertions are captured
@@ -710,9 +674,7 @@ class TestSecurityProperties:
         assert "has_permission" in deleted_content, "Must flag deletion of has_permission assertion"
 
         # The trivial `assert True` additions must NOT suppress the findings
-        assert ac_result.requires_justification, (
-            "Context-shifting attack must still require Class F justification"
-        )
+        assert ac_result.requires_justification, "Context-shifting attack must still require Class F justification"
 
 
 # ============================================================================
@@ -735,18 +697,22 @@ class TestGenerateCheckRoundTrip:
         """
         gen_result = subprocess.run(
             [
-                sys.executable, "-m", "aiv", "generate",
-                f"test-{tier.lower()}", "--tier", tier,
-                "--output", str(tmp_path),
+                sys.executable,
+                "-m",
+                "aiv",
+                "generate",
+                f"test-{tier.lower()}",
+                "--tier",
+                tier,
+                "--output",
+                str(tmp_path),
             ],
             capture_output=True,
             text=True,
             timeout=30,
             cwd=str(PROJECT_ROOT),
         )
-        assert gen_result.returncode == 0, (
-            f"generate failed for {tier}:\n{gen_result.stderr[-500:]}"
-        )
+        assert gen_result.returncode == 0, f"generate failed for {tier}:\n{gen_result.stderr[-500:]}"
 
         # Find the generated file
         generated = list(tmp_path.glob("VERIFICATION_PACKET_*.md"))
@@ -765,9 +731,7 @@ class TestGenerateCheckRoundTrip:
 
         output = _build_evidence_sections("R3", "  - TODO: list modified files")
         for letter in ("A", "B", "C", "D", "E", "F"):
-            assert f"### Class {letter}" in output, (
-                f"R3 scaffold missing ### Class {letter}"
-            )
+            assert f"### Class {letter}" in output, f"R3 scaffold missing ### Class {letter}"
 
     def test_generate_r0_omits_non_required_sections(self):
         """L4-03: R0 scaffold includes A, B, E but not C, D, F."""
@@ -788,7 +752,9 @@ class TestGenerateCheckRoundTrip:
         try:
             subprocess.run(
                 ["git", "--version"],
-                capture_output=True, timeout=5, check=True,
+                capture_output=True,
+                timeout=5,
+                check=True,
             )
         except (FileNotFoundError, subprocess.CalledProcessError):
             pytest.skip("git not available")
@@ -797,11 +763,13 @@ class TestGenerateCheckRoundTrip:
         subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=True)
         subprocess.run(
             ["git", "config", "user.email", "test@test.com"],
-            cwd=tmp_path, capture_output=True,
+            cwd=tmp_path,
+            capture_output=True,
         )
         subprocess.run(
             ["git", "config", "user.name", "Test"],
-            cwd=tmp_path, capture_output=True,
+            cwd=tmp_path,
+            capture_output=True,
         )
         feature_file = tmp_path / "src" / "feature.py"
         feature_file.parent.mkdir(parents=True)
@@ -810,9 +778,15 @@ class TestGenerateCheckRoundTrip:
 
         gen_result = subprocess.run(
             [
-                sys.executable, "-m", "aiv", "generate",
-                "test-ci", "--tier", "R1",
-                "--output", str(tmp_path),
+                sys.executable,
+                "-m",
+                "aiv",
+                "generate",
+                "test-ci",
+                "--tier",
+                "R1",
+                "--output",
+                str(tmp_path),
             ],
             capture_output=True,
             text=True,
@@ -825,9 +799,7 @@ class TestGenerateCheckRoundTrip:
         assert len(generated) == 1
         content = generated[0].read_text(encoding="utf-8")
         # Should contain the staged file, not "TODO: list modified files"
-        assert "src/feature.py" in content, (
-            "Generated packet should reference staged file src/feature.py"
-        )
+        assert "src/feature.py" in content, "Generated packet should reference staged file src/feature.py"
 
 
 # ============================================================================
@@ -900,7 +872,9 @@ class TestCanonicalCompliance:
         """L5-05: R2 with same verifier/creator triggers CLS-003."""
         ctx = _make_guard_context()
         packet = _make_canonical_packet(
-            ctx, risk_tier="R2", sod_mode="S1",
+            ctx,
+            risk_tier="R2",
+            sod_mode="S1",
             evidence_classes=("A", "B", "C", "E"),
         )
         # Make verifier == creator (SoD violation)
@@ -917,21 +891,22 @@ class TestCanonicalCompliance:
 
         # R3 missing Class D
         r3_packet = _make_canonical_packet(
-            ctx, risk_tier="R3", sod_mode="S1",
+            ctx,
+            risk_tier="R3",
+            sod_mode="S1",
             evidence_classes=("A", "B", "C", "E", "F"),
         )
         r3_packet["attestations"][0]["verifier_id"] = "different-verifier"
         r3_result = GuardResult()
         ok = validate_canonical(r3_packet, ctx, r3_result, ["src/a.py"])
         assert not ok
-        assert any(
-            f.rule_id == "CT-002" and "D" in f.description
-            for f in r3_result.findings
-        )
+        assert any(f.rule_id == "CT-002" and "D" in f.description for f in r3_result.findings)
 
         # R0 with only A and B
         r0_packet = _make_canonical_packet(
-            ctx, risk_tier="R0", evidence_classes=("A", "B"),
+            ctx,
+            risk_tier="R0",
+            evidence_classes=("A", "B"),
         )
         r0_result = GuardResult()
         ok = validate_canonical(r0_packet, ctx, r0_result, ["src/a.py"])
@@ -942,17 +917,21 @@ class TestCanonicalCompliance:
         """L5-07: R2 Class B SHA permalink without line anchor triggers B-002."""
         ctx = _make_guard_context()
         packet = _make_canonical_packet(
-            ctx, risk_tier="R2", sod_mode="S1",
+            ctx,
+            risk_tier="R2",
+            sod_mode="S1",
             evidence_classes=("A", "B", "C", "E"),
         )
         packet["attestations"][0]["verifier_id"] = "different-verifier"
         # Add a Class B artifact with SHA permalink but no line anchor
         for item in packet["evidence_items"]:
             if item["class"] == "B":
-                item["artifacts"].append({
-                    "type": "code_reference",
-                    "reference": f"https://github.com/test-org/test-repo/blob/{'a' * 40}/src/feature.py",
-                })
+                item["artifacts"].append(
+                    {
+                        "type": "code_reference",
+                        "reference": f"https://github.com/test-org/test-repo/blob/{'a' * 40}/src/feature.py",
+                    }
+                )
         result = GuardResult()
         ok = validate_canonical(packet, ctx, result, ["src/a.py"])
         assert not ok
@@ -968,10 +947,7 @@ class TestCanonicalCompliance:
         result = GuardResult()
         ok = validate_canonical(packet, ctx, result, ["src/a.py"])
         assert not ok, "Stale packet (head_sha mismatch) should be rejected"
-        assert any(
-            f.rule_id == "CT-005" and "head_sha" in f.description.lower()
-            for f in result.findings
-        ), (
+        assert any(f.rule_id == "CT-005" and "head_sha" in f.description.lower() for f in result.findings), (
             "CT-005 should mention head_sha mismatch:\n"
             + "\n".join(f"  [{f.rule_id}] {f.description}" for f in result.findings)
         )
@@ -984,8 +960,8 @@ class TestCanonicalCompliance:
         requirements. The guard must detect the critical surface and
         force escalation to R3.
         """
-        from aiv.guard.runner import GuardRunner
         from aiv.guard.github_api import ChangedFile
+        from aiv.guard.runner import GuardRunner
 
         ctx = _make_guard_context()
         runner = GuardRunner(ctx)
@@ -1000,9 +976,8 @@ class TestCanonicalCompliance:
         runner._check_critical_surfaces(packet, "R1")
 
         cls002 = [f for f in runner.result.findings if f.rule_id == "CLS-002"]
-        assert len(cls002) > 0, (
-            "Critical surface (authentication) with R1 should trigger CLS-002:\n"
-            + "\n".join(f"  [{f.rule_id}] {f.description}" for f in runner.result.findings)
+        assert len(cls002) > 0, "Critical surface (authentication) with R1 should trigger CLS-002:\n" + "\n".join(
+            f"  [{f.rule_id}] {f.description}" for f in runner.result.findings
         )
         assert any("Authentication" in f.description for f in cls002), (
             "CLS-002 should identify 'Authentication' as the critical surface"
@@ -1010,8 +985,8 @@ class TestCanonicalCompliance:
 
     def test_canonical_tier_escalation_r3_passes(self):
         """L5-11: Critical surface with R3 and declared critical_surfaces passes."""
-        from aiv.guard.runner import GuardRunner
         from aiv.guard.github_api import ChangedFile
+        from aiv.guard.runner import GuardRunner
 
         ctx = _make_guard_context()
         runner = GuardRunner(ctx)
@@ -1019,7 +994,9 @@ class TestCanonicalCompliance:
             ChangedFile(filename="src/auth/login.py", status="modified", patch=""),
         ]
         packet = _make_canonical_packet(
-            ctx, risk_tier="R3", sod_mode="S1",
+            ctx,
+            risk_tier="R3",
+            sod_mode="S1",
             evidence_classes=("A", "B", "C", "D", "E", "F"),
         )
         packet["classification"]["critical_surfaces"] = ["Authentication"]
@@ -1028,16 +1005,17 @@ class TestCanonicalCompliance:
         runner._check_critical_surfaces(packet, "R3")
 
         cls002 = [f for f in runner.result.findings if f.rule_id == "CLS-002"]
-        assert len(cls002) == 0, (
-            "R3 with declared critical_surfaces should not trigger CLS-002:\n"
-            + "\n".join(f"  [{f.rule_id}] {f.description}" for f in cls002)
+        assert len(cls002) == 0, "R3 with declared critical_surfaces should not trigger CLS-002:\n" + "\n".join(
+            f"  [{f.rule_id}] {f.description}" for f in cls002
         )
 
     def test_canonical_ct013_missing_test_refs_r2(self):
         """L5-12: R2 claim with Class A evidence but no test_refs triggers CT-013 WARN."""
         ctx = _make_guard_context()
         packet = _make_canonical_packet(
-            ctx, risk_tier="R2", sod_mode="S1",
+            ctx,
+            risk_tier="R2",
+            sod_mode="S1",
             evidence_classes=("A", "B", "C", "E"),
         )
         # Claim has Class A evidence_refs but no test_refs
@@ -1046,16 +1024,17 @@ class TestCanonicalCompliance:
         result = GuardResult()
         validate_canonical(packet, ctx, result, ["src/a.py"])
         ct013 = [f for f in result.findings if f.rule_id == "CT-013"]
-        assert len(ct013) > 0, (
-            "R2 claim with Class A evidence but no test_refs should trigger CT-013:\n"
-            + "\n".join(f"  [{f.rule_id}] {f.description}" for f in result.findings)
+        assert len(ct013) > 0, "R2 claim with Class A evidence but no test_refs should trigger CT-013:\n" + "\n".join(
+            f"  [{f.rule_id}] {f.description}" for f in result.findings
         )
 
     def test_canonical_ct013_valid_test_refs_r2(self):
         """L5-13: R2 claim with valid test_refs does NOT trigger CT-013."""
         ctx = _make_guard_context()
         packet = _make_canonical_packet(
-            ctx, risk_tier="R2", sod_mode="S1",
+            ctx,
+            risk_tier="R2",
+            sod_mode="S1",
             evidence_classes=("A", "B", "C", "E"),
         )
         # Add test_list to Class A evidence and test_refs to claim
@@ -1067,16 +1046,17 @@ class TestCanonicalCompliance:
         result = GuardResult()
         validate_canonical(packet, ctx, result, ["src/a.py"])
         ct013 = [f for f in result.findings if f.rule_id == "CT-013"]
-        assert len(ct013) == 0, (
-            "R2 claim with valid test_refs should not trigger CT-013:\n"
-            + "\n".join(f"  [{f.rule_id}] {f.description}" for f in ct013)
+        assert len(ct013) == 0, "R2 claim with valid test_refs should not trigger CT-013:\n" + "\n".join(
+            f"  [{f.rule_id}] {f.description}" for f in ct013
         )
 
     def test_canonical_ct013_unknown_test_ref_r2(self):
         """L5-14: R2 claim referencing unknown test_id triggers CT-013 WARN."""
         ctx = _make_guard_context()
         packet = _make_canonical_packet(
-            ctx, risk_tier="R2", sod_mode="S1",
+            ctx,
+            risk_tier="R2",
+            sod_mode="S1",
             evidence_classes=("A", "B", "C", "E"),
         )
         for e in packet["evidence_items"]:
@@ -1100,9 +1080,8 @@ class TestCanonicalCompliance:
         result = GuardResult()
         validate_canonical(packet, ctx, result, ["src/a.py"])
         ct013 = [f for f in result.findings if f.rule_id == "CT-013"]
-        assert len(ct013) == 0, (
-            "R1 should skip CT-013:\n"
-            + "\n".join(f"  [{f.rule_id}] {f.description}" for f in ct013)
+        assert len(ct013) == 0, "R1 should skip CT-013:\n" + "\n".join(
+            f"  [{f.rule_id}] {f.description}" for f in ct013
         )
 
     def test_canonical_conditional_decision_validation(self):
@@ -1111,9 +1090,7 @@ class TestCanonicalCompliance:
         packet = _make_canonical_packet(ctx)
         # Set decision to CONDITIONAL with a WARN finding but no conditions
         packet["attestations"][0]["decision"] = "CONDITIONAL"
-        packet["attestations"][0]["findings"] = [
-            {"id": "W-001", "severity": "WARN", "description": "Minor issue"}
-        ]
+        packet["attestations"][0]["findings"] = [{"id": "W-001", "severity": "WARN", "description": "Minor issue"}]
         # No "conditions" array
 
         result = GuardResult()
@@ -1145,13 +1122,9 @@ class TestZeroTouchCompliance:
         pipeline = ValidationPipeline(cfg)
         result = pipeline.validate(body)
 
-        e008_blocks = [
-            f for f in result.errors
-            if f.rule_id == "E008" and f.severity == Severity.BLOCK
-        ]
-        assert len(e008_blocks) == 0, (
-            "Code block commands should not trigger E008 BLOCK:\n"
-            + "\n".join(f"  {e.message}" for e in e008_blocks)
+        e008_blocks = [f for f in result.errors if f.rule_id == "E008" and f.severity == Severity.BLOCK]
+        assert len(e008_blocks) == 0, "Code block commands should not trigger E008 BLOCK:\n" + "\n".join(
+            f"  {e.message}" for e in e008_blocks
         )
 
     def test_raw_commands_outside_code_blocks_flagged(self):
@@ -1163,10 +1136,7 @@ class TestZeroTouchCompliance:
         pipeline = ValidationPipeline(cfg)
         result = pipeline.validate(body)
 
-        e008_blocks = [
-            f for f in result.errors
-            if f.rule_id == "E008" and f.severity == Severity.BLOCK
-        ]
+        e008_blocks = [f for f in result.errors if f.rule_id == "E008" and f.severity == Severity.BLOCK]
         assert len(e008_blocks) > 0, "Raw commands should trigger E008 BLOCK"
 
     def test_zero_touch_phrase_overrides(self):
@@ -1186,25 +1156,27 @@ class TestZeroTouchCompliance:
 
     def test_high_friction_aggregate_warning(self):
         """L6-04: High aggregate friction produces packet-level E008 WARN."""
-        from aiv.lib.models import IntentSection, ArtifactLink, VerificationPacket
+        from aiv.lib.models import IntentSection, VerificationPacket
 
         # Build claims with step-heavy reproduction
         claims = []
         for i in range(1, 6):
-            claims.append(Claim(
-                section_number=i,
-                description=f"Claim {i} with detailed verification steps for feature implementation.",
-                evidence_class=EvidenceClass.REFERENTIAL,
-                artifact="See evidence",
-                reproduction=(
-                    "Step 1: Open the dashboard\n"
-                    "Step 2: Navigate to settings\n"
-                    "Step 3: Click the toggle\n"
-                    "Step 4: Verify the change\n"
-                    "Step 5: Check the logs\n"
-                    "Step 6: Confirm the output"
-                ),
-            ))
+            claims.append(
+                Claim(
+                    section_number=i,
+                    description=f"Claim {i} with detailed verification steps for feature implementation.",
+                    evidence_class=EvidenceClass.REFERENTIAL,
+                    artifact="See evidence",
+                    reproduction=(
+                        "Step 1: Open the dashboard\n"
+                        "Step 2: Navigate to settings\n"
+                        "Step 3: Click the toggle\n"
+                        "Step 4: Verify the change\n"
+                        "Step 5: Check the logs\n"
+                        "Step 6: Confirm the output"
+                    ),
+                )
+            )
 
         packet = VerificationPacket(
             version="2.1",
@@ -1222,10 +1194,8 @@ class TestZeroTouchCompliance:
         findings = validator.validate_packet(packet)
 
         warn_findings = [
-            f for f in findings
-            if f.rule_id == "E008" and f.severity == Severity.WARN
-            and "friction" in f.message.lower()
+            f
+            for f in findings
+            if f.rule_id == "E008" and f.severity == Severity.WARN and "friction" in f.message.lower()
         ]
-        assert len(warn_findings) > 0, (
-            "High aggregate friction should produce E008 WARN"
-        )
+        assert len(warn_findings) > 0, "High aggregate friction should produce E008 WARN"
