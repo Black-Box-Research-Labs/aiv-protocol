@@ -32,6 +32,10 @@ classification:
 
 - All 3 new tests pass. Total parser tests: 14 passing.
 
+### Class F (Provenance)
+
+- No existing tests were deleted, skipped, or weakened. All 3 tests are net-new additions to `test_parser.py`.
+
 ## Summary
 
 Regression tests for the parser code block heading injection fix. Covers backtick, tilde, and nested fence edge cases.
