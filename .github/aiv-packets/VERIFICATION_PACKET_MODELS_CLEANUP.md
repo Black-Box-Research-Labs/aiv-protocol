@@ -1,6 +1,6 @@
 # AIV Verification Packet (v2.1)
 
-**Commit:** `pending`  
+**Commit:** `4f2f07d`  
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
 ---
@@ -29,7 +29,7 @@ classification:
 
 ### Class E (Intent Alignment)
 
-- **Link:** AUDIT_REPORT.md — Findings D05 and L07.
+- **Link:** [AUDIT_REPORT.md — Findings D05 and L07.](https://github.com/ImmortalDemonGod/aiv-protocol/blob/4f2f07d/AUDIT_REPORT.md)
 - **Requirements Verified:**
   1. ✅ No unused imports remain in models.py
   2. ✅ datetime.utcnow deprecation warning eliminated
