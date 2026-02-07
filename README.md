@@ -19,11 +19,14 @@ pip install -e ".[dev]"
 # Validate a verification packet
 aiv check .github/aiv-packets/VERIFICATION_PACKET_GITIGNORE.md
 
-# Validate in strict mode (warnings become errors)
-aiv check --strict .github/aiv-packets/VERIFICATION_PACKET_AIV_IMPLEMENTATION.md
+# Validate in lenient mode (warnings don't block)
+aiv check --no-strict .github/aiv-packets/VERIFICATION_PACKET_AIV_IMPLEMENTATION.md
 
 # Validate with anti-cheat diff scanning
 aiv check packet.md --diff changes.patch
+
+# Validate with link vitality checks (HTTP HEAD probes)
+aiv check packet.md --audit-links
 
 # Audit all packets for quality issues
 aiv audit
@@ -49,7 +52,7 @@ Validates a verification packet through an 8-stage pipeline:
 
 1. **Parse** — Markdown → structured `VerificationPacket`
 2. **Structure** — Completeness and quality checks
-3. **Links** — SHA-pinned immutability enforcement
+3. **Links** — SHA-pinned immutability enforcement + link vitality (E021)
 4. **Evidence** — Class-specific requirement validation
 5. **Risk-Tier** — Evidence requirements per classification (R0–R3)
 6. **Zero-Touch** — Reproduction instruction compliance
@@ -64,6 +67,12 @@ $ aiv check .github/aiv-packets/VERIFICATION_PACKET_GITIGNORE.md
 | Claims: 3                                                                   |
 +-----------------------------------------------------------------------------+
 ```
+
+**Key flags:**
+
+- `--no-strict` — Lenient mode (strict is the default; warnings don't block in lenient)
+- `--diff <path>` — Enable anti-cheat scanning against a git diff
+- `--audit-links` — Verify evidence URLs are reachable via HTTP HEAD (E021). Dead links — pointing to deleted files, force-pushed commits, or renamed repos — are flagged as blocking errors. Unreachable links (network failures) are flagged as warnings.
 
 ### `aiv init`
 
@@ -113,7 +122,9 @@ Cognitive verification commands for the Systematic Verifier Protocol:
 | `aiv svp predict <PR>` | 1 | Record a Black Box Prediction before seeing the diff |
 | `aiv svp trace <PR>` | 2 | Record a Mental Trace (simulate execution flow) |
 | `aiv svp probe <PR>` | 3 | Submit an Adversarial Probe checklist |
+| `aiv svp ownership <PR>` | 4 | Record an Ownership Lock commit |
 | `aiv svp validate <PR>` | — | Validate session completeness (JSON output) |
+| `aiv svp rating <ID>` | — | Calculate and display verifier ELO rating |
 
 ## The Problem
 
@@ -210,8 +221,8 @@ aiv-protocol/
 │   │       ├── pipeline.py          # 8-stage validation orchestrator
 │   │       ├── base.py              # Base validator class
 │   │       ├── structure.py         # Packet completeness
-│   │       ├── evidence.py          # Class-specific rules (E015–E018)
-│   │       ├── links.py             # SHA-pinned immutability
+│   │       ├── evidence.py          # Class-specific rules (E010–E022)
+│   │       ├── links.py             # SHA-pinned immutability + link vitality (E021)
 │   │       ├── zero_touch.py        # Zero-Touch mandate (E008)
 │   │       └── anti_cheat.py        # Test manipulation scanner (E011)
 │   ├── guard/                       # Python AIV Guard (CI module)
@@ -225,10 +236,11 @@ aiv-protocol/
 │   │   ├── cli/main.py              # SVP CLI commands (typer)
 │   │   └── lib/
 │   │       ├── models.py            # SVP Pydantic models (sessions, ratings)
+│   │       ├── rating.py            # Verifier ELO rating engine
 │   │       └── validators/
-│   │           └── session.py       # Session rules S001–S013
+│   │           └── session.py       # Session rules S001–S016
 │   └── __main__.py                  # python -m aiv support
-├── tests/                           # 371 tests (unit + integration)
+├── tests/                           # 454 tests (unit + integration)
 │   ├── unit/
 │   │   ├── test_models.py
 │   │   ├── test_parser.py
@@ -246,11 +258,13 @@ aiv-protocol/
 │   │   ├── aiv-guard-python.yml     # PR validation — Python (live)
 │   │   ├── ci.yml                   # CI: lint, format, type-check, test
 │   │   └── verify-architecture.yml  # Evidence generation (disabled)
-│   └── aiv-packets/                 # 51 verification packets
-├── docs/specs/
-│   ├── AIV-SUITE-SPEC-V1.0-CANONICAL_2025-12-19.md
-│   ├── SVP-SUITE-SPEC-V1.0-CANONICAL-2025-12-20.md
-│   └── E2E_COMPLIANCE_TEST_SUITE_SPEC.md
+│   └── aiv-packets/                 # 75 verification packets (+ 1 template)
+├── docs/
+│   ├── AIV_SVP_PROTOCOL_USER_STORY.md  # Problem statement and user story
+│   └── specs/
+│       ├── AIV-SUITE-SPEC-V1.0-CANONICAL_2025-12-19.md
+│       ├── SVP-SUITE-SPEC-V1.0-CANONICAL-2025-12-20.md
+│       └── E2E_COMPLIANCE_TEST_SUITE_SPEC.md
 ├── .svp/                            # SVP session data & audit reports
 │   ├── AUDIT_AI_FIRST_PASS.md       # AI First-Pass empirical audit
 │   ├── session-pr*.json             # SVP verification sessions
@@ -262,6 +276,7 @@ aiv-protocol/
 ├── FILE_PACKET_MAP.json             # Machine-readable mapping (same data)
 ├── SPECIFICATION.md                 # Canonical AIV standard (v1.0.0)
 ├── AUDIT_REPORT.md                  # Comprehensive codebase audit
+├── CHANGELOG.md                     # Version history
 └── pyproject.toml                   # Build config (hatchling)
 ```
 
@@ -276,13 +291,14 @@ aiv-protocol/
 | [`docs/specs/E2E_COMPLIANCE_TEST_SUITE_SPEC.md`](docs/specs/E2E_COMPLIANCE_TEST_SUITE_SPEC.md) | End-to-end compliance test suite specification |
 | [`.svp/AUDIT_AI_FIRST_PASS.md`](.svp/AUDIT_AI_FIRST_PASS.md) | AI First-Pass audit — empirical proof of Hunter vs. Validator dichotomy |
 | [`FILE_PACKET_MAP.md`](FILE_PACKET_MAP.md) | Evidence index — maps every source file to its verification packets (and vice versa) |
+| [`CHANGELOG.md`](CHANGELOG.md) | Version history and release notes |
 
 ## Enforcement (Live)
 
 Three enforcement layers, all active:
 
 1. **Pre-commit hook** — Blocks commits without atomic unit pattern (1 functional file + 1 verification packet); runs both `aiv check` and `aiv audit` on staged packets
-2. **`aiv check` CLI** — Local validation with 8-stage pipeline, strict mode, anti-cheat scanning
+2. **`aiv check` CLI** — Local validation with 8-stage pipeline, strict mode, anti-cheat scanning, link vitality checks
 3. **AIV Guard CI (Python)** — PR-level validation as a Python module (`src/aiv/guard/`): canonical packet validation, manifest verification, critical surface detection, SoD checks, and GitHub API integration
 
 ## Configuration
