@@ -39,6 +39,11 @@ classification:
 - Unchecked falsification scenarios produce zero events — verified by test.
 - Sessions from other verifiers are filtered out — verified by test.
 
+### Class F (Provenance)
+
+- `src/aiv/svp/lib/rating.py` is a net-new 183-line file — no pre-existing code was modified, deleted, or overwritten.
+- No existing tests were deleted, skipped, or weakened. All 12 rating tests are net-new additions.
+
 ## Summary
 
 Implements svp-rating component per spec §9. Automated ELO calculation replaces manual scoring.
