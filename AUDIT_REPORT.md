@@ -654,26 +654,29 @@ Code verification update:
 
 **External claim:** Priority order should be (1) Refactor AIV Guard, (2) Implement SVP Core, (3) Enhance Generator.
 
-**Audit verdict: PARTIALLY DISAGREE — missing the most critical item.**
+**Previous audit verdict: PARTIALLY DISAGREE — missing validator defect fixes as P0.**
 
-The external roadmap skips the finding this audit rates highest: **the Python validator itself has structural defects that must be fixed before it can replace the JS guard.** Specifically:
+**Re-Audit verdict: ✅ ROADMAP EXECUTED.**
 
-1. **Zero-touch validator is structurally a no-op** (finding L05) — parser hardcodes `reproduction="N/A"`, so the validator always passes. If you replace the JS guard with `aiv check`, zero-touch enforcement disappears.
-2. **Anti-cheat deleted file detection is broken** (finding L01) — regex is inverted, deleted test files are invisible.
-3. **Risk-tier enforcement doesn't exist** (finding §4.4.3) — Classification YAML is ignored. The most important protocol feature (R0 needs A+B, R1 needs A+B+E, etc.) is not implemented.
-4. **Bug-fix heuristic produces false positives** (finding L03) — requiring Class F evidence for any claim containing "fix" or "issue."
+All five priority items from the previous audit's revised roadmap have been completed:
 
-**Revised roadmap (this audit's recommendation):**
+| Priority | Task | Status |
+|----------|------|--------|
+| **P0** | Fix validator defects (L01–L05) | ✅ All fixed — regex, enrichment, heuristic, rule IDs, zero-touch |
+| **P1** | Classification parsing + risk-tier enforcement | ✅ Implemented — parser + pipeline + 9 tests |
+| **P2** | Refactor AIV Guard to use Python package | ✅ Implemented — 6 files, ~1,571 lines, 36 tests |
+| **P3** | Build `aiv generate` command | ✅ Implemented — tier-based scaffolding + git scope detection |
+| **P4** | Implement SVP Core (predict/trace/probe) | ✅ Implemented — 6 files, 43 tests |
+
+**Updated roadmap for next phase:**
 
 | Priority | Task | Rationale |
 |----------|------|-----------|
-| **P0** | Fix validator defects (L01–L05) | Can't replace JS guard with broken Python validator |
-| **P1** | Implement Classification parsing + risk-tier enforcement | This is the protocol's core value proposition |
-| **P2** | Refactor AIV Guard to use Python package | Eliminates the dual-system maintenance burden |
-| **P3** | Build `aiv generate` command | Reduces developer friction |
-| **P4** | Implement SVP Core (predict/trace/probe) | Solves cognitive debt problem |
-
-The key disagreement: the external analysis assumes the Python validator is ready to replace the JS guard. This audit demonstrates it is not — multiple validators are structurally unable to find violations, and the most important feature (risk-tier enforcement) is missing entirely. Fix the tool first, then promote it to CI.
+| **P0** | Resolve remaining LOW-severity issues | Clean up: narrow exception catch, delete legacy parser, unify fast-track, wire error classes |
+| **P1** | Add missing test coverage | Generate command tests, anti-cheat deleted file test, parser edge cases, strict mode |
+| **P2** | Decommission JS guard workflow | Once Python guard is validated in production, remove `aiv-guard.yml` |
+| **P3** | Resolve Class D/F naming conflict | Align with canonical spec or document the divergence explicitly |
+| **P4** | Enhance generator with CI/issue integration | Auto-populate Class A run URLs, Class E issue links |
 
 ---
 
