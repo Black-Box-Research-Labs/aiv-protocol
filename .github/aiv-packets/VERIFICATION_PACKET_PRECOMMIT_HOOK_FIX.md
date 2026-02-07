@@ -31,6 +31,13 @@ classification:
 - Hook now prints WARN instead of exiting 1 when tar fails.
 - Atomicity rules (Rules 1-6) are unaffected.
 
+### Class F (Provenance)
+
+- **Intentional weakening documented:** The `exit 1` on tar failure was replaced with a `WARN` message. This downgrades the safety snapshot archival from a hard gate to best-effort.
+- **Justification:** `tar` is unavailable on stock Windows (no WSL/Git Bash tar). Blocking all commits on Windows for a non-critical backup step was disproportionate.
+- **Scope of weakening:** Only the untracked-files tar archive step. The core atomicity rules (Rules 1–6), git diff snapshots, status snapshots, and untracked file list are all unaffected.
+- No tests were modified — this file has no automated test coverage (shell script).
+
 ## Summary
 
 Single-line fix: `exit 1` changed to no-op inside the tar failure handler. The safety snapshot is best-effort, not a gating requirement.
