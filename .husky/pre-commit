@@ -155,22 +155,45 @@ validate_staged_packet() {
         # Check if the failure is from blocking errors (not just warnings)
         BLOCKING=$(echo "$RESULT" | grep -c "blocking error" || true)
         if echo "$RESULT" | grep -q "0 blocking error"; then
-            # Only warnings — allow commit
+            # Only warnings — allow commit (fall through to audit)
+            :
+        else
+            echo ""
+            echo "🛑 PACKET VALIDATION FAILED"
+            echo "==============================================================================="
+            echo "The staged verification packet failed content validation:"
+            echo ""
+            echo "$RESULT"
+            echo ""
+            echo "Fix the packet errors before committing."
+            echo "==============================================================================="
             rm -f "$TMPFILE"
-            return 0
+            return 1
         fi
+    }
+
+    # Run aiv audit on the staged packet (catches FIX_NO_CLASS_F, TODO remnants, etc.)
+    PACKET_BASENAME=$(basename "$PACKET_FILE")
+    AUDIT_DIR=$(mktemp -d "${TMPDIR:-/tmp}/aiv-audit-check.XXXXXX")
+    cp "$TMPFILE" "$AUDIT_DIR/$PACKET_BASENAME"
+
+    AUDIT_RESULT=$($PYTHON_CMD -m aiv audit "$AUDIT_DIR" 2>&1)
+    AUDIT_EXIT=$?
+    rm -rf "$AUDIT_DIR"
+
+    if [ "$AUDIT_EXIT" -ne 0 ]; then
         echo ""
-        echo "🛑 PACKET VALIDATION FAILED"
+        echo "🛑 PACKET AUDIT FAILED"
         echo "==============================================================================="
-        echo "The staged verification packet failed content validation:"
+        echo "The staged verification packet has quality issues:"
         echo ""
-        echo "$RESULT"
+        echo "$AUDIT_RESULT"
         echo ""
-        echo "Fix the packet errors before committing."
+        echo "Fix the audit errors before committing."
         echo "==============================================================================="
         rm -f "$TMPFILE"
         return 1
-    }
+    fi
 
     rm -f "$TMPFILE"
     return 0
