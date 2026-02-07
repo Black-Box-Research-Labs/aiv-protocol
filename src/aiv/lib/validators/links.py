@@ -6,6 +6,10 @@ URL validation and immutability checking (Addendum 2.2).
 
 from __future__ import annotations
 
+import logging
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
+
 from ..config import MutableBranchConfig
 from ..models import (
     ArtifactLink,
@@ -14,14 +18,24 @@ from ..models import (
 )
 from .base import BaseValidator
 
+log = logging.getLogger(__name__)
+
+_LINK_CHECK_TIMEOUT = 10  # seconds per HEAD request
+
 
 class LinkValidator(BaseValidator):
     """
     Validates artifact links for accessibility and immutability.
     """
 
-    def __init__(self, config: MutableBranchConfig | None = None):
+    def __init__(
+        self,
+        config: MutableBranchConfig | None = None,
+        *,
+        audit_links: bool = False,
+    ):
         self.config = config or MutableBranchConfig()
+        self.audit_links = audit_links
 
     def validate(self, packet: VerificationPacket) -> list[ValidationFinding]:
         """Validate all links in a packet."""
@@ -92,4 +106,72 @@ class LinkValidator(BaseValidator):
                             )
                         )
 
+        # Optional: verify link vitality via HTTP HEAD requests
+        if self.audit_links:
+            errors.extend(self._check_link_vitality(packet))
+
         return errors
+
+    def _check_link_vitality(self, packet: VerificationPacket) -> list[ValidationFinding]:
+        """Send HTTP HEAD requests to verify all URLs in the packet are reachable."""
+        findings: list[ValidationFinding] = []
+        urls_checked: set[str] = set()
+
+        # Collect all ArtifactLink URLs
+        url_locations: list[tuple[str, str]] = []
+
+        intent_link = packet.intent.evidence_link
+        if isinstance(intent_link, ArtifactLink):
+            url_locations.append((str(intent_link.url), "Section 0 (Intent Alignment)"))
+
+        for claim in packet.claims:
+            if isinstance(claim.artifact, ArtifactLink):
+                url_locations.append((str(claim.artifact.url), f"Section {claim.section_number}"))
+
+        for url, location in url_locations:
+            if url in urls_checked:
+                continue
+            urls_checked.add(url)
+
+            status, reason = self._head_check(url)
+            if status is not None and status >= 400:
+                findings.append(
+                    self._make_finding(
+                        rule_id="E021",
+                        severity="block",
+                        message=f"Evidence link unreachable (HTTP {status}): {url}",
+                        location=location,
+                        suggestion=(
+                            "Verify the URL is correct — check for SHA typos, "
+                            "deleted resources, or permission issues."
+                        ),
+                    )
+                )
+            elif status is None:
+                findings.append(
+                    self._make_finding(
+                        rule_id="E021",
+                        severity="warn",
+                        message=f"Evidence link could not be reached ({reason}): {url}",
+                        location=location,
+                        suggestion="Check network connectivity or URL validity.",
+                    )
+                )
+
+        return findings
+
+    @staticmethod
+    def _head_check(url: str) -> tuple[int | None, str]:
+        """Send an HTTP HEAD request. Returns (status_code, reason) or (None, error_msg)."""
+        try:
+            req = Request(url, method="HEAD")
+            req.add_header("User-Agent", "aiv-link-checker/1.0")
+            with urlopen(req, timeout=_LINK_CHECK_TIMEOUT) as resp:
+                return (resp.status, resp.reason)
+        except HTTPError as e:
+            return (e.code, str(e.reason))
+        except URLError as e:
+            return (None, str(e.reason))
+        except Exception as e:
+            log.debug("Link check failed for %s: %s", url, e)
+            return (None, str(e))
