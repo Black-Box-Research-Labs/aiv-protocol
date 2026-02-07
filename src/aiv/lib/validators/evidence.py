@@ -78,6 +78,7 @@ class EvidenceValidator(BaseValidator):
         - Must link to CI artifact (preferred) or automation output
         - UI evidence must show state transition (GIF/video)
         - Performance evidence must be differential A/B
+        - Code blob links are incoherent for execution evidence
         """
         errors: list[ValidationFinding] = []
 
@@ -105,6 +106,21 @@ class EvidenceValidator(BaseValidator):
                             "(GIF/video preferred)"
                         ),
                         location=f"Section {claim.section_number}",
+                    ))
+                elif claim.artifact.link_type == "github_blob":
+                    errors.append(self._make_finding(
+                        rule_id="E020",
+                        severity="warn",
+                        message=(
+                            "Class A (Execution) evidence links to a code file, "
+                            "not a CI run. Execution evidence should prove "
+                            "the code was *run*, not just that it *exists*."
+                        ),
+                        location=f"Section {claim.section_number}",
+                        suggestion=(
+                            "Link to a GitHub Actions run "
+                            "(e.g. /actions/runs/12345) or external CI artifact."
+                        ),
                     ))
 
         return errors
