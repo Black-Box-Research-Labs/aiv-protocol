@@ -46,7 +46,7 @@ classification:
 
 Files modified in this atomic commit series:
 
-<!-- CURRENT_FILE: tests/integration/test_svp_full_workflow.py (28/37) -->
+<!-- CURRENT_FILE: tests/unit/test_auditor.py (29/37) -->
 
 ---
 

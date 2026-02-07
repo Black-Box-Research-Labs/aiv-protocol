@@ -5,11 +5,9 @@ Unit tests for the PacketAuditor — verifies detection of quality issues
 that the validation pipeline does not catch.
 """
 
-import pytest
 from pathlib import Path
 
-from aiv.lib.auditor import PacketAuditor, AuditSeverity
-
+from aiv.lib.auditor import AuditSeverity, PacketAuditor
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -160,8 +158,7 @@ class TestClassELink:
         auditor = PacketAuditor()
         result = auditor.audit(tmp_path)
         link_findings = [
-            f for f in result.findings
-            if f.finding_type in ("CLASS_E_NO_URL", "CLASS_E_MUTABLE", "CLASS_E_EMPTY")
+            f for f in result.findings if f.finding_type in ("CLASS_E_NO_URL", "CLASS_E_MUTABLE", "CLASS_E_EMPTY")
         ]
         assert len(link_findings) == 0
 
@@ -226,7 +223,6 @@ class TestTodoRemnants:
         result = auditor.audit(tmp_path)
         todo_findings = [f for f in result.findings if f.finding_type == "TODO_PRESENT"]
         assert len(todo_findings) == 0
-
 
     def test_todo_finding_type_name_not_flagged(self, tmp_path: Path):
         """Lines listing auditor finding types (COMMIT_PENDING, TODO remnants) should not trigger."""
@@ -295,7 +291,7 @@ class TestAutoFix:
         auditor = PacketAuditor()
         result = auditor.audit(tmp_path, fix=True)
         # Should have attempted fix (may not succeed without git, but logic runs)
-        fixed_body = p.read_text(encoding="utf-8")
+        p.read_text(encoding="utf-8")
         # In a non-git context, commit SHA won't be found, so pending stays
         # Just verify the auditor didn't crash
         assert result.packets_scanned == 1
@@ -307,7 +303,7 @@ class TestAutoFix:
         )
         p = _write_packet(tmp_path, "VERIFICATION_PACKET_PLAINLINK.md", body)
         auditor = PacketAuditor()
-        result = auditor.audit(tmp_path, fix=True)
+        auditor.audit(tmp_path, fix=True)
         fixed_body = p.read_text(encoding="utf-8")
         # Should have converted to a URL (even without git, falls back to "main")
         assert "https://github.com/" in fixed_body
@@ -318,15 +314,20 @@ class TestMultipleFindings:
     """A single packet can have multiple issues."""
 
     def test_multiple_issues_all_reported(self, tmp_path: Path):
-        body = MINIMAL_CLEAN_PACKET.replace("`abc1234`", "`pending`").replace(
-            "1. Added a new feature to the system.",
-            "1. TODO: Primary claim.",
-        ).replace(
-            "Added new feature per specification.",
-            "TODO: One-line summary.",
-        ).replace(
-            'classified_by: "cascade"',
-            'classified_by: "TODO"',
+        body = (
+            MINIMAL_CLEAN_PACKET.replace("`abc1234`", "`pending`")
+            .replace(
+                "1. Added a new feature to the system.",
+                "1. TODO: Primary claim.",
+            )
+            .replace(
+                "Added new feature per specification.",
+                "TODO: One-line summary.",
+            )
+            .replace(
+                'classified_by: "cascade"',
+                'classified_by: "TODO"',
+            )
         )
         _write_packet(tmp_path, "VERIFICATION_PACKET_MANY.md", body)
         auditor = PacketAuditor()
