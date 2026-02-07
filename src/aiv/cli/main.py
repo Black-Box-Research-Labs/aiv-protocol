@@ -300,9 +300,8 @@ def _build_evidence_sections(tier: str, scope_lines: str) -> str:
     """Build evidence section markdown based on risk tier."""
     sections = []
 
-    # Class E — required for R1+
-    if tier in ("R1", "R2", "R3"):
-        sections.append("""### Class E (Intent Alignment)
+    # Class E — required by parser for all tiers (structurally mandatory)
+    sections.append("""### Class E (Intent Alignment)
 
 - **Link:** TODO: SHA-pinned link to spec/issue/directive
 - **Requirements Verified:**
