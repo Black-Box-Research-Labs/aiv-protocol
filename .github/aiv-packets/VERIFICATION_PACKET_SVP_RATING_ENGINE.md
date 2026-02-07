@@ -11,7 +11,7 @@ classification:
 
 ## Claim(s)
 
-1. SVP rating engine automatically calculates ELO scores from session data by scoring confirmed bugs, falsified scenarios, ownership quality, and session completion per RATING_POINTS map.
+1. SVP rating engine automatically calculates ELO scores from session data by scoring confirmed defects, falsified scenarios, ownership quality, and session completion per RATING_POINTS map.
 
 ## Evidence
 
@@ -35,7 +35,7 @@ classification:
 
 ### Class C (Negative Evidence)
 
-- Unconfirmed findings (is_confirmed_bug=False) produce zero rating events — verified by test.
+- Unconfirmed findings (is_confirmed_defect=False) produce zero rating events — verified by test.
 - Unchecked falsification scenarios produce zero events — verified by test.
 - Sessions from other verifiers are filtered out — verified by test.
 

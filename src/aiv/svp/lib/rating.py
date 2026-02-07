@@ -79,6 +79,22 @@ def score_session(session: SVPSession) -> list[RatingEvent]:
                 # No penalty, no reward — ambiguous result
                 pass
 
+            # Penalize scenarios that were themselves wrong (hallucinated,
+            # wrong count, untestable).  Scored independently of result.
+            if scenario.false_positive:
+                fp_points = RATING_POINTS["false_positive"]
+                events.append(RatingEvent(
+                    verifier_id=vid,
+                    event_type="false_positive",
+                    points=fp_points,
+                    pr_number=pr,
+                    repository=repo,
+                    description=(
+                        f"False positive scenario {scenario.claim_id}: "
+                        f"{scenario.scenario[:60]}"
+                    ),
+                ))
+
     # --- Ownership quality ---
     if session.ownership_commit is not None:
         score = session.ownership_commit.docstring_quality_score
