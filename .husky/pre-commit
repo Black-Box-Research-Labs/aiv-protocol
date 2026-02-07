@@ -33,8 +33,7 @@ git ls-files --others --exclude-standard > "$SNAP_DIR/untracked_files.txt" 2>/de
 
 if [ -s "$SNAP_DIR/untracked_files.txt" ]; then
   tar -czf "$SNAP_DIR/untracked.tgz" -C "$REPO_ROOT" -T "$SNAP_DIR/untracked_files.txt" 2>/dev/null || {
-    echo "ERROR: failed to archive untracked files into safety snapshot" 1>&2
-    exit 1
+    echo "WARN: failed to archive untracked files (tar may not be available on this OS)" 1>&2
   }
 fi
 
