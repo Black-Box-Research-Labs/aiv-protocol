@@ -1,5 +1,14 @@
 # Source File ↔ Verification Packet Mapping
 
+> **What is this?** Every commit in this repo pairs a functional file with a verification packet.
+> This document is the **evidence index** — it answers questions the individual packets cannot:
+>
+> - **"Show me all evidence for file X"** → [Source Files → Packets](#source-files--verification-packets)
+> - **"What files does packet Y cover?"** → [Packets → Source Files](#verification-packets--source-files)
+> - **"Which files have no evidence?"** → [Unmapped Source Files](#unmapped-source-files)
+>
+> **Regenerate:** `python scripts/map_packets.py`
+
 Auto-generated from git commit history.
 
 ## Summary
