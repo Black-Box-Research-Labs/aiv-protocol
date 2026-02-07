@@ -29,7 +29,7 @@ classification:
 
 ### Class E (Intent Alignment)
 
-- **Link:** AIV Protocol Suite — CLI must be invocable via `python -m aiv` for development and CI use without requiring the `aiv` console script to be on PATH.
+- **Link:** [AIV Protocol Suite](https://github.com/ImmortalDemonGod/aiv-protocol/blob/9a41695/SPECIFICATION.md) — CLI must be invocable via `python -m aiv` for development and CI use without requiring the `aiv` console script to be on PATH.
 - **Requirements Verified:**
   1. ✅ `python -m aiv` now invokes the Typer CLI app
   2. ✅ `python -m aiv check <packet>` works end-to-end
