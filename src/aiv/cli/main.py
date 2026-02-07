@@ -139,6 +139,207 @@ def init(
     console.print(f"[green][OK] AIV Protocol initialized in {path}[/green]")
 
 
+@app.command()
+def generate(
+    name: str = typer.Argument(
+        ...,
+        help="Short name for the packet (used in filename, e.g. 'auth-fix')"
+    ),
+    tier: str = typer.Option(
+        "R1",
+        "--tier", "-t",
+        help="Risk tier: R0, R1, R2, R3"
+    ),
+    output_dir: Path = typer.Option(
+        Path(".github/aiv-packets"),
+        "--output", "-o",
+        help="Directory to write the packet file"
+    ),
+    rationale: str = typer.Option(
+        "",
+        "--rationale", "-r",
+        help="Classification rationale"
+    ),
+) -> None:
+    """
+    Generate a verification packet scaffold.
+
+    Creates a pre-filled packet file with classification, claim stubs,
+    and evidence section headers appropriate for the chosen risk tier.
+
+    Examples:
+        aiv generate auth-fix --tier R2
+        aiv generate cleanup --tier R0 --rationale "Remove dead code"
+    """
+    from datetime import datetime, timezone
+
+    # Normalize name for filename
+    safe_name = name.upper().replace("-", "_").replace(" ", "_")
+    filename = f"VERIFICATION_PACKET_{safe_name}.md"
+    filepath = output_dir / filename
+
+    if filepath.exists():
+        console.print(f"[yellow]Warning:[/yellow] {filepath} already exists.")
+        overwrite = typer.confirm("Overwrite?", default=False)
+        if not overwrite:
+            raise typer.Exit(0)
+
+    # Validate tier
+    tier_upper = tier.upper().strip()
+    if tier_upper not in ("R0", "R1", "R2", "R3"):
+        console.print(f"[red]Error:[/red] Invalid tier '{tier}'. Use R0, R1, R2, or R3.")
+        raise typer.Exit(1)
+
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    # Detect changed files via git (best-effort)
+    scope_lines = _detect_git_scope()
+
+    # Build evidence sections based on tier
+    evidence_sections = _build_evidence_sections(tier_upper, scope_lines)
+
+    # SoD mode
+    sod = "S0" if tier_upper in ("R0", "R1") else "S1"
+
+    packet = f"""# AIV Verification Packet (v2.1)
+
+**Commit:** `pending`  
+**Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
+
+---
+
+## Classification (required)
+
+```yaml
+classification:
+  risk_tier: {tier_upper}
+  sod_mode: {sod}
+  critical_surfaces: []
+  blast_radius: TODO
+  classification_rationale: "{rationale or 'TODO: Describe why this tier was chosen'}"
+  classified_by: "TODO"
+  classified_at: "{now}"
+```
+
+## Claim(s)
+
+1. TODO: Primary claim — what changed and why.
+2. TODO: Quality claim — tests pass, no regressions.
+3. No existing tests were modified or deleted during this change.
+
+---
+
+## Evidence
+
+{evidence_sections}
+
+---
+
+## Verification Methodology
+
+**Zero-Touch Mandate:** Verifier inspects artifacts only.
+
+---
+
+## Summary
+
+TODO: One-line summary of the change.
+"""
+
+    # Ensure output directory exists
+    output_dir.mkdir(parents=True, exist_ok=True)
+    filepath.write_text(packet, encoding="utf-8")
+
+    console.print(f"[green]Created:[/green] {filepath}")
+    console.print(f"  Risk tier: [bold]{tier_upper}[/bold] | SoD: {sod}")
+    console.print(f"  Fill in the TODO sections, then commit with your functional file.")
+
+
+def _detect_git_scope() -> str:
+    """Best-effort detection of changed files via git."""
+    import subprocess
+
+    try:
+        result = subprocess.run(
+            ["git", "diff", "--cached", "--name-status"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode != 0 or not result.stdout.strip():
+            # Fallback to unstaged changes
+            result = subprocess.run(
+                ["git", "diff", "--name-status"],
+                capture_output=True, text=True, timeout=5,
+            )
+        if result.returncode == 0 and result.stdout.strip():
+            lines = []
+            for line in result.stdout.strip().split("\n"):
+                parts = line.split("\t", 1)
+                if len(parts) == 2:
+                    status, path = parts
+                    if status.startswith("A"):
+                        lines.append(f"  - `{path}` (new)")
+                    elif status.startswith("M"):
+                        lines.append(f"  - `{path}`")
+                    elif status.startswith("D"):
+                        lines.append(f"  - `{path}` (deleted)")
+                    else:
+                        lines.append(f"  - `{path}`")
+            if lines:
+                return "\n".join(lines)
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass
+
+    return "  - TODO: list modified files"
+
+
+def _build_evidence_sections(tier: str, scope_lines: str) -> str:
+    """Build evidence section markdown based on risk tier."""
+    sections = []
+
+    # Class E — required for R1+
+    if tier in ("R1", "R2", "R3"):
+        sections.append("""### Class E (Intent Alignment)
+
+- **Link:** TODO: SHA-pinned link to spec/issue/directive
+- **Requirements Verified:**
+  1. TODO: Requirement 1
+  2. TODO: Requirement 2""")
+
+    # Class B — always required
+    sections.append(f"""### Class B (Referential Evidence)
+
+**Scope Inventory (required)**
+
+- Modified:
+{scope_lines}""")
+
+    # Class A — always required
+    sections.append("""### Class A (Execution Evidence)
+
+- TODO: Test results (e.g., "84/84 pytest tests pass")""")
+
+    # Class C — required for R2+
+    if tier in ("R2", "R3"):
+        sections.append("""### Class C (Negative Evidence)
+
+- TODO: No regressions found. Describe search scope and method.""")
+
+    # Class D — required for R3
+    if tier == "R3":
+        sections.append("""### Class D (Differential Evidence)
+
+- TODO: Before/after diff of critical behavior.""")
+
+    # Class F — required for R3, optional R2
+    if tier in ("R2", "R3"):
+        sections.append("""### Class F (Conservation Evidence)
+
+**Claim 3: No regressions**
+- No test files modified or deleted. Full test suite passes.""")
+
+    return "\n\n".join(sections)
+
+
 def _display_findings(findings: list[ValidationFinding], title: str, color: str) -> None:
     """Display findings in a formatted table."""
     table = Table(title=title, border_style=color)
