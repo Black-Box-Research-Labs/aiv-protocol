@@ -95,6 +95,12 @@ class AITellType(str, Enum):
     MISSING_ERROR_HANDLING = "missing_error_handling"
 
 
+class SessionType(str, Enum):
+    """Whether the session is human verification or AI adversarial triage."""
+    HUMAN_VERIFICATION = "human_verification"
+    AI_ADVERSARIAL_TRIAGE = "ai_adversarial_triage"
+
+
 class ValidationSeverity(str, Enum):
     """Severity of SVP validation failures."""
     BLOCK = "block"
@@ -206,7 +212,9 @@ class StateTransition(BaseModel):
 class TraceRecord(BaseModel):
     """
     Record of a Mental Trace (Phase 2).
-    Verifier mentally simulates execution without running code.
+
+    For human verifiers: mental simulation without running code.
+    For AI verifiers (S015): must include verified_output from actual execution.
     """
     model_config = ConfigDict(frozen=True)
 
@@ -221,6 +229,10 @@ class TraceRecord(BaseModel):
 
     edge_case_tested: str = Field(min_length=10)
     predicted_output: str = Field(min_length=1)
+    verified_output: str | None = Field(
+        default=None,
+        description="S015: Actual stdout/return value from execution. Required for AI sessions.",
+    )
 
     confidence: Confidence
     uncertainty_notes: str | None = None
@@ -268,6 +280,10 @@ class FalsificationScenario(BaseModel):
     scenario: str = Field(
         min_length=25,
         description="Evidence that would prove this claim is false",
+    )
+    test_code: str | None = Field(
+        default=None,
+        description="S016: Executable pytest snippet that tests the scenario. Required for AI sessions.",
     )
     checked: bool = False
     result: Literal["confirmed", "falsified", "inconclusive"] = "confirmed"
@@ -407,6 +423,10 @@ class SVPSession(BaseModel):
     pr_number: int = Field(ge=1)
     repository: str
     verifier_id: str = Field(min_length=1)
+    session_type: SessionType = Field(
+        default=SessionType.HUMAN_VERIFICATION,
+        description="Whether this is a human verification or AI adversarial triage session.",
+    )
     packet_ref: str = Field(
         default="",
         description="Verification packet filename this session verifies, e.g. VERIFICATION_PACKET_AIV_IMPLEMENTATION.md",
