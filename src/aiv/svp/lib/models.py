@@ -201,7 +201,6 @@ class StateTransition(BaseModel):
     variable_name: str
     before_value: str
     after_value: str
-    line_number: int | None = None
 
 
 class TraceRecord(BaseModel):

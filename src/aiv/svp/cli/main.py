@@ -177,13 +177,12 @@ def trace(
     transition_var: list[str] = typer.Option([], help="Variable name for state transition (repeatable)"),
     transition_before: list[str] = typer.Option([], help="Value before, paired with --transition-var"),
     transition_after: list[str] = typer.Option([], help="Value after, paired with --transition-var"),
-    transition_line: list[str] = typer.Option([], help="Line number, paired with --transition-var"),
 ) -> None:
     """Record a Mental Trace (Phase 2).
 
     Supports state transitions via repeated options:
         --transition-var result --transition-before None
-        --transition-after "FAIL" --transition-line 107
+        --transition-after "FAIL"
     """
     session = _load_session(pr)
     if session is None:
@@ -200,13 +199,11 @@ def trace(
     for i, (var, before, after) in enumerate(
         zip(transition_var, transition_before, transition_after), start=1
     ):
-        line = int(transition_line[i - 1]) if i - 1 < len(transition_line) and transition_line[i - 1].isdigit() else None
         transitions.append(StateTransition(
             step_number=i,
             variable_name=var,
             before_value=before,
             after_value=after,
-            line_number=line,
         ))
 
     tr = TraceRecord(

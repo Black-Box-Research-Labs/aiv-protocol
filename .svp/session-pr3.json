@@ -30,10 +30,30 @@
       "function_path": "src/aiv/guard/runner.py::GuardRunner.run",
       "trace_notes": "Traced GuardRunner.run for Claims 1-2. Step 1: _resolve_packet() checks PR body for 'Packet Source:' regex, validates path is within .github/, reads file content. Falls back to PR body if no packet source. Step 2: regex search for aiv-canonical-json fenced block. Step 3: _validate_markdown runs aiv-lib ValidationPipeline on packet content (NOT custom regex like JS). Step 4: If no canonical block and not fast-track, warns CT-001 and returns. Step 5: json.loads the canonical block. Step 6: validate_canonical() from canonical.py does the heavy lifting. Step 7: _check_critical_surfaces() iterates _CS_PATH and _CS_SEMANTIC regex lists against changed file paths and patches. Step 8: _inspect_class_a_run() fetches CI run via API, downloads artifact, validates manifest. Step 9: _build_evidence_class_results() builds per-class pass/fail results. PREDICTION COMPARISON: I predicted GuardRunner class orchestrating the pipeline - CONFIRMED. I predicted aiv-lib for markdown validation - CONFIRMED. I predicted urllib-based API without deps - need to verify in github_api.py. OBSERVATION: The Python runner delegates markdown validation to aiv-lib (line 20-21) which is cleaner than the JS guard's inline section checking. However, the Python _CS_SEMANTIC patterns are identical to the JS ones, meaning the same .py file gap exists - semantic patterns are applied to diff patches, not file content. The Python guard does NOT have shouldFetchContentAtHead - it only checks patches from the PR file listing.",
       "state_transitions": [
-        {"step_number": 1, "variable_name": "packet_content", "before_value": "(PR body)", "after_value": "(file content from .github/aiv-packets/...)", "line_number": null},
-        {"step_number": 2, "variable_name": "canonical_block", "before_value": "None", "after_value": "{...} (parsed JSON from aiv-canonical-json fence)", "line_number": null},
-        {"step_number": 3, "variable_name": "changed_file.patch", "before_value": "(expected diff)", "after_value": "'' (empty string for renamed file)", "line_number": null},
-        {"step_number": 4, "variable_name": "_CS_SEMANTIC match on patch", "before_value": "(not tested)", "after_value": "no match (empty string has no content to scan)", "line_number": null}
+        {
+          "step_number": 1,
+          "variable_name": "packet_content",
+          "before_value": "(PR body)",
+          "after_value": "(file content from .github/aiv-packets/...)"
+        },
+        {
+          "step_number": 2,
+          "variable_name": "canonical_block",
+          "before_value": "None",
+          "after_value": "{...} (parsed JSON from aiv-canonical-json fence)"
+        },
+        {
+          "step_number": 3,
+          "variable_name": "changed_file.patch",
+          "before_value": "(expected diff)",
+          "after_value": "'' (empty string for renamed file)"
+        },
+        {
+          "step_number": 4,
+          "variable_name": "_CS_SEMANTIC match on patch",
+          "before_value": "(not tested)",
+          "after_value": "no match (empty string has no content to scan)"
+        }
       ],
       "edge_case_tested": "PR with a renamed file (status='renamed') where the patch is empty",
       "predicted_output": "Critical surface check would miss the file because the patch is empty string and semantic regex has nothing to match against",
@@ -49,13 +69,33 @@
       "function_path": "src/aiv/guard/canonical.py::validate_canonical",
       "trace_notes": "Traced validate_canonical for Claim 2. Step 1: Defines 18 required fields as path arrays (same as JS guard). Step 2: Missing field check - classification_rationale gets WARN (CLS-004), others BLOCK. Step 3: Version pinning: aiv_version and packet_schema_version must be '1.0.0'. Step 4: SHA validation using HEX_SHA_40_OR_64 regex from models.py. Step 5: head_sha and base_sha must match GuardContext values (case-insensitive). Step 6: pr_id must match ctx.pr_number. Step 7: Risk tier must be R0-R3. Step 8: SoD mode check - R2+ requires S1 (CLS-003). Step 9: Attestation validation via _validate_attestation helper. Step 10: known_limitations must be non-empty string array. Step 11: Evidence items validation - each must have id, claim_refs referencing existing claims. Step 12: Claims validation - each must have evidence_refs referencing existing evidence. Step 13: Each claim must have Class B evidence (B-004). Step 14: Required evidence classes per tier from REQUIRED_CLASSES dict. Step 15: Scope inventory validation. Step 16: Immutability checks on evidence links. Step 17: CT-013 falsifiability check (R2+ claims with Class A must have test_refs). COMPARISON TO JS: The Python validate_canonical uses the same early-return pattern as JS. However, the Python version has additional rules not in JS: B-004 (claim must have Class B), CT-013 (falsifiability test_refs). The Python REQUIRED_CLASSES dict matches JS. OBSERVATION: CLS-003 enforces R2+ requires S1 SoD mode, but the sod_mode field is only checked against S1 string literal - S0/S2 are not validated as known values.",
       "state_transitions": [
-        {"step_number": 1, "variable_name": "risk_tier", "before_value": "(from packet)", "after_value": "'R1'", "line_number": null},
-        {"step_number": 2, "variable_name": "sod_mode", "before_value": "(from packet)", "after_value": "'S3'", "line_number": null},
-        {"step_number": 3, "variable_name": "sod_mode not in ('S0', 'S1')", "before_value": "(not evaluated)", "after_value": "True — S3 is not in the allowed set", "line_number": null},
-        {"step_number": 4, "variable_name": "result.add_block('CLS-003')", "before_value": "(not called)", "after_value": "called: 'sod_mode must be S0 or S1 (got: S3)' — returns False immediately, R2+ check never reached", "line_number": null}
+        {
+          "step_number": 1,
+          "variable_name": "risk_tier",
+          "before_value": "(from packet)",
+          "after_value": "'R1'"
+        },
+        {
+          "step_number": 2,
+          "variable_name": "sod_mode",
+          "before_value": "(from packet)",
+          "after_value": "'S3'"
+        },
+        {
+          "step_number": 3,
+          "variable_name": "sod_mode not in ('S0', 'S1')",
+          "before_value": "(not evaluated)",
+          "after_value": "True \u2014 S3 is not in the allowed set"
+        },
+        {
+          "step_number": 4,
+          "variable_name": "result.add_block('CLS-003')",
+          "before_value": "(not called)",
+          "after_value": "called: 'sod_mode must be S0 or S1 (got: S3)' \u2014 returns False immediately, R2+ check never reached"
+        }
       ],
       "edge_case_tested": "Canonical packet with sod_mode='S3' which is not a recognized SoD mode",
-      "predicted_output": "BLOCK with CLS-003: 'sod_mode must be S0 or S1 (got: S3)'. The general sod_mode validation at line ~147 catches unknown modes BEFORE the R2+ specific check at line ~151. AUDIT CORRECTION: Original trace incorrectly claimed S3 would pass silently — the code has a two-layer check.",
+      "predicted_output": "BLOCK with CLS-003: 'sod_mode must be S0 or S1 (got: S3)'. The general sod_mode validation at line ~147 catches unknown modes BEFORE the R2+ specific check at line ~151. AUDIT CORRECTION: Original trace incorrectly claimed S3 would pass silently \u2014 the code has a two-layer check.",
       "confidence": "high",
       "uncertainty_notes": null,
       "created_at": "2026-02-07T03:58:00.444549Z"
@@ -68,9 +108,24 @@
       "function_path": "src/aiv/guard/models.py::GuardResult",
       "trace_notes": "Traced guard models.py for Claim 1. Uses dataclasses (not Pydantic) for guard-specific models. GuardSeverity enum: BLOCK/WARN/INFO. DecisionType enum: COMPLIANT/CONDITIONAL/NON-COMPLIANT. OverallResult enum: PASS/FAIL. GuardFinding dataclass: id, severity, rule_id, description, remediation with to_dict(). RuleResult dataclass: rule_id, result (PASS/FAIL/SKIP), finding_id. EvidenceClassResult dataclass: evidence_class, required, present, valid, findings list. GuardContext dataclass: pr_number, head_sha, base_sha, owner, repo, pr_body, is_draft, run_id, run_url, with full_repo property. GuardResult dataclass: repository, pr_id, head_sha, validated_at, plus findings list, rule_results list, evidence_class_results list, canonical_enabled bool, risk_tier_validated, overall_result. Has add_block/add_warn/add_info methods that auto-generate finding IDs and append to findings list. Has finalize() that sets overall_result based on whether any BLOCK findings exist. Also has to_dict() for JSON serialization. Lines 148-170: Compiled regex patterns - HEX_SHA_40_OR_64, GITHUB_BLOB_FULL_SHA (repo/blob/40hexSHA/path), GITHUB_ACTIONS_RUN (actions/runs/digits), MUTABLE_BRANCH_PATTERN (blob|tree + main/master/develop/dev/staging), GITHUB_BLOB_OR_TREE, LINE_ANCHOR. PREDICTION COMPARISON: I predicted GuardResult/GuardFinding/GuardContext as dataclasses - CONFIRMED. I predicted add_block/add_warn methods - CONFIRMED. I predicted compiled regex patterns - CONFIRMED. OBSERVATION: The mutable branch list in MUTABLE_BRANCH_PATTERN is main/master/develop/dev/staging - same 5 as JS guard. Neither includes 'trunk' or 'HEAD' which the aiv-lib ArtifactLink.from_url does check. This is the same consistency gap noted in PR#2.",
       "state_transitions": [
-        {"step_number": 1, "variable_name": "self.findings", "before_value": "[]", "after_value": "[GuardFinding(severity=WARN, rule_id='CLS-004', ...)]", "line_number": null},
-        {"step_number": 2, "variable_name": "any(f.severity == BLOCK for f in findings)", "before_value": "(not evaluated)", "after_value": "False (only WARN findings exist)", "line_number": null},
-        {"step_number": 3, "variable_name": "self.overall_result", "before_value": "OverallResult.PASS", "after_value": "OverallResult.PASS (unchanged — WARN does not flip to FAIL)", "line_number": null}
+        {
+          "step_number": 1,
+          "variable_name": "self.findings",
+          "before_value": "[]",
+          "after_value": "[GuardFinding(severity=WARN, rule_id='CLS-004', ...)]"
+        },
+        {
+          "step_number": 2,
+          "variable_name": "any(f.severity == BLOCK for f in findings)",
+          "before_value": "(not evaluated)",
+          "after_value": "False (only WARN findings exist)"
+        },
+        {
+          "step_number": 3,
+          "variable_name": "self.overall_result",
+          "before_value": "OverallResult.PASS",
+          "after_value": "OverallResult.PASS (unchanged \u2014 WARN does not flip to FAIL)"
+        }
       ],
       "edge_case_tested": "GuardResult.finalize() called when findings list contains only WARN findings, no BLOCK",
       "predicted_output": "overall_result set to PASS because finalize only checks for BLOCK severity, not WARN",
@@ -86,10 +141,30 @@
       "function_path": "src/aiv/guard/github_api.py::GitHubAPI",
       "trace_notes": "Traced GitHubAPI for Claim 1. Uses only urllib.request (no requests/httpx) - CONFIRMED prediction of no external deps. __init__ reads GITHUB_TOKEN from env. _request() makes authenticated GET with Bearer token, X-GitHub-Api-Version header, 30s timeout. Returns parsed JSON. Raises GitHubAPIError on HTTPError. _request_bytes() same but returns raw bytes with 60s timeout (for artifact downloads). context_from_env() reads GITHUB_EVENT_PATH JSON file for PR payload, GITHUB_REPOSITORY for owner/repo, GITHUB_RUN_ID and GITHUB_SERVER_URL for run URL. list_pr_files() paginates through pulls/{number}/files endpoint (100 per page, max 100 pages). get_workflow_run() fetches actions/runs/{run_id}. download_artifact() fetches artifact zip. PREDICTION COMPARISON: I predicted urllib-based API - CONFIRMED. I predicted token from env - CONFIRMED. I predicted pagination for file listing - CONFIRMED. OBSERVATION: The pagination loop has a MAX_PAGES=100 safety limit (same as JS). With 100 files per page, this caps at 10,000 files per PR. If a PR somehow exceeds this, files would be silently dropped. Also, _request does not implement retry logic for transient failures (429 rate limit, 502 gateway). The JS guard also lacks retries, so this is a faithful port of a shared gap.",
       "state_transitions": [
-        {"step_number": 1, "variable_name": "urlopen(req, timeout=60)", "before_value": "(request sent)", "after_value": "raises HTTPError(code=429)", "line_number": 69},
-        {"step_number": 2, "variable_name": "except HTTPError as e", "before_value": "(not caught)", "after_value": "caught: e.code=429", "line_number": 71},
-        {"step_number": 3, "variable_name": "raise GitHubAPIError", "before_value": "(not raised)", "after_value": "GitHubAPIError('GitHub API request failed: ...url... (429)', status_code=429)", "line_number": 72},
-        {"step_number": 4, "variable_name": "retry attempted", "before_value": "N/A", "after_value": "No — no retry/backoff logic exists. Error propagates immediately.", "line_number": null}
+        {
+          "step_number": 1,
+          "variable_name": "urlopen(req, timeout=60)",
+          "before_value": "(request sent)",
+          "after_value": "raises HTTPError(code=429)"
+        },
+        {
+          "step_number": 2,
+          "variable_name": "except HTTPError as e",
+          "before_value": "(not caught)",
+          "after_value": "caught: e.code=429"
+        },
+        {
+          "step_number": 3,
+          "variable_name": "raise GitHubAPIError",
+          "before_value": "(not raised)",
+          "after_value": "GitHubAPIError('GitHub API request failed: ...url... (429)', status_code=429)"
+        },
+        {
+          "step_number": 4,
+          "variable_name": "retry attempted",
+          "before_value": "N/A",
+          "after_value": "No \u2014 no retry/backoff logic exists. Error propagates immediately."
+        }
       ],
       "edge_case_tested": "GitHub API returns 429 Too Many Requests during artifact download",
       "predicted_output": "HTTPError caught, GitHubAPIError raised with status_code=429, but no retry or backoff - the guard fails permanently on the first rate limit hit",
@@ -105,10 +180,30 @@
       "function_path": "src/aiv/guard/manifest.py::validate_class_a_manifest",
       "trace_notes": "Traced manifest.py for Claim 1. validate_class_a_manifest takes a parsed JSON dict, pr_head_sha, and repo. Returns list of error strings (empty=pass). Validates: schema_version must be '1.0.0', head_sha must match PR head (case-insensitive), run object must have matching repository and non-empty run_id, execution_environment must have os.name/os.release/node/npm, test_results must have int pass/fail/skip, test_list must be non-empty array, executed_checks must be non-empty array. PREDICTION COMPARISON: I predicted manifest schema validation - CONFIRMED. I predicted class_a_execution.json fields - CONFIRMED (schema_version, head_sha, run, test_results, test_list). I did NOT predict execution_environment requiring node/npm (this is JS/Astro-specific from the verify-architecture workflow). OBSERVATION: The manifest validator requires node and npm fields in execution_environment, which makes sense for the Astro site build but would fail for a pure Python project. This is a hardcoded assumption about the build tool. Also, validate_class_c_manifest (later in file) validates class_c_negative.json with search_scope, search_method, patterns_enumerated, and results fields. Both manifest validators return error strings rather than structured findings - the runner must convert these to GuardFindings.",
       "state_transitions": [
-        {"step_number": 1, "variable_name": "tr = manifest.get('test_results')", "before_value": "(from JSON)", "after_value": "{pass: 0, fail: 0, skip: 0}", "line_number": 64},
-        {"step_number": 2, "variable_name": "isinstance(tr, dict)", "before_value": "(not checked)", "after_value": "True", "line_number": 65},
-        {"step_number": 3, "variable_name": "_is_int(tr.get('pass'))", "before_value": "(not checked)", "after_value": "True (0 is an int)", "line_number": 69},
-        {"step_number": 4, "variable_name": "errors", "before_value": "[]", "after_value": "[] (all checks pass — zero tests is valid)", "line_number": null}
+        {
+          "step_number": 1,
+          "variable_name": "tr = manifest.get('test_results')",
+          "before_value": "(from JSON)",
+          "after_value": "{pass: 0, fail: 0, skip: 0}"
+        },
+        {
+          "step_number": 2,
+          "variable_name": "isinstance(tr, dict)",
+          "before_value": "(not checked)",
+          "after_value": "True"
+        },
+        {
+          "step_number": 3,
+          "variable_name": "_is_int(tr.get('pass'))",
+          "before_value": "(not checked)",
+          "after_value": "True (0 is an int)"
+        },
+        {
+          "step_number": 4,
+          "variable_name": "errors",
+          "before_value": "[]",
+          "after_value": "[] (all checks pass \u2014 zero tests is valid)"
+        }
       ],
       "edge_case_tested": "class_a_execution.json with test_results.pass=0, test_results.fail=0, test_results.skip=0 (all zeros)",
       "predicted_output": "Validation passes because the check only requires integers, not positive integers. Zero tests passing would be reported as valid.",
