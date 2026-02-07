@@ -9,6 +9,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 
+from pydantic import ValidationError
+
 from ..models import (
     EvidenceClass,
     RiskTier,
@@ -21,6 +23,7 @@ from ..models import (
 )
 from ..parser import PacketParser
 from ..config import AIVConfig
+from ..errors import PacketParseError
 from .structure import StructureValidator
 from .evidence import EvidenceValidator
 from .links import LinkValidator
@@ -95,7 +98,7 @@ class ValidationPipeline:
                     all_warnings.append(finding)
                 else:
                     all_info.append(finding)
-        except Exception as e:
+        except (PacketParseError, ValidationError) as e:
             all_errors.append(ValidationFinding(
                 rule_id="E001",
                 severity=Severity.BLOCK,
@@ -175,12 +178,12 @@ class ValidationPipeline:
         RiskTier.R0: {EvidenceClass.EXECUTION, EvidenceClass.REFERENTIAL},
         RiskTier.R1: {EvidenceClass.EXECUTION, EvidenceClass.REFERENTIAL, EvidenceClass.INTENT},
         RiskTier.R2: {EvidenceClass.EXECUTION, EvidenceClass.REFERENTIAL, EvidenceClass.INTENT, EvidenceClass.NEGATIVE},
-        RiskTier.R3: {EvidenceClass.EXECUTION, EvidenceClass.REFERENTIAL, EvidenceClass.INTENT, EvidenceClass.NEGATIVE, EvidenceClass.STATE, EvidenceClass.CONSERVATION},
+        RiskTier.R3: {EvidenceClass.EXECUTION, EvidenceClass.REFERENTIAL, EvidenceClass.INTENT, EvidenceClass.NEGATIVE, EvidenceClass.DIFFERENTIAL, EvidenceClass.PROVENANCE},
     }
     _TIER_OPTIONAL: dict[RiskTier, set[EvidenceClass]] = {
         RiskTier.R0: set(),
         RiskTier.R1: {EvidenceClass.NEGATIVE},
-        RiskTier.R2: {EvidenceClass.STATE, EvidenceClass.CONSERVATION},
+        RiskTier.R2: {EvidenceClass.DIFFERENTIAL, EvidenceClass.PROVENANCE},
         RiskTier.R3: set(),
     }
 
@@ -210,7 +213,7 @@ class ValidationPipeline:
         for ev_class in required:
             if ev_class not in present_classes:
                 findings.append(ValidationFinding(
-                    rule_id="E014",
+                    rule_id="E019",
                     severity=Severity.BLOCK,
                     message=(
                         f"Risk tier {tier.value} requires Class {ev_class.value} "
@@ -223,7 +226,7 @@ class ValidationPipeline:
         for ev_class in optional:
             if ev_class not in present_classes:
                 findings.append(ValidationFinding(
-                    rule_id="E014",
+                    rule_id="E020",
                     severity=Severity.INFO,
                     message=(
                         f"Risk tier {tier.value}: Class {ev_class.value} "

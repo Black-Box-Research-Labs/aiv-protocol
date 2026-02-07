@@ -59,6 +59,7 @@ classification:
   - `src/aiv/lib/models.py` — Rename STATE→DIFFERENTIAL, CONSERVATION→PROVENANCE, has_conservation→has_provenance (Rec #13)
   - `src/aiv/lib/config.py` — Wire ConfigurationError into from_file() (Rec #10)
   - `src/aiv/lib/parser.py` — Delete legacy _build_intent_from_legacy (L12/D09), make stateless (Rec #18)
+  - `src/aiv/lib/validators/pipeline.py` — Narrow except (L09), split E014→E019/E020 (L10), update tier refs
 - Created: (committed incrementally below)
 - Deleted: (committed incrementally below)
 
