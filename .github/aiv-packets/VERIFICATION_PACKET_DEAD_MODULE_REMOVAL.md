@@ -1,6 +1,6 @@
 # AIV Verification Packet (v2.1)
 
-**Commit:** `pending`  
+**Commit:** `e06ee44`  
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
 ---
@@ -31,7 +31,7 @@ classification:
 
 ### Class E (Intent Alignment)
 
-- **Link:** AUDIT_REPORT.md — Findings D01, D02, D03.
+- **Link:** [AUDIT_REPORT.md — Findings D01, D02, D03.](https://github.com/ImmortalDemonGod/aiv-protocol/blob/e06ee44/AUDIT_REPORT.md)
 - **Requirements Verified:**
   1. ✅ guard/security.py has 0 callers (grep confirmed)
   2. ✅ analyzers/diff.py has 0 callers (grep confirmed)
