@@ -51,11 +51,11 @@
       "state_transitions": [
         {"step_number": 1, "variable_name": "risk_tier", "before_value": "(from packet)", "after_value": "'R1'", "line_number": null},
         {"step_number": 2, "variable_name": "sod_mode", "before_value": "(from packet)", "after_value": "'S3'", "line_number": null},
-        {"step_number": 3, "variable_name": "R2+ check (risk_tier in ('R2','R3'))", "before_value": "(not evaluated)", "after_value": "false (R1 is not R2+)", "line_number": 151},
-        {"step_number": 4, "variable_name": "CLS-003 triggered", "before_value": "(not evaluated)", "after_value": "false (skipped because not R2+) — S3 passes silently", "line_number": null}
+        {"step_number": 3, "variable_name": "sod_mode not in ('S0', 'S1')", "before_value": "(not evaluated)", "after_value": "True — S3 is not in the allowed set", "line_number": null},
+        {"step_number": 4, "variable_name": "result.add_block('CLS-003')", "before_value": "(not called)", "after_value": "called: 'sod_mode must be S0 or S1 (got: S3)' — returns False immediately, R2+ check never reached", "line_number": null}
       ],
       "edge_case_tested": "Canonical packet with sod_mode='S3' which is not a recognized SoD mode",
-      "predicted_output": "No error - the code only checks if R2+ has S1, it does not validate sod_mode against a known set. S3 would pass for R0/R1 and fail for R2+ with CLS-003 (wrong message: says 'requires S1' not 'unknown sod_mode')",
+      "predicted_output": "BLOCK with CLS-003: 'sod_mode must be S0 or S1 (got: S3)'. The general sod_mode validation at line ~147 catches unknown modes BEFORE the R2+ specific check at line ~151. AUDIT CORRECTION: Original trace incorrectly claimed S3 would pass silently — the code has a two-layer check.",
       "confidence": "high",
       "uncertainty_notes": null,
       "created_at": "2026-02-07T03:58:00.444549Z"
