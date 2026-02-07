@@ -228,6 +228,19 @@ class TestTodoRemnants:
         assert len(todo_findings) == 0
 
 
+    def test_todo_finding_type_name_not_flagged(self, tmp_path: Path):
+        """Lines listing auditor finding types (COMMIT_PENDING, TODO remnants) should not trigger."""
+        body = MINIMAL_CLEAN_PACKET.replace(
+            "1. Added a new feature to the system.",
+            "1. Auditor detects COMMIT_PENDING, CLASS_E_NO_URL, TODO remnants, and missing Class F.",
+        )
+        _write_packet(tmp_path, "VERIFICATION_PACKET_META2.md", body)
+        auditor = PacketAuditor()
+        result = auditor.audit(tmp_path)
+        todo_findings = [f for f in result.findings if f.finding_type == "TODO_PRESENT"]
+        assert len(todo_findings) == 0
+
+
 class TestFixNoclassF:
     """Detect bug-fix claims without Class F provenance evidence."""
 
@@ -242,6 +255,18 @@ class TestFixNoclassF:
         f_findings = [f for f in result.findings if f.finding_type == "FIX_NO_CLASS_F"]
         assert len(f_findings) == 1
         assert f_findings[0].severity == AuditSeverity.ERROR
+
+    def test_autofix_claim_not_flagged(self, tmp_path: Path):
+        """Claims mentioning 'auto-fix' (a feature name) should not trigger FIX_NO_CLASS_F."""
+        body = MINIMAL_CLEAN_PACKET.replace(
+            "1. Added a new feature to the system.",
+            "1. Added auto-fix mode for COMMIT_PENDING and CLASS_E_NO_URL auto-remediation.",
+        )
+        _write_packet(tmp_path, "VERIFICATION_PACKET_AUTOFIX.md", body)
+        auditor = PacketAuditor()
+        result = auditor.audit(tmp_path)
+        f_findings = [f for f in result.findings if f.finding_type == "FIX_NO_CLASS_F"]
+        assert len(f_findings) == 0
 
     def test_fix_claim_with_class_f_passes(self, tmp_path: Path):
         body = MINIMAL_CLEAN_PACKET.replace(
