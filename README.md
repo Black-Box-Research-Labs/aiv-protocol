@@ -37,7 +37,7 @@ The **v1.0 kernel** of this codebase — the parser, validators, guard, SVP suit
 | Config (yml, toml, json) | **4,916 lines** across 9 files |
 | **Total output** | **33,725 lines** across 143 files |
 | Tests passing | **454** (unit + integration) |
-| Verification packets | **75** (+ 1 template) |
+| Verification packets | **74** (+ 2 templates) |
 
 47% of total output was verification artifacts. The other 53% — source code and tests — was higher quality *because* of it. Every number is reproducible from `git log`. Stats reflect the `v1.0-genesis` tag.
 
