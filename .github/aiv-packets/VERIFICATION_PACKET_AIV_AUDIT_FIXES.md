@@ -56,6 +56,7 @@ classification:
 
 - Modified:
   - `src/aiv/lib/errors.py` — Remove unused PacketValidationError, EvidenceResolutionError (D04, Rec #10/#25)
+  - `src/aiv/lib/models.py` — Rename STATE→DIFFERENTIAL, CONSERVATION→PROVENANCE, has_conservation→has_provenance (Rec #13)
 - Created: (committed incrementally below)
 - Deleted: (committed incrementally below)
 

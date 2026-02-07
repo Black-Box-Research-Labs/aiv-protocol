@@ -28,16 +28,16 @@ class EvidenceClass(str, Enum):
     - A: Behavior (execution)
     - B: Structure (code references)
     - C: Safety (negative evidence)
-    - D: Impact (state changes)
+    - D: Differential (state changes)
     - E: Alignment (intent)
-    - F: Conservation (non-regression)
+    - F: Provenance (integrity)
     """
     EXECUTION = "A"
     REFERENTIAL = "B"
     NEGATIVE = "C"
-    STATE = "D"
+    DIFFERENTIAL = "D"
     INTENT = "E"
-    CONSERVATION = "F"
+    PROVENANCE = "F"
 
     @classmethod
     def from_string(cls, value: str) -> EvidenceClass:
@@ -282,9 +282,9 @@ class VerificationPacket(BaseModel):
         return links
 
     @property
-    def has_conservation_evidence(self) -> bool:
-        """Check if packet includes Class F evidence."""
-        return any(c.evidence_class == EvidenceClass.CONSERVATION for c in self.claims)
+    def has_provenance_evidence(self) -> bool:
+        """Check if packet includes Class F (Provenance) evidence."""
+        return any(c.evidence_class == EvidenceClass.PROVENANCE for c in self.claims)
 
 
 class ValidationFinding(BaseModel):
