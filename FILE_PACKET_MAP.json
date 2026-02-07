@@ -1,5 +1,221 @@
 {
   "file_to_packets": {
+    "tests/integration/test_e2e_compliance.py": [
+      {
+        "packet": "CRITIQUE_FIXES",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_CRITIQUE_FIXES.md",
+        "commit": "ffd62ca",
+        "subject": "test: add --skip-checks to generate roundtrip test to avoid timeout"
+      },
+      {
+        "packet": "CI_LINT_FORMAT",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_CI_LINT_FORMAT.md",
+        "commit": "245e786",
+        "subject": "style(tests): format test_e2e_compliance.py"
+      },
+      {
+        "packet": "FALSIFIABILITY_CT013",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_FALSIFIABILITY_CT013.md",
+        "commit": "90557ff",
+        "subject": "feat(guard): add CT-013 canonical rule for claim-to-test falsifiability mapping (Phase 3)"
+      },
+      {
+        "packet": "CRITIQUE_TEST_GAPS",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_CRITIQUE_TEST_GAPS.md",
+        "commit": "dd4daf0",
+        "subject": "test(e2e): add 6 tests closing critique gaps: stale packet, context-shifting, tier escalation, coherence"
+      },
+      {
+        "packet": "E2E_TEST_FIXES",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_E2E_TEST_FIXES.md",
+        "commit": "5998e73",
+        "subject": "test(e2e): fix L2-07 Class F linkage, L4-01 parseability, L4-03 Class E assertion"
+      },
+      {
+        "packet": "E2E_COMPLIANCE_TESTS",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_E2E_COMPLIANCE_TESTS.md",
+        "commit": "dca3d1f",
+        "subject": "test(e2e): add E2E compliance test suite with 6 validation layers (39 test cases)"
+      }
+    ],
+    "src/aiv/lib/validators/evidence.py": [
+      {
+        "packet": "CRITIQUE_FIXES",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_CRITIQUE_FIXES.md",
+        "commit": "7e6c6bb",
+        "subject": "feat(validators): add file-type triggers for Class D evidence (E021/E022)"
+      },
+      {
+        "packet": "CI_LINT_FORMAT",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_CI_LINT_FORMAT.md",
+        "commit": "a4617d2",
+        "subject": "style: format and fix lint in evidence.py"
+      },
+      {
+        "packet": "EVIDENCE_COHERENCE_E020",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_EVIDENCE_COHERENCE_E020.md",
+        "commit": "0d6b1ea",
+        "subject": "feat(evidence): add E020 rule for Class A evidence coherence (code blob vs CI run)"
+      },
+      {
+        "packet": "AIV_AUDIT_FIXES",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_AIV_AUDIT_FIXES.md",
+        "commit": "c26371a",
+        "subject": "fix(evidence): rename _validate_state->_validate_differential, _validate_conservation->_validate_provenance (Rec #13)"
+      },
+      {
+        "packet": "CLI_CLEANUP",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_CLI_CLEANUP.md",
+        "commit": "8a50936",
+        "subject": "fix(zero-touch): extract Verification Methodology + strip code blocks + compliance phrases (L05)"
+      },
+      {
+        "packet": "EVIDENCE_RULES",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_EVIDENCE_RULES.md",
+        "commit": "8a50936",
+        "subject": "fix(zero-touch): extract Verification Methodology + strip code blocks + compliance phrases (L05)"
+      },
+      {
+        "packet": "PARSER_ENRICHMENT",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_PARSER_ENRICHMENT.md",
+        "commit": "8a50936",
+        "subject": "fix(zero-touch): extract Verification Methodology + strip code blocks + compliance phrases (L05)"
+      },
+      {
+        "packet": "ZEROTOUCH_FIX",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_ZEROTOUCH_FIX.md",
+        "commit": "8a50936",
+        "subject": "fix(zero-touch): extract Verification Methodology + strip code blocks + compliance phrases (L05)"
+      },
+      {
+        "packet": "EVIDENCE_RULES",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_EVIDENCE_RULES.md",
+        "commit": "8f70926",
+        "subject": "fix(evidence): unique rule IDs E015-E018 + word-boundary bug-fix heuristic (L03, L04)"
+      },
+      {
+        "packet": "EVIDENCE_VALIDATOR",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_EVIDENCE_VALIDATOR.md",
+        "commit": "7fb04c2",
+        "subject": "fix(validators): expand E007 keywords for scope inventory recognition"
+      },
+      {
+        "packet": "EVIDENCE_VALIDATOR",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_EVIDENCE_VALIDATOR.md",
+        "commit": "67f7580",
+        "subject": "Add src/aiv/lib/validators/evidence.py: evidence class-specific validator (Classes A-F)"
+      }
+    ],
+    "src/aiv/cli/main.py": [
+      {
+        "packet": "CRITIQUE_FIXES",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_CRITIQUE_FIXES.md",
+        "commit": "adae01d",
+        "subject": "feat(cli): auto-populate generate with git context, CI URLs, and local check results"
+      },
+      {
+        "packet": "CI_LINT_FORMAT",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_CI_LINT_FORMAT.md",
+        "commit": "fea5aed",
+        "subject": "style: format and fix lint in main.py"
+      },
+      {
+        "packet": "FALSIFIABILITY_GUIDED_GEN",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_FALSIFIABILITY_GUIDED_GEN.md",
+        "commit": "464c063",
+        "subject": "feat(cli): update aiv generate with assertive falsifiable claim template (Phase 1)"
+      },
+      {
+        "packet": "AUDIT_CLI_COMMAND",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_AUDIT_CLI_COMMAND.md",
+        "commit": "bc3982e",
+        "subject": "feat(cli): add 'aiv audit' command with Rich table output and --fix flag"
+      },
+      {
+        "packet": "GENERATOR_CLASS_E_FIX",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_GENERATOR_CLASS_E_FIX.md",
+        "commit": "8b8f941",
+        "subject": "fix(cli): always include Class E in generated scaffolds (parser requires it)"
+      },
+      {
+        "packet": "AIV_AUDIT_FIXES",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_AIV_AUDIT_FIXES.md",
+        "commit": "4784c47",
+        "subject": "fix(cli): fix frozen model mutation (S2.15), update SVP import path (Rec #24), Provenance label"
+      },
+      {
+        "packet": "SVP_IMPL",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_SVP_IMPL.md",
+        "commit": "3842564",
+        "subject": "feat(svp): implement SVP Protocol Suite — models, validators, CLI (§7.5 P4)"
+      },
+      {
+        "packet": "GENERATE_CMD",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_GENERATE_CMD.md",
+        "commit": "d56b589",
+        "subject": "feat(cli): add 'aiv generate' command for packet scaffolding (§7.5 P3)"
+      },
+      {
+        "packet": "CLI_CLEANUP",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_CLI_CLEANUP.md",
+        "commit": "9214766",
+        "subject": "chore(cli): remove 7 unused imports + fix init docstring (D06)"
+      },
+      {
+        "packet": "CLI_MAIN",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_CLI_MAIN.md",
+        "commit": "3665936",
+        "subject": "Add src/aiv/cli/main.py: CLI entry point with check and init commands"
+      }
+    ],
+    ".husky/pre-commit": [
+      {
+        "packet": "CRITIQUE_FIXES",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_CRITIQUE_FIXES.md",
+        "commit": "5ced0b3",
+        "subject": "feat(hook): wire aiv check into pre-commit for real packet validation"
+      },
+      {
+        "packet": "SNAPSHOT_WINDOWS_FIX",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_SNAPSHOT_WINDOWS_FIX.md",
+        "commit": "0b00c63",
+        "subject": "fix(hook): replace tar with portable cp loop for safety snapshots (Windows compat)"
+      },
+      {
+        "packet": "PRECOMMIT_HOOK_FIX",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_PRECOMMIT_HOOK_FIX.md",
+        "commit": "b25af40",
+        "subject": "fix(hook): demote tar snapshot failure from fatal to warning (Windows compat)"
+      },
+      {
+        "packet": "PRECOMMIT",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_PRECOMMIT.md",
+        "commit": "c4128a1",
+        "subject": "infra: add AIV atomic commit pre-commit hook"
+      }
+    ],
+    ".github/workflows/aiv-guard.yml": [
+      {
+        "packet": "CRITIQUE_FIXES",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_CRITIQUE_FIXES.md",
+        "commit": "9955e75",
+        "subject": "ci: disable legacy 2244-line JS guard (split-brain elimination)"
+      },
+      {
+        "packet": "AIV_GUARD",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_AIV_GUARD.md",
+        "commit": "60ea728",
+        "subject": "ci: add AIV guard PR validation workflow"
+      }
+    ],
+    "scripts/map_packets.py": [
+      {
+        "packet": "FILE_PACKET_MAP",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_FILE_PACKET_MAP.md",
+        "commit": "f3202e4",
+        "subject": "feat(tools): add source-file-to-verification-packet mapping script"
+      }
+    ],
     "src/aiv/guard/manifest.py": [
       {
         "packet": "EVIDENCE_PIPELINE",
@@ -262,38 +478,6 @@
         "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_TEST_WORKFLOW.md",
         "commit": "12147f1",
         "subject": "Add tests/integration/test_full_workflow.py: end-to-end pipeline integration tests"
-      }
-    ],
-    "tests/integration/test_e2e_compliance.py": [
-      {
-        "packet": "CI_LINT_FORMAT",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_CI_LINT_FORMAT.md",
-        "commit": "245e786",
-        "subject": "style(tests): format test_e2e_compliance.py"
-      },
-      {
-        "packet": "FALSIFIABILITY_CT013",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_FALSIFIABILITY_CT013.md",
-        "commit": "90557ff",
-        "subject": "feat(guard): add CT-013 canonical rule for claim-to-test falsifiability mapping (Phase 3)"
-      },
-      {
-        "packet": "CRITIQUE_TEST_GAPS",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_CRITIQUE_TEST_GAPS.md",
-        "commit": "dd4daf0",
-        "subject": "test(e2e): add 6 tests closing critique gaps: stale packet, context-shifting, tier escalation, coherence"
-      },
-      {
-        "packet": "E2E_TEST_FIXES",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_E2E_TEST_FIXES.md",
-        "commit": "5998e73",
-        "subject": "test(e2e): fix L2-07 Class F linkage, L4-01 parseability, L4-03 Class E assertion"
-      },
-      {
-        "packet": "E2E_COMPLIANCE_TESTS",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_E2E_COMPLIANCE_TESTS.md",
-        "commit": "dca3d1f",
-        "subject": "test(e2e): add E2E compliance test suite with 6 validation layers (39 test cases)"
       }
     ],
     "tests/conftest.py": [
@@ -588,68 +772,6 @@
         "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_LINKS_VALIDATOR.md",
         "commit": "12b2287",
         "subject": "Add src/aiv/lib/validators/links.py: link immutability validator (Addendum 2.2)"
-      }
-    ],
-    "src/aiv/lib/validators/evidence.py": [
-      {
-        "packet": "CI_LINT_FORMAT",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_CI_LINT_FORMAT.md",
-        "commit": "a4617d2",
-        "subject": "style: format and fix lint in evidence.py"
-      },
-      {
-        "packet": "EVIDENCE_COHERENCE_E020",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_EVIDENCE_COHERENCE_E020.md",
-        "commit": "0d6b1ea",
-        "subject": "feat(evidence): add E020 rule for Class A evidence coherence (code blob vs CI run)"
-      },
-      {
-        "packet": "AIV_AUDIT_FIXES",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_AIV_AUDIT_FIXES.md",
-        "commit": "c26371a",
-        "subject": "fix(evidence): rename _validate_state->_validate_differential, _validate_conservation->_validate_provenance (Rec #13)"
-      },
-      {
-        "packet": "CLI_CLEANUP",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_CLI_CLEANUP.md",
-        "commit": "8a50936",
-        "subject": "fix(zero-touch): extract Verification Methodology + strip code blocks + compliance phrases (L05)"
-      },
-      {
-        "packet": "EVIDENCE_RULES",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_EVIDENCE_RULES.md",
-        "commit": "8a50936",
-        "subject": "fix(zero-touch): extract Verification Methodology + strip code blocks + compliance phrases (L05)"
-      },
-      {
-        "packet": "PARSER_ENRICHMENT",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_PARSER_ENRICHMENT.md",
-        "commit": "8a50936",
-        "subject": "fix(zero-touch): extract Verification Methodology + strip code blocks + compliance phrases (L05)"
-      },
-      {
-        "packet": "ZEROTOUCH_FIX",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_ZEROTOUCH_FIX.md",
-        "commit": "8a50936",
-        "subject": "fix(zero-touch): extract Verification Methodology + strip code blocks + compliance phrases (L05)"
-      },
-      {
-        "packet": "EVIDENCE_RULES",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_EVIDENCE_RULES.md",
-        "commit": "8f70926",
-        "subject": "fix(evidence): unique rule IDs E015-E018 + word-boundary bug-fix heuristic (L03, L04)"
-      },
-      {
-        "packet": "EVIDENCE_VALIDATOR",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_EVIDENCE_VALIDATOR.md",
-        "commit": "7fb04c2",
-        "subject": "fix(validators): expand E007 keywords for scope inventory recognition"
-      },
-      {
-        "packet": "EVIDENCE_VALIDATOR",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_EVIDENCE_VALIDATOR.md",
-        "commit": "67f7580",
-        "subject": "Add src/aiv/lib/validators/evidence.py: evidence class-specific validator (Classes A-F)"
       }
     ],
     "src/aiv/lib/validators/anti_cheat.py": [
@@ -968,62 +1090,6 @@
         "subject": "Add src/aiv/guard/__init__.py: guard subpackage"
       }
     ],
-    "src/aiv/cli/main.py": [
-      {
-        "packet": "CI_LINT_FORMAT",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_CI_LINT_FORMAT.md",
-        "commit": "fea5aed",
-        "subject": "style: format and fix lint in main.py"
-      },
-      {
-        "packet": "FALSIFIABILITY_GUIDED_GEN",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_FALSIFIABILITY_GUIDED_GEN.md",
-        "commit": "464c063",
-        "subject": "feat(cli): update aiv generate with assertive falsifiable claim template (Phase 1)"
-      },
-      {
-        "packet": "AUDIT_CLI_COMMAND",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_AUDIT_CLI_COMMAND.md",
-        "commit": "bc3982e",
-        "subject": "feat(cli): add 'aiv audit' command with Rich table output and --fix flag"
-      },
-      {
-        "packet": "GENERATOR_CLASS_E_FIX",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_GENERATOR_CLASS_E_FIX.md",
-        "commit": "8b8f941",
-        "subject": "fix(cli): always include Class E in generated scaffolds (parser requires it)"
-      },
-      {
-        "packet": "AIV_AUDIT_FIXES",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_AIV_AUDIT_FIXES.md",
-        "commit": "4784c47",
-        "subject": "fix(cli): fix frozen model mutation (S2.15), update SVP import path (Rec #24), Provenance label"
-      },
-      {
-        "packet": "SVP_IMPL",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_SVP_IMPL.md",
-        "commit": "3842564",
-        "subject": "feat(svp): implement SVP Protocol Suite — models, validators, CLI (§7.5 P4)"
-      },
-      {
-        "packet": "GENERATE_CMD",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_GENERATE_CMD.md",
-        "commit": "d56b589",
-        "subject": "feat(cli): add 'aiv generate' command for packet scaffolding (§7.5 P3)"
-      },
-      {
-        "packet": "CLI_CLEANUP",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_CLI_CLEANUP.md",
-        "commit": "9214766",
-        "subject": "chore(cli): remove 7 unused imports + fix init docstring (D06)"
-      },
-      {
-        "packet": "CLI_MAIN",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_CLI_MAIN.md",
-        "commit": "3665936",
-        "subject": "Add src/aiv/cli/main.py: CLI entry point with check and init commands"
-      }
-    ],
     "src/aiv/__init__.py": [
       {
         "packet": "CI_LINT_FORMAT",
@@ -1052,26 +1118,6 @@
         "subject": "feat(guard): refactor 2244-line JS guard to Python module (§7.5 P2)"
       }
     ],
-    ".husky/pre-commit": [
-      {
-        "packet": "SNAPSHOT_WINDOWS_FIX",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_SNAPSHOT_WINDOWS_FIX.md",
-        "commit": "0b00c63",
-        "subject": "fix(hook): replace tar with portable cp loop for safety snapshots (Windows compat)"
-      },
-      {
-        "packet": "PRECOMMIT_HOOK_FIX",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_PRECOMMIT_HOOK_FIX.md",
-        "commit": "b25af40",
-        "subject": "fix(hook): demote tar snapshot failure from fatal to warning (Windows compat)"
-      },
-      {
-        "packet": "PRECOMMIT",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_PRECOMMIT.md",
-        "commit": "c4128a1",
-        "subject": "infra: add AIV atomic commit pre-commit hook"
-      }
-    ],
     "pyproject.toml": [
       {
         "packet": "AIV_AUDIT_FIXES",
@@ -1090,62 +1136,6 @@
         "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_PYPROJECT.md",
         "commit": "2c3d2eb",
         "subject": "Update pyproject.toml: lower Python requirement to >=3.10 for compatibility"
-      }
-    ],
-    "src/svp/lib/validators/session.py": [
-      {
-        "packet": "AIV_AUDIT_FIXES",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_AIV_AUDIT_FIXES.md",
-        "commit": "592b54a",
-        "subject": "fix(svp): delete old src/svp/lib/validators/session.py (Rec #24)"
-      }
-    ],
-    "src/svp/lib/validators/__init__.py": [
-      {
-        "packet": "AIV_AUDIT_FIXES",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_AIV_AUDIT_FIXES.md",
-        "commit": "41d9b88",
-        "subject": "fix(svp): delete old src/svp/lib/validators/__init__.py (Rec #24)"
-      }
-    ],
-    "src/svp/lib/models.py": [
-      {
-        "packet": "AIV_AUDIT_FIXES",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_AIV_AUDIT_FIXES.md",
-        "commit": "9a94125",
-        "subject": "fix(svp): delete old src/svp/lib/models.py (Rec #24)"
-      }
-    ],
-    "src/svp/lib/__init__.py": [
-      {
-        "packet": "AIV_AUDIT_FIXES",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_AIV_AUDIT_FIXES.md",
-        "commit": "513351a",
-        "subject": "fix(svp): delete old src/svp/lib/__init__.py (Rec #24)"
-      }
-    ],
-    "src/svp/cli/main.py": [
-      {
-        "packet": "AIV_AUDIT_FIXES",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_AIV_AUDIT_FIXES.md",
-        "commit": "694a960",
-        "subject": "fix(svp): delete old src/svp/cli/main.py (Rec #24)"
-      }
-    ],
-    "src/svp/cli/__init__.py": [
-      {
-        "packet": "AIV_AUDIT_FIXES",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_AIV_AUDIT_FIXES.md",
-        "commit": "191f034",
-        "subject": "fix(svp): delete old src/svp/cli/__init__.py (Rec #24)"
-      }
-    ],
-    "src/svp/__init__.py": [
-      {
-        "packet": "AIV_AUDIT_FIXES",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_AIV_AUDIT_FIXES.md",
-        "commit": "4e87dcb",
-        "subject": "fix(svp): delete old src/svp/__init__.py (Rec #24)"
       }
     ],
     "src/aiv/svp/lib/validators/__init__.py": [
@@ -1204,68 +1194,12 @@
         "subject": "feat(svp): implement SVP Protocol Suite — models, validators, CLI (§7.5 P4)"
       }
     ],
-    "src/aiv/lib/analyzers/__init__.py": [
-      {
-        "packet": "AIV_AUDIT_FIXES",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_AIV_AUDIT_FIXES.md",
-        "commit": "e1ebeb7",
-        "subject": "fix(lib): delete empty analyzers/ package (D12)"
-      },
-      {
-        "packet": "ANALYZERS_INIT",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_ANALYZERS_INIT.md",
-        "commit": "aa2a1ec",
-        "subject": "Add src/aiv/lib/analyzers/__init__.py: analyzers subpackage"
-      }
-    ],
     "src/aiv/guard/__main__.py": [
       {
         "packet": "GUARD_REFACTOR",
         "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_GUARD_REFACTOR.md",
         "commit": "779b9d2",
         "subject": "feat(guard): refactor 2244-line JS guard to Python module (§7.5 P2)"
-      }
-    ],
-    "src/aiv/guard/security.py": [
-      {
-        "packet": "DEAD_MODULE_REMOVAL",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_DEAD_MODULE_REMOVAL.md",
-        "commit": "e06ee44",
-        "subject": "chore: remove 3 dead modules — security.py, diff.py, exceptions.py (D01-D03)"
-      },
-      {
-        "packet": "SECURITY",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_SECURITY.md",
-        "commit": "cc9905f",
-        "subject": "Add src/aiv/guard/security.py: security utilities for GitHub Action guard"
-      }
-    ],
-    "src/aiv/lib/analyzers/diff.py": [
-      {
-        "packet": "DEAD_MODULE_REMOVAL",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_DEAD_MODULE_REMOVAL.md",
-        "commit": "e06ee44",
-        "subject": "chore: remove 3 dead modules — security.py, diff.py, exceptions.py (D01-D03)"
-      },
-      {
-        "packet": "DIFF_ANALYZER",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_DIFF_ANALYZER.md",
-        "commit": "cd78eda",
-        "subject": "Add src/aiv/lib/analyzers/diff.py: diff analyzer with critical surface detection"
-      }
-    ],
-    "src/aiv/lib/validators/exceptions.py": [
-      {
-        "packet": "DEAD_MODULE_REMOVAL",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_DEAD_MODULE_REMOVAL.md",
-        "commit": "e06ee44",
-        "subject": "chore: remove 3 dead modules — security.py, diff.py, exceptions.py (D01-D03)"
-      },
-      {
-        "packet": "EXCEPTIONS",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_EXCEPTIONS.md",
-        "commit": "7f6bd04",
-        "subject": "Add src/aiv/lib/validators/exceptions.py: bootstrap, flake, fast-track exception handlers"
       }
     ],
     "src/aiv/lib/validators/base.py": [
@@ -1338,14 +1272,6 @@
         "subject": "Add src/aiv/py.typed: PEP 561 type-checking marker"
       }
     ],
-    ".github/workflows/aiv-guard.yml": [
-      {
-        "packet": "AIV_GUARD",
-        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_AIV_GUARD.md",
-        "commit": "60ea728",
-        "subject": "ci: add AIV guard PR validation workflow"
-      }
-    ],
     ".github/PULL_REQUEST_TEMPLATE.md": [
       {
         "packet": "PR_TEMPLATE",
@@ -1364,6 +1290,40 @@
     ]
   },
   "packet_to_files": {
+    "CRITIQUE_FIXES": [
+      {
+        "file": "tests/integration/test_e2e_compliance.py",
+        "commit": "ffd62ca",
+        "subject": "test: add --skip-checks to generate roundtrip test to avoid timeout"
+      },
+      {
+        "file": "src/aiv/lib/validators/evidence.py",
+        "commit": "7e6c6bb",
+        "subject": "feat(validators): add file-type triggers for Class D evidence (E021/E022)"
+      },
+      {
+        "file": "src/aiv/cli/main.py",
+        "commit": "adae01d",
+        "subject": "feat(cli): auto-populate generate with git context, CI URLs, and local check results"
+      },
+      {
+        "file": ".husky/pre-commit",
+        "commit": "5ced0b3",
+        "subject": "feat(hook): wire aiv check into pre-commit for real packet validation"
+      },
+      {
+        "file": ".github/workflows/aiv-guard.yml",
+        "commit": "9955e75",
+        "subject": "ci: disable legacy 2244-line JS guard (split-brain elimination)"
+      }
+    ],
+    "FILE_PACKET_MAP": [
+      {
+        "file": "scripts/map_packets.py",
+        "commit": "f3202e4",
+        "subject": "feat(tools): add source-file-to-verification-packet mapping script"
+      }
+    ],
     "EVIDENCE_PIPELINE": [
       {
         "file": "src/aiv/guard/manifest.py",
@@ -2339,6 +2299,90 @@
         "subject": "feat(cli): add __main__.py for python -m aiv invocation"
       }
     ],
+    "AIV_GUARD": [
+      {
+        "file": ".github/workflows/aiv-guard.yml",
+        "commit": "60ea728",
+        "subject": "ci: add AIV guard PR validation workflow"
+      }
+    ],
+    "VERIFY_ARCH": [
+      {
+        "file": ".github/workflows/verify-architecture.yml",
+        "commit": "03c4bd0",
+        "subject": "ci: add architecture verification workflow with evidence generation"
+      }
+    ],
+    "PR_TEMPLATE": [
+      {
+        "file": ".github/PULL_REQUEST_TEMPLATE.md",
+        "commit": "acf0766",
+        "subject": "infra: add PR template with AIV packet source pointer"
+      }
+    ],
+    "PRECOMMIT": [
+      {
+        "file": ".husky/pre-commit",
+        "commit": "c4128a1",
+        "subject": "infra: add AIV atomic commit pre-commit hook"
+      }
+    ],
+    "GITIGNORE": [
+      {
+        "file": ".gitignore",
+        "commit": "83c5a1c",
+        "subject": "infra: add .gitignore with AIV-specific exclusions"
+      }
+    ]
+  },
+  "unmapped_files": [
+    "AUDIT_REPORT.md",
+    "CHANGELOG.md",
+    "FILE_PACKET_MAP.json",
+    "FILE_PACKET_MAP.md",
+    "LICENSE",
+    "README.md",
+    "SPECIFICATION.md",
+    "docs/AIV_SVP_PROTOCOL_USER_STORY.md",
+    "docs/specs/AIV-SUITE-SPEC-V1.0-CANONICAL_2025-12-19.md",
+    "docs/specs/E2E_COMPLIANCE_TEST_SUITE_SPEC.md",
+    "docs/specs/SVP-SUITE-SPEC-V1.0-CANONICAL-2025-12-20.md"
+  ],
+  "unmapped_packets": [
+    "AIV_IMPLEMENTATION",
+    "GITKEEP",
+    "TEMPLATE"
+  ],
+  "ghost_packets": [
+    "AIV_INIT",
+    "ANALYZERS_INIT",
+    "ANTI_CHEAT",
+    "CLI_INIT",
+    "CLI_MAIN",
+    "CONFIG",
+    "CONFTEST",
+    "DIFF_ANALYZER",
+    "ERRORS",
+    "EXCEPTIONS",
+    "GUARD_INIT",
+    "LIB_INIT",
+    "LINKS_VALIDATOR",
+    "MODELS",
+    "PARSER",
+    "PIPELINE",
+    "PYPROJECT",
+    "PY_TYPED",
+    "SECURITY",
+    "STRUCTURE_VALIDATOR",
+    "TEST_INTEGRATION_INIT",
+    "TEST_MODELS",
+    "TEST_UNIT_INIT",
+    "TEST_WORKFLOW",
+    "VALIDATORS_INIT",
+    "VALIDATOR_BASE",
+    "ZERO_TOUCH"
+  ],
+  "ghost_packet_to_files": {
     "PYPROJECT": [
       {
         "file": "pyproject.toml",
@@ -2527,57 +2571,133 @@
         "commit": "575c11e",
         "subject": "Add src/aiv/__init__.py: top-level package with version constant"
       }
-    ],
-    "AIV_GUARD": [
-      {
-        "file": ".github/workflows/aiv-guard.yml",
-        "commit": "60ea728",
-        "subject": "ci: add AIV guard PR validation workflow"
-      }
-    ],
-    "VERIFY_ARCH": [
-      {
-        "file": ".github/workflows/verify-architecture.yml",
-        "commit": "03c4bd0",
-        "subject": "ci: add architecture verification workflow with evidence generation"
-      }
-    ],
-    "PR_TEMPLATE": [
-      {
-        "file": ".github/PULL_REQUEST_TEMPLATE.md",
-        "commit": "acf0766",
-        "subject": "infra: add PR template with AIV packet source pointer"
-      }
-    ],
-    "PRECOMMIT": [
-      {
-        "file": ".husky/pre-commit",
-        "commit": "c4128a1",
-        "subject": "infra: add AIV atomic commit pre-commit hook"
-      }
-    ],
-    "GITIGNORE": [
-      {
-        "file": ".gitignore",
-        "commit": "83c5a1c",
-        "subject": "infra: add .gitignore with AIV-specific exclusions"
-      }
     ]
   },
-  "unmapped_files": [
-    "AUDIT_REPORT.md",
-    "CHANGELOG.md",
-    "LICENSE",
-    "README.md",
-    "SPECIFICATION.md",
-    "docs/AIV_SVP_PROTOCOL_USER_STORY.md",
-    "docs/specs/AIV-SUITE-SPEC-V1.0-CANONICAL_2025-12-19.md",
-    "docs/specs/E2E_COMPLIANCE_TEST_SUITE_SPEC.md",
-    "docs/specs/SVP-SUITE-SPEC-V1.0-CANONICAL-2025-12-20.md"
+  "deleted_files": [
+    "src/aiv/guard/security.py",
+    "src/aiv/lib/analyzers/__init__.py",
+    "src/aiv/lib/analyzers/diff.py",
+    "src/aiv/lib/validators/exceptions.py",
+    "src/svp/__init__.py",
+    "src/svp/cli/__init__.py",
+    "src/svp/cli/main.py",
+    "src/svp/lib/__init__.py",
+    "src/svp/lib/models.py",
+    "src/svp/lib/validators/__init__.py",
+    "src/svp/lib/validators/session.py"
   ],
-  "unmapped_packets": [
-    "AIV_IMPLEMENTATION",
-    "GITKEEP",
-    "TEMPLATE"
-  ]
+  "deleted_file_to_packets": {
+    "src/svp/lib/validators/session.py": [
+      {
+        "packet": "AIV_AUDIT_FIXES",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_AIV_AUDIT_FIXES.md",
+        "commit": "592b54a",
+        "subject": "fix(svp): delete old src/svp/lib/validators/session.py (Rec #24)"
+      }
+    ],
+    "src/svp/lib/validators/__init__.py": [
+      {
+        "packet": "AIV_AUDIT_FIXES",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_AIV_AUDIT_FIXES.md",
+        "commit": "41d9b88",
+        "subject": "fix(svp): delete old src/svp/lib/validators/__init__.py (Rec #24)"
+      }
+    ],
+    "src/svp/lib/models.py": [
+      {
+        "packet": "AIV_AUDIT_FIXES",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_AIV_AUDIT_FIXES.md",
+        "commit": "9a94125",
+        "subject": "fix(svp): delete old src/svp/lib/models.py (Rec #24)"
+      }
+    ],
+    "src/svp/lib/__init__.py": [
+      {
+        "packet": "AIV_AUDIT_FIXES",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_AIV_AUDIT_FIXES.md",
+        "commit": "513351a",
+        "subject": "fix(svp): delete old src/svp/lib/__init__.py (Rec #24)"
+      }
+    ],
+    "src/svp/cli/main.py": [
+      {
+        "packet": "AIV_AUDIT_FIXES",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_AIV_AUDIT_FIXES.md",
+        "commit": "694a960",
+        "subject": "fix(svp): delete old src/svp/cli/main.py (Rec #24)"
+      }
+    ],
+    "src/svp/cli/__init__.py": [
+      {
+        "packet": "AIV_AUDIT_FIXES",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_AIV_AUDIT_FIXES.md",
+        "commit": "191f034",
+        "subject": "fix(svp): delete old src/svp/cli/__init__.py (Rec #24)"
+      }
+    ],
+    "src/svp/__init__.py": [
+      {
+        "packet": "AIV_AUDIT_FIXES",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_AIV_AUDIT_FIXES.md",
+        "commit": "4e87dcb",
+        "subject": "fix(svp): delete old src/svp/__init__.py (Rec #24)"
+      }
+    ],
+    "src/aiv/lib/analyzers/__init__.py": [
+      {
+        "packet": "AIV_AUDIT_FIXES",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_AIV_AUDIT_FIXES.md",
+        "commit": "e1ebeb7",
+        "subject": "fix(lib): delete empty analyzers/ package (D12)"
+      },
+      {
+        "packet": "ANALYZERS_INIT",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_ANALYZERS_INIT.md",
+        "commit": "aa2a1ec",
+        "subject": "Add src/aiv/lib/analyzers/__init__.py: analyzers subpackage"
+      }
+    ],
+    "src/aiv/guard/security.py": [
+      {
+        "packet": "DEAD_MODULE_REMOVAL",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_DEAD_MODULE_REMOVAL.md",
+        "commit": "e06ee44",
+        "subject": "chore: remove 3 dead modules — security.py, diff.py, exceptions.py (D01-D03)"
+      },
+      {
+        "packet": "SECURITY",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_SECURITY.md",
+        "commit": "cc9905f",
+        "subject": "Add src/aiv/guard/security.py: security utilities for GitHub Action guard"
+      }
+    ],
+    "src/aiv/lib/analyzers/diff.py": [
+      {
+        "packet": "DEAD_MODULE_REMOVAL",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_DEAD_MODULE_REMOVAL.md",
+        "commit": "e06ee44",
+        "subject": "chore: remove 3 dead modules — security.py, diff.py, exceptions.py (D01-D03)"
+      },
+      {
+        "packet": "DIFF_ANALYZER",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_DIFF_ANALYZER.md",
+        "commit": "cd78eda",
+        "subject": "Add src/aiv/lib/analyzers/diff.py: diff analyzer with critical surface detection"
+      }
+    ],
+    "src/aiv/lib/validators/exceptions.py": [
+      {
+        "packet": "DEAD_MODULE_REMOVAL",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_DEAD_MODULE_REMOVAL.md",
+        "commit": "e06ee44",
+        "subject": "chore: remove 3 dead modules — security.py, diff.py, exceptions.py (D01-D03)"
+      },
+      {
+        "packet": "EXCEPTIONS",
+        "packet_path": ".github/aiv-packets/VERIFICATION_PACKET_EXCEPTIONS.md",
+        "commit": "7f6bd04",
+        "subject": "Add src/aiv/lib/validators/exceptions.py: bootstrap, flake, fast-track exception handlers"
+      }
+    ]
+  }
 }
