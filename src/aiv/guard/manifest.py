@@ -61,10 +61,14 @@ def validate_class_a_manifest(
             or not _is_non_empty_str(os_info.get("release", ""))
         ):
             errors.append("class_a_execution.json.execution_environment.os must include name and release")
-        if not _is_non_empty_str(env.get("node", "")):
-            errors.append("class_a_execution.json.execution_environment.node must be non-empty")
-        if not _is_non_empty_str(env.get("npm", "")):
-            errors.append("class_a_execution.json.execution_environment.npm must be non-empty")
+        # Accept either Node (node+npm) or Python (python) runtime identifiers
+        has_node = _is_non_empty_str(env.get("node", ""))
+        has_python = _is_non_empty_str(env.get("python", ""))
+        if not has_node and not has_python:
+            errors.append(
+                "class_a_execution.json.execution_environment must include a runtime "
+                "(python or node)"
+            )
 
     tr = manifest.get("test_results")
     if not isinstance(tr, dict):
