@@ -8,13 +8,13 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from datetime import datetime
 from enum import Enum
 from typing import Any
 
 
 class GuardSeverity(str, Enum):
     """Finding severity levels for guard output."""
+
     BLOCK = "BLOCK"
     WARN = "WARN"
     INFO = "INFO"
@@ -22,6 +22,7 @@ class GuardSeverity(str, Enum):
 
 class DecisionType(str, Enum):
     """Attestation decision types."""
+
     COMPLIANT = "COMPLIANT"
     CONDITIONAL = "CONDITIONAL"
     NON_COMPLIANT = "NON-COMPLIANT"
@@ -29,6 +30,7 @@ class DecisionType(str, Enum):
 
 class OverallResult(str, Enum):
     """Overall validation result."""
+
     PASS = "PASS"
     FAIL = "FAIL"
 
@@ -36,6 +38,7 @@ class OverallResult(str, Enum):
 @dataclass
 class GuardFinding:
     """A single guard finding (maps to JS findings array)."""
+
     id: str
     severity: GuardSeverity
     rule_id: str
@@ -55,6 +58,7 @@ class GuardFinding:
 @dataclass
 class RuleResult:
     """Result for a single validation rule."""
+
     rule_id: str
     result: str  # "PASS", "FAIL", "SKIP"
     finding_id: str | None = None
@@ -69,6 +73,7 @@ class RuleResult:
 @dataclass
 class EvidenceClassResult:
     """Validation result for a single evidence class."""
+
     evidence_class: str  # "A", "B", "C", "D", "E", "F"
     required: bool
     present: bool
@@ -88,6 +93,7 @@ class EvidenceClassResult:
 @dataclass
 class GuardContext:
     """Context from GitHub Actions environment."""
+
     pr_number: int
     head_sha: str
     base_sha: str
@@ -106,6 +112,7 @@ class GuardContext:
 @dataclass
 class GuardResult:
     """Complete guard validation output (maps to aiv_validation_result.json)."""
+
     validator_id: str = "aiv-guard@2.0.0"
     packet_id: str = ""
     repository: str = ""
