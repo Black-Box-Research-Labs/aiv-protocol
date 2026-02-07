@@ -7,7 +7,7 @@ Zero-Touch compliance validation (Addendum 2.7).
 from __future__ import annotations
 
 import re
-from typing import Pattern
+from re import Pattern
 
 from ..models import (
     Claim,
