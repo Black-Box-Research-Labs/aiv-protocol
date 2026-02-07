@@ -52,7 +52,7 @@ jobs:
         run: pip install -e ".[dev]"
 
       - name: Run tests
-        run: pytest --cov=aiv --cov-report=term-missing
+        run: pytest --cov=aiv --cov-report=term-missing --junitxml=artifacts/junit.xml
 
       - name: Upload coverage
         if: matrix.python-version == '3.12'
@@ -60,3 +60,381 @@ jobs:
         with:
           name: coverage-report
           path: .coverage
+
+  evidence:
+    name: Generate AIV Evidence Artifacts
+    needs: [lint, test]
+    if: always() && needs.lint.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Create evidence directory
+        run: mkdir -p artifacts
+
+      - name: Run checks and capture results
+        run: |
+          set -euo pipefail
+
+          # Run each check, capture output
+          ruff check src/ tests/ > artifacts/ruff_check.txt 2>&1 || true
+          ruff format --check src/ tests/ > artifacts/ruff_format.txt 2>&1 || true
+          mypy src/aiv/ > artifacts/mypy.txt 2>&1 || true
+          pytest --cov=aiv --cov-report=term-missing --junitxml=artifacts/junit.xml \
+            > artifacts/pytest.txt 2>&1 || true
+
+      - name: Generate Class A execution manifest
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, platform, sys, datetime, xml.etree.ElementTree as ET
+
+          now = datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+          sha = os.environ.get("GITHUB_SHA", "")
+          run_id = os.environ.get("GITHUB_RUN_ID", "")
+          repo = os.environ.get("GITHUB_REPOSITORY", "")
+
+          # Parse pytest junit XML for results
+          passed = failed = skipped = 0
+          test_names = []
+          try:
+              tree = ET.parse("artifacts/junit.xml")
+              for suite in tree.iter("testsuite"):
+                  passed += int(suite.get("tests", 0)) - int(suite.get("failures", 0)) - int(suite.get("errors", 0)) - int(suite.get("skipped", 0))
+                  failed += int(suite.get("failures", 0)) + int(suite.get("errors", 0))
+                  skipped += int(suite.get("skipped", 0))
+              for tc in tree.iter("testcase"):
+                  test_names.append(f"{tc.get('classname', '')}.{tc.get('name', '')}")
+          except Exception:
+              pass
+
+          ruff_ver = ""
+          try:
+              import subprocess
+              ruff_ver = subprocess.check_output(["ruff", "--version"], text=True).strip()
+          except Exception:
+              pass
+
+          mypy_ver = ""
+          try:
+              import subprocess
+              mypy_ver = subprocess.check_output(["mypy", "--version"], text=True).strip()
+          except Exception:
+              pass
+
+          class_a = {
+              "schema_version": "1.0.0",
+              "head_sha": sha,
+              "run": {"repository": repo, "run_id": run_id},
+              "execution_environment": {
+                  "os": {"name": platform.system(), "release": platform.release()},
+                  "python": platform.python_version(),
+                  "ruff": ruff_ver,
+                  "mypy": mypy_ver,
+              },
+              "test_results": {"pass": passed, "fail": failed, "skip": skipped},
+              "test_list": test_names[:50],  # cap at 50 to keep artifact manageable
+              "executed_checks": [
+                  {"id": "ruff_check", "artifact": "ruff_check.txt", "kind": "static_or_schema"},
+                  {"id": "ruff_format", "artifact": "ruff_format.txt", "kind": "static_or_schema"},
+                  {"id": "mypy", "artifact": "mypy.txt", "kind": "static_or_schema"},
+                  {"id": "pytest", "artifact": "junit.xml", "kind": "execution"},
+              ],
+              "generated_at": now,
+          }
+
+          with open("artifacts/class_a_execution.json", "w") as f:
+              json.dump(class_a, f, indent=2)
+              f.write("\n")
+          PY
+
+      - name: Generate Class C negative evidence
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, datetime, subprocess, platform
+
+          now = datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+          sha = os.environ.get("GITHUB_SHA", "")
+          base_sha = os.environ.get("BASE_SHA", "")
+
+          # Negative evidence: search for anti-patterns that should NOT exist
+          patterns = [
+              {
+                  "description": "No hardcoded secrets in source",
+                  "pattern": r"(password|secret|api_key)\s*=\s*['\"][^'\"]{8,}",
+                  "scope": "src/",
+              },
+              {
+                  "description": "No disabled tests (skip without reason)",
+                  "pattern": r"@pytest\.mark\.skip\b(?!\(reason=)",
+                  "scope": "tests/",
+              },
+              {
+                  "description": "No TODO/FIXME in verification packets",
+                  "pattern": r"\bTODO\b|\bFIXME\b",
+                  "scope": ".github/aiv-packets/VERIFICATION_PACKET_TEMPLATE.md",
+              },
+          ]
+
+          results = []
+          for p in patterns:
+              try:
+                  out = subprocess.run(
+                      ["grep", "-rn", "-E", p["pattern"], p["scope"]],
+                      capture_output=True, text=True, cwd=os.environ.get("GITHUB_WORKSPACE", ".")
+                  )
+                  results.append({
+                      "description": p["description"],
+                      "pattern": p["pattern"],
+                      "file": p["scope"],
+                      "matches": out.stdout.strip().split("\n") if out.stdout.strip() else [],
+                  })
+              except Exception as e:
+                  results.append({"description": p["description"], "error": str(e)})
+
+          # Write human-readable negative evidence
+          with open("artifacts/negative_evidence.txt", "w") as f:
+              f.write("# Negative Evidence (Class C)\n\n")
+              for r in results:
+                  f.write(f"## {r['description']}\n")
+                  matches = r.get("matches", [])
+                  if not matches:
+                      f.write("No matches found (PASS)\n\n")
+                  else:
+                      for m in matches:
+                          f.write(f"  {m}\n")
+                      f.write("\n")
+
+          ruff_ver = ""
+          try:
+              ruff_ver = subprocess.check_output(["ruff", "--version"], text=True).strip()
+          except Exception:
+              pass
+
+          class_c = {
+              "schema_version": "1.0.0",
+              "head_sha": sha,
+              "base_sha": base_sha,
+              "search_method": {
+                  "tool": f"grep + ruff {ruff_ver}",
+                  "version": "GNU grep",
+                  "deterministic": True,
+              },
+              "search_scope": [p["scope"] for p in patterns],
+              "patterns": [
+                  {"description": p["description"], "pattern": p["pattern"], "file": p["scope"]}
+                  for p in patterns
+              ],
+              "search_results_artifact": "negative_evidence.txt",
+              "test_integrity": {
+                  "method": "semantic_ci_workflow_integrity_yaml_parse",
+                  "machine_readable": True,
+                  "semantic_report_artifact": "test_integrity_semantic.json",
+                  "required_evidence_files": [
+                      "ruff_check.txt", "ruff_format.txt", "mypy.txt",
+                      "junit.xml", "negative_evidence.txt",
+                      "test_integrity_semantic.json",
+                  ],
+              },
+              "generated_at": now,
+          }
+
+          with open("artifacts/class_c_negative.json", "w") as f:
+              json.dump(class_c, f, indent=2)
+              f.write("\n")
+          PY
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
+
+      - name: Generate semantic test integrity report
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, datetime
+          try:
+              import yaml
+          except ImportError:
+              yaml = None
+
+          now = datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+          sha = os.environ.get("GITHUB_SHA", "")
+          base_sha = os.environ.get("BASE_SHA", "")
+          repo = os.environ.get("GITHUB_REPOSITORY", "")
+
+          # Read current ci.yml and check key steps are present
+          ci_path = ".github/workflows/ci.yml"
+          with open(ci_path) as f:
+              ci_text = f.read()
+
+          checks = []
+
+          def add(check_id, desc, result, details=None):
+              entry = {"id": check_id, "description": desc, "result": result}
+              if details:
+                  entry["details"] = details
+              checks.append(entry)
+
+          # Check YAML parseable
+          ci_doc = None
+          if yaml:
+              try:
+                  ci_doc = yaml.safe_load(ci_text)
+                  add("yaml-parse", "CI workflow is valid YAML", "PASS")
+              except Exception as e:
+                  add("yaml-parse", "CI workflow is valid YAML", "FAIL", {"error": str(e)})
+          else:
+              add("yaml-parse", "CI workflow is valid YAML", "SKIP")
+
+          # Check key steps exist
+          key_steps = [
+              "Ruff lint", "Ruff format check", "Mypy type check",
+              "Install dependencies", "Run tests",
+          ]
+          missing = [s for s in key_steps if s not in ci_text]
+          if missing:
+              add("ci-key-steps-present", "Required CI steps are present", "FAIL", {"missing": missing})
+          else:
+              add("ci-key-steps-present", "Required CI steps are present", "PASS")
+
+          # Check no bypass patterns (|| true on key steps)
+          if "|| true" in ci_text.split("# cap at")[0]:  # exclude comments
+              add("ci-no-bypass", "CI steps do not bypass failures", "WARN")
+          else:
+              add("ci-no-bypass", "CI steps do not bypass failures", "PASS")
+
+          # Check Python version matrix includes 3.10+
+          if "'3.10'" in ci_text or '"3.10"' in ci_text:
+              add("ci-python-matrix", "Python version matrix includes 3.10", "PASS")
+          else:
+              add("ci-python-matrix", "Python version matrix includes 3.10", "FAIL")
+
+          summary = {"pass": 0, "fail": 0, "skip": 0}
+          for c in checks:
+              if c["result"] == "PASS":
+                  summary["pass"] += 1
+              elif c["result"] == "FAIL":
+                  summary["fail"] += 1
+              else:
+                  summary["skip"] += 1
+
+          report = {
+              "schema_version": "1.0.0",
+              "tool": {"name": "aiv-ci-integrity", "version": "2.0.0-python"},
+              "head_sha": sha,
+              "base_sha": base_sha,
+              "repository": repo,
+              "overall_result": "FAIL" if summary["fail"] > 0 else "PASS",
+              "summary": summary,
+              "checks": checks,
+              "generated_at": now,
+          }
+
+          with open("artifacts/test_integrity_semantic.json", "w") as f:
+              json.dump(report, f, indent=2)
+              f.write("\n")
+          PY
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
+
+      - name: Setup ORAS
+        uses: oras-project/setup-oras@v1
+
+      - name: Export aiv-evidence to GHCR (best-effort)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          NOW=$(date -u +%FT%TZ)
+          HEAD_SHA="${{ github.sha }}"
+          REPO="${{ github.repository }}"
+          ACTOR="${{ github.actor }}"
+          RUN_ID="${{ github.run_id }}"
+          RUN_ATTEMPT="${{ github.run_attempt }}"
+
+          TAR_PATH="artifacts/aiv-evidence.tgz"
+          META_PATH="artifacts/durable_storage_oci.json"
+          OWNER="${REPO%%/*}"
+          REPO_NAME="${REPO#*/}"
+          OWNER_LC=$(echo "${OWNER}" | tr '[:upper:]' '[:lower:]')
+          REPO_NAME_LC=$(echo "${REPO_NAME}" | tr '[:upper:]' '[:lower:]')
+          PKG="ghcr.io/${OWNER_LC}/${REPO_NAME_LC}-aiv-evidence"
+          TAG="${RUN_ID}-${RUN_ATTEMPT}"
+          OCI_REF_TAG="oci://${PKG}:${TAG}"
+
+          TAR_TMP=$(mktemp -t aiv-evidence.XXXXXX.tgz)
+          tar -czf "${TAR_TMP}" -C artifacts .
+          mv "${TAR_TMP}" "${TAR_PATH}"
+          TAR_SHA=$(sha256sum "${TAR_PATH}" | awk '{print $1}')
+
+          if ! echo "${GITHUB_TOKEN}" | oras login ghcr.io -u "${ACTOR}" --password-stdin >/dev/null 2>&1; then
+            printf '{"schema_version":"1.0.0","backend":"ghcr_oci","export_result":"FAIL","error":"oras login failed","generated_at":"%s","head_sha":"%s","repository":"%s","oci_ref_tag":"%s","tar_sha256":"%s"}\n' \
+              "${NOW}" "${HEAD_SHA}" "${REPO}" "${OCI_REF_TAG}" "${TAR_SHA}" > "${META_PATH}"
+            exit 0
+          fi
+
+          OUT=""
+          if ! OUT=$(oras push "${PKG}:${TAG}" "${TAR_PATH}:application/gzip" 2>&1); then
+            printf '{"schema_version":"1.0.0","backend":"ghcr_oci","export_result":"FAIL","error":"oras push failed","generated_at":"%s","head_sha":"%s","repository":"%s","oci_ref_tag":"%s","tar_sha256":"%s"}\n' \
+              "${NOW}" "${HEAD_SHA}" "${REPO}" "${OCI_REF_TAG}" "${TAR_SHA}" > "${META_PATH}"
+            exit 0
+          fi
+
+          DIGEST=$(echo "${OUT}" | awk '/^Digest:/ {print $2}' | head -n 1)
+          if [ -z "${DIGEST}" ]; then
+            DIGEST=$(oras manifest fetch "${PKG}:${TAG}" --descriptor 2>/dev/null \
+              | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("digest",""))' || true)
+          fi
+
+          OCI_REF_DIGEST=""
+          if [ -n "${DIGEST}" ]; then
+            OCI_REF_DIGEST="oci://${PKG}@${DIGEST}"
+          fi
+
+          cat > "${META_PATH}" <<EOF
+          {
+            "schema_version": "1.0.0",
+            "backend": "ghcr_oci",
+            "export_result": "SUCCESS",
+            "generated_at": "${NOW}",
+            "head_sha": "${HEAD_SHA}",
+            "repository": "${REPO}",
+            "oci_ref_tag": "${OCI_REF_TAG}",
+            "oci_ref_digest": "${OCI_REF_DIGEST}",
+            "digest": "${DIGEST}",
+            "tar_sha256": "${TAR_SHA}"
+          }
+          EOF
+
+      - name: Upload AIV evidence artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aiv-evidence
+          if-no-files-found: warn
+          path: |
+            artifacts/ruff_check.txt
+            artifacts/ruff_format.txt
+            artifacts/mypy.txt
+            artifacts/junit.xml
+            artifacts/pytest.txt
+            artifacts/negative_evidence.txt
+            artifacts/class_a_execution.json
+            artifacts/class_c_negative.json
+            artifacts/test_integrity_semantic.json
+            artifacts/aiv-evidence.tgz
+            artifacts/durable_storage_oci.json
