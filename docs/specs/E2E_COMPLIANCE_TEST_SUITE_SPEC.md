@@ -49,8 +49,10 @@ def _is_substantive(self, content: list[str]) -> bool:
     # Strip all placeholder lines; if nothing remains, it's not substantive
     non_placeholder = self._PLACEHOLDER_RE.sub("", joined).strip()
     # Must have at least some real alphanumeric content beyond punctuation
-    alpha_content = re.sub(r"[^a-zA-Z0-9]", "", non_placeholder)
-    return len(alpha_content) > 5
+    alpha_content = re.sub(r'[^a-zA-Z0-9]', "", non_placeholder)
+    # MIN_SUBSTANCE_ALPHA: conservative threshold to avoid false rejects
+    # on short but legitimate evidence (e.g., "- No regressions found.")
+    return len(alpha_content) >= 10
 ```
 
 **Integration point:** In `_collect_evidence_classes`, wrap the `found.add(...)` call:
@@ -107,7 +109,8 @@ These tests run `aiv check` against every real packet in `.github/aiv-packets/` 
 
 #### L1-03: `test_cli_subprocess_check_passes`
 
-- Run `python -m aiv check <packet_path> --no-strict` as a **subprocess** (`subprocess.run`).
+- Run `sys.executable -m aiv check <packet_path> --no-strict` as a **subprocess** (`subprocess.run`).
+- Use `sys.executable` (not bare `python`) to ensure the test runner's environment is used, avoiding global install conflicts.
 - Use the `VERIFICATION_PACKET_AIV_IMPLEMENTATION.md` packet (known good).
 - **Assert:** `returncode == 0`
 - **Assert:** stdout contains `"Validation Passed"` or `"[OK] Result"`
@@ -115,7 +118,7 @@ These tests run `aiv check` against every real packet in `.github/aiv-packets/` 
 
 #### L1-04: `test_cli_subprocess_check_rejects_garbage`
 
-- Run `python -m aiv check "This is not a verification packet at all"` as subprocess.
+- Run `sys.executable -m aiv check "This is not a verification packet at all"` as subprocess.
 - **Assert:** `returncode != 0`
 - **Assert:** stderr/stdout contains `"Failed to parse"` or `"Error"`
 - **WHY:** Confirms the CLI actually rejects bad input, not just silently passes.
@@ -263,8 +266,8 @@ Tests the full developer workflow: generate a packet scaffold, then validate it.
 
 #### L4-01: `test_generate_then_check_passes` *(parametrized: R0, R1, R2, R3)*
 
-- Run `python -m aiv generate test-{tier} --tier {tier} --output {tmpdir}` as subprocess.
-- Then run `python -m aiv check {tmpdir}/VERIFICATION_PACKET_TEST_{TIER}.md --no-strict` as subprocess.
+- Run `sys.executable -m aiv generate test-{tier} --tier {tier} --output {tmpdir}` as subprocess.
+- Then run `sys.executable -m aiv check {tmpdir}/VERIFICATION_PACKET_TEST_{TIER}.md --no-strict` as subprocess.
 - **Assert:** Both exit codes == 0.
 - **WHY:** This is the actual developer experience. If `generate` produces packets that fail `check`, the tool is broken.
 
@@ -674,21 +677,28 @@ Maps each test to the user story claim, the code path exercised, and the rule ID
 
 ---
 
-## 7. Execution Order
+## 7. Execution Order (Red-Green-Refactor)
+
+> **Rationale:** We implement the test suite *before* fixing the packets so we can
+> observe the tests **fail** (Red), proving they catch real protocol drift. Only then
+> do we fix the packets and watch the tests **pass** (Green). This prevents "Theater
+> Tests" that pass regardless of evidence quality.
 
 ### Phase 1: Substance Patch
 1. Modify `src/aiv/lib/parser.py` — add `_is_substantive()`, integrate into `_collect_evidence_classes`.
 2. Unit test the new method in `tests/unit/test_parser.py`.
 3. Run existing test suite to verify no regressions.
 
-### Phase 2: Packet Fix
-1. Add `### Class F (Provenance)` to `VERIFICATION_PACKET_AIV_AUDIT_FIXES.md`.
-2. Run `aiv check` to verify it passes.
-
-### Phase 3: Test Suite Implementation
+### Phase 2: Test Suite Implementation (expect RED)
 1. Add shared fixtures to `tests/conftest.py`.
-2. Implement `tests/integration/test_e2e_compliance.py` — all 6 layers, 35 test cases.
-3. Run full suite: `python -m pytest tests/ -v --tb=short`.
+2. Implement `tests/integration/test_e2e_compliance.py` — all 6 layers, 39 test cases.
+3. Run suite: `python -m pytest tests/integration/test_e2e_compliance.py -v --tb=short`.
+4. **Verify L1-01 FAILS** on `VERIFICATION_PACKET_AIV_AUDIT_FIXES.md` (missing Class F).
+5. This failure proves the test suite catches real non-compliance.
+
+### Phase 3: Packet Fix (turn GREEN)
+1. Add `### Class F (Provenance)` to `VERIFICATION_PACKET_AIV_AUDIT_FIXES.md`.
+2. Re-run the suite — **all tests must now pass**.
 
 ### Phase 4: Atomic Commits
 Per the pre-commit hook policy (1 functional file + 1 verification packet per commit):
