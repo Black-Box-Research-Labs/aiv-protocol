@@ -54,7 +54,8 @@ classification:
 
 **Scope Inventory (required)**
 
-- Modified: (committed incrementally below)
+- Modified:
+  - `src/aiv/lib/errors.py` — Remove unused PacketValidationError, EvidenceResolutionError (D04, Rec #10/#25)
 - Created: (committed incrementally below)
 - Deleted: (committed incrementally below)
 

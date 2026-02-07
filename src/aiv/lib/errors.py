@@ -21,19 +21,6 @@ class PacketParseError(AIVError):
     """
 
 
-class PacketValidationError(AIVError):
-    """
-    Raised when a parsed packet fails validation rules.
-
-    The packet was structurally valid but contains evidence or
-    compliance violations (e.g., mutable links, zero-touch failures).
-    """
-
-    def __init__(self, message: str, rule_id: str | None = None):
-        super().__init__(message)
-        self.rule_id = rule_id
-
-
 class ConfigurationError(AIVError):
     """
     Raised when AIV configuration is invalid or missing.
@@ -55,14 +42,3 @@ class GitHubAPIError(AIVError):
         self.status_code = status_code
 
 
-class EvidenceResolutionError(AIVError):
-    """
-    Raised when evidence artifacts cannot be resolved.
-
-    This covers broken links, missing CI artifacts, and
-    inaccessible external resources.
-    """
-
-    def __init__(self, message: str, url: str | None = None):
-        super().__init__(message)
-        self.url = url
