@@ -16,6 +16,7 @@ from typing import Any
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 
+from ..lib.errors import GitHubAPIError
 from .models import GuardContext
 
 
@@ -47,8 +48,14 @@ class GitHubAPI:
             "X-GitHub-Api-Version": "2022-11-28",
         }
         req = Request(url, headers=headers)
-        with urlopen(req, timeout=30) as resp:
-            return json.loads(resp.read().decode("utf-8"))
+        try:
+            with urlopen(req, timeout=30) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except HTTPError as e:
+            raise GitHubAPIError(
+                f"GitHub API request failed: {url} ({e.code})",
+                status_code=e.code,
+            ) from e
 
     def _request_bytes(self, url: str) -> bytes:
         """Make an authenticated GET request returning raw bytes."""
@@ -58,8 +65,14 @@ class GitHubAPI:
             "X-GitHub-Api-Version": "2022-11-28",
         }
         req = Request(url, headers=headers)
-        with urlopen(req, timeout=60) as resp:
-            return resp.read()
+        try:
+            with urlopen(req, timeout=60) as resp:
+                return resp.read()
+        except HTTPError as e:
+            raise GitHubAPIError(
+                f"GitHub API request failed: {url} ({e.code})",
+                status_code=e.code,
+            ) from e
 
     @staticmethod
     def context_from_env() -> GuardContext:
@@ -105,7 +118,7 @@ class GitHubAPI:
             )
             try:
                 data = self._request(url)
-            except HTTPError:
+            except GitHubAPIError:
                 break
 
             if not data:
@@ -129,7 +142,7 @@ class GitHubAPI:
         url = f"{self.base_url}/repos/{ctx.owner}/{ctx.repo}/actions/runs/{run_id}"
         try:
             return self._request(url)
-        except HTTPError:
+        except GitHubAPIError:
             return None
 
     def list_run_artifacts(self, ctx: GuardContext, run_id: int) -> list[dict[str, Any]]:
@@ -145,7 +158,7 @@ class GitHubAPI:
             )
             try:
                 data = self._request(url)
-            except HTTPError:
+            except GitHubAPIError:
                 break
 
             batch = data.get("artifacts", [])
@@ -172,7 +185,7 @@ class GitHubAPI:
         )
         try:
             data = self._request(url)
-        except HTTPError:
+        except GitHubAPIError:
             return None
 
         if isinstance(data, list):
@@ -191,5 +204,5 @@ class GitHubAPI:
         try:
             data = self._request(url)
             return data.get("total_count", 0)
-        except HTTPError:
+        except GitHubAPIError:
             return 0
