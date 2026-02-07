@@ -65,10 +65,7 @@ def validate_class_a_manifest(
         has_node = _is_non_empty_str(env.get("node", ""))
         has_python = _is_non_empty_str(env.get("python", ""))
         if not has_node and not has_python:
-            errors.append(
-                "class_a_execution.json.execution_environment must include a runtime "
-                "(python or node)"
-            )
+            errors.append("class_a_execution.json.execution_environment must include a runtime (python or node)")
 
     tr = manifest.get("test_results")
     if not isinstance(tr, dict):

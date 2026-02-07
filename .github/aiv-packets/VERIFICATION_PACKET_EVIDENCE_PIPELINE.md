@@ -1,6 +1,6 @@
 # AIV Verification Packet (v2.1) — Evidence Pipeline Cannibalization
 
-**Commit:** `pending` (disable verify-architecture.yml)
+**Commit:** `pending` (format manifest.py)
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
 ---
