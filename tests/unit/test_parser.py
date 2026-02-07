@@ -6,8 +6,9 @@ methodology extraction, and evidence enrichment.
 """
 
 import pytest
-from aiv.lib.parser import PacketParser
+
 from aiv.lib.models import EvidenceClass, RiskTier
+from aiv.lib.parser import PacketParser
 
 
 class TestClassificationParsing:
@@ -53,27 +54,27 @@ Test packet.
 """
 
     def test_parses_r0(self, parser):
-        packet = parser.parse(self._make_packet(
-            "## Classification (required)\n\n```yaml\nclassification:\n  risk_tier: R0\n```"
-        ))
+        packet = parser.parse(
+            self._make_packet("## Classification (required)\n\n```yaml\nclassification:\n  risk_tier: R0\n```")
+        )
         assert packet.risk_tier == RiskTier.R0
 
     def test_parses_r1(self, parser):
-        packet = parser.parse(self._make_packet(
-            "## Classification (required)\n\n```yaml\nclassification:\n  risk_tier: R1\n```"
-        ))
+        packet = parser.parse(
+            self._make_packet("## Classification (required)\n\n```yaml\nclassification:\n  risk_tier: R1\n```")
+        )
         assert packet.risk_tier == RiskTier.R1
 
     def test_parses_r2(self, parser):
-        packet = parser.parse(self._make_packet(
-            "## Classification (required)\n\n```yaml\nclassification:\n  risk_tier: R2\n```"
-        ))
+        packet = parser.parse(
+            self._make_packet("## Classification (required)\n\n```yaml\nclassification:\n  risk_tier: R2\n```")
+        )
         assert packet.risk_tier == RiskTier.R2
 
     def test_parses_r3(self, parser):
-        packet = parser.parse(self._make_packet(
-            "## Classification (required)\n\n```yaml\nclassification:\n  risk_tier: R3\n```"
-        ))
+        packet = parser.parse(
+            self._make_packet("## Classification (required)\n\n```yaml\nclassification:\n  risk_tier: R3\n```")
+        )
         assert packet.risk_tier == RiskTier.R3
 
     def test_missing_classification_returns_none(self, parser):
@@ -81,15 +82,15 @@ Test packet.
         assert packet.risk_tier is None
 
     def test_classification_without_risk_tier_returns_none(self, parser):
-        packet = parser.parse(self._make_packet(
-            "## Classification (required)\n\n```yaml\nclassification:\n  sod_mode: S0\n```"
-        ))
+        packet = parser.parse(
+            self._make_packet("## Classification (required)\n\n```yaml\nclassification:\n  sod_mode: S0\n```")
+        )
         assert packet.risk_tier is None
 
     def test_case_insensitive_risk_tier(self, parser):
-        packet = parser.parse(self._make_packet(
-            "## Classification (required)\n\n```yaml\nclassification:\n  risk_tier: r2\n```"
-        ))
+        packet = parser.parse(
+            self._make_packet("## Classification (required)\n\n```yaml\nclassification:\n  risk_tier: r2\n```")
+        )
         assert packet.risk_tier == RiskTier.R2
 
 
