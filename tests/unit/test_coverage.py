@@ -10,29 +10,25 @@ Additional test coverage for audit report recommendations:
 - P1-f: AIVConfig.from_file() YAML loading
 """
 
-import pytest
-import tempfile
 from pathlib import Path
+
+import pytest
 
 from aiv.cli.main import _build_evidence_sections
 from aiv.lib.config import AIVConfig
 from aiv.lib.errors import ConfigurationError, PacketParseError
 from aiv.lib.models import (
-    Claim,
     EvidenceClass,
-    IntentSection,
-    RiskTier,
     Severity,
-    VerificationPacket,
 )
 from aiv.lib.parser import PacketParser
 from aiv.lib.validators.anti_cheat import AntiCheatScanner
 from aiv.lib.validators.pipeline import ValidationPipeline
 
-
 # ============================================================================
 # P1-a: Generate Command Tests (Rec #20)
 # ============================================================================
+
 
 class TestBuildEvidenceSections:
     """Tests for _build_evidence_sections helper used by `aiv generate`."""
@@ -76,6 +72,7 @@ class TestBuildEvidenceSections:
 # ============================================================================
 # P1-b: Anti-Cheat Deleted File Detection (Rec #21)
 # ============================================================================
+
 
 class TestAntiCheatDeletedFiles:
     """Tests for deleted test file detection in AntiCheatScanner."""
@@ -150,6 +147,7 @@ index abc123..def456 100644
 # P1-c: Parser Edge Case Tests (malformed markdown)
 # ============================================================================
 
+
 class TestParserEdgeCases:
     """Tests for PacketParser with malformed/edge-case markdown."""
 
@@ -165,10 +163,7 @@ class TestParserEdgeCases:
     def test_missing_intent_raises(self, parser):
         """Packet with header but no Class E section should raise."""
         with pytest.raises(PacketParseError, match="Missing Class E"):
-            parser.parse(
-                "# AIV Verification Packet (v2.1)\n\n"
-                "## Claim(s)\n\n1. Some claim with enough text here.\n"
-            )
+            parser.parse("# AIV Verification Packet (v2.1)\n\n## Claim(s)\n\n1. Some claim with enough text here.\n")
 
     def test_missing_claims_raises(self, parser):
         """Packet with header + intent but no claims should raise."""
@@ -260,6 +255,7 @@ Test.
 # P1-d: Strict Mode Behavior Tests
 # ============================================================================
 
+
 class TestStrictModeBehavior:
     """Tests for strict_mode flag in pipeline validation."""
 
@@ -290,6 +286,7 @@ class TestStrictModeBehavior:
 # ============================================================================
 # P1-e: Multi-Claim Evidence Enrichment Tests
 # ============================================================================
+
 
 class TestMultiClaimEvidenceEnrichment:
     """Tests for evidence enrichment across multiple claims."""
@@ -382,6 +379,7 @@ Test.
 # P1-f: AIVConfig.from_file() YAML Loading Tests
 # ============================================================================
 
+
 class TestAIVConfigFromFile:
     """Tests for AIVConfig.from_file() YAML loading."""
 
@@ -402,9 +400,7 @@ class TestAIVConfigFromFile:
         config_file = tmp_path / ".aiv.yml"
         # Use a truly invalid YAML structure (tab indentation error)
         config_file.write_text(
-            "strict_mode: true\n"
-            "  bad_indent:\n"
-            "\t- mixed tabs and spaces\n",
+            "strict_mode: true\n  bad_indent:\n\t- mixed tabs and spaces\n",
             encoding="utf-8",
         )
         with pytest.raises(ConfigurationError):
@@ -421,8 +417,7 @@ class TestAIVConfigFromFile:
         """YAML with invalid field type should raise ConfigurationError."""
         config_file = tmp_path / ".aiv.yml"
         config_file.write_text(
-            "strict_mode: not_a_bool_or_valid_value\n"
-            "min_sha_length: not_an_int\n",
+            "strict_mode: not_a_bool_or_valid_value\nmin_sha_length: not_an_int\n",
             encoding="utf-8",
         )
         with pytest.raises(ConfigurationError, match="Invalid configuration"):
