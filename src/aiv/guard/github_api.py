@@ -9,12 +9,11 @@ from __future__ import annotations
 
 import json
 import os
-import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-from urllib.request import Request, urlopen
 from urllib.error import HTTPError
+from urllib.request import Request, urlopen
 
 from ..lib.errors import GitHubAPIError
 from .models import GuardContext
@@ -23,6 +22,7 @@ from .models import GuardContext
 @dataclass
 class ChangedFile:
     """A file changed in the PR."""
+
     filename: str
     status: str  # "added", "modified", "removed", "renamed"
     patch: str = ""
@@ -99,10 +99,7 @@ class GitHubAPI:
             pr_body=pr.get("body", "") or "",
             is_draft=pr.get("draft", False),
             run_id=os.environ.get("GITHUB_RUN_ID", ""),
-            run_url=(
-                f"https://github.com/{repo_full}/actions/runs/"
-                f"{os.environ.get('GITHUB_RUN_ID', '')}"
-            ),
+            run_url=(f"https://github.com/{repo_full}/actions/runs/{os.environ.get('GITHUB_RUN_ID', '')}"),
         )
 
     def list_pr_files(self, ctx: GuardContext) -> list[ChangedFile]:
@@ -112,10 +109,7 @@ class GitHubAPI:
         max_pages = 100
 
         while page <= max_pages:
-            url = (
-                f"{self.base_url}/repos/{ctx.owner}/{ctx.repo}"
-                f"/pulls/{ctx.pr_number}/files?per_page=100&page={page}"
-            )
+            url = f"{self.base_url}/repos/{ctx.owner}/{ctx.repo}/pulls/{ctx.pr_number}/files?per_page=100&page={page}"
             try:
                 data = self._request(url)
             except GitHubAPIError:
@@ -125,11 +119,13 @@ class GitHubAPI:
                 break
 
             for f in data:
-                files.append(ChangedFile(
-                    filename=f.get("filename", ""),
-                    status=f.get("status", ""),
-                    patch=f.get("patch", "") or "",
-                ))
+                files.append(
+                    ChangedFile(
+                        filename=f.get("filename", ""),
+                        status=f.get("status", ""),
+                        patch=f.get("patch", "") or "",
+                    )
+                )
 
             if len(data) < 100:
                 break
@@ -153,8 +149,7 @@ class GitHubAPI:
 
         while page <= max_pages:
             url = (
-                f"{self.base_url}/repos/{ctx.owner}/{ctx.repo}"
-                f"/actions/runs/{run_id}/artifacts?per_page=100&page={page}"
+                f"{self.base_url}/repos/{ctx.owner}/{ctx.repo}/actions/runs/{run_id}/artifacts?per_page=100&page={page}"
             )
             try:
                 data = self._request(url)
@@ -171,18 +166,12 @@ class GitHubAPI:
 
     def download_artifact_zip(self, ctx: GuardContext, artifact_id: int) -> bytes:
         """Download an artifact as a zip file."""
-        url = (
-            f"{self.base_url}/repos/{ctx.owner}/{ctx.repo}"
-            f"/actions/artifacts/{artifact_id}/zip"
-        )
+        url = f"{self.base_url}/repos/{ctx.owner}/{ctx.repo}/actions/artifacts/{artifact_id}/zip"
         return self._request_bytes(url)
 
     def get_file_content(self, ctx: GuardContext, path: str, ref: str) -> str | None:
         """Get file content at a specific ref."""
-        url = (
-            f"{self.base_url}/repos/{ctx.owner}/{ctx.repo}"
-            f"/contents/{path}?ref={ref}"
-        )
+        url = f"{self.base_url}/repos/{ctx.owner}/{ctx.repo}/contents/{path}?ref={ref}"
         try:
             data = self._request(url)
         except GitHubAPIError:
@@ -194,11 +183,13 @@ class GitHubAPI:
             return None
 
         import base64
+
         return base64.b64decode(data["content"]).decode("utf-8")
 
     def search_code(self, ctx: GuardContext, query: str) -> int:
         """Search code in the repository. Returns total_count."""
         import urllib.parse
+
         q = urllib.parse.quote(f"{query} repo:{ctx.owner}/{ctx.repo}")
         url = f"{self.base_url}/search/code?q={q}&per_page=1"
         try:
