@@ -21,11 +21,11 @@ AI-assisted development increases code throughput beyond what humans can reliabl
 
 This isn't theoretical. During this project's own AI audit, we observed the **Hallucination Cascade**: an AI predicted a nonexistent function, "mentally traced" its execution, wrote a falsification scenario testing it, and produced a perfectly valid verification session describing a reality that didn't exist. Every step looked correct. None of it was real. ([Full audit →](#empirically-validated-the-ai-first-pass-proof))
 
-## Velocity: 331 Commits in 10 Hours 47 Minutes
+## The v1.0 Bootstrap: 331 Commits in 10 Hours 47 Minutes
 
 The most common objection to verification protocols is that they kill velocity. This project is the counter-evidence.
 
-**This entire codebase — every source file, every test, every verification packet — was built in a single session.**
+The **v1.0 kernel** of this codebase — the parser, validators, guard, SVP suite, CLI, and all verification packets — was built in a single **11-hour session** ([`v1.0-genesis`](https://github.com/ImmortalDemonGod/aiv-protocol/releases/tag/v1.0-genesis)).
 
 | Metric | Value |
 | --- | --- |
@@ -39,7 +39,7 @@ The most common objection to verification protocols is that they kill velocity. 
 | Tests passing | **454** (unit + integration) |
 | Verification packets | **75** (+ 1 template) |
 
-47% of total output was verification artifacts. The other 53% — source code and tests — was higher quality *because* of it. Every number is reproducible from `git log`.
+47% of total output was verification artifacts. The other 53% — source code and tests — was higher quality *because* of it. Every number is reproducible from `git log`. Stats reflect the `v1.0-genesis` tag.
 
 ### Why It Didn't Slow Down
 
