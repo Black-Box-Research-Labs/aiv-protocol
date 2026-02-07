@@ -239,7 +239,7 @@ All validators implement `BaseValidator.validate(packet) → list[ValidationFind
 - `BaseValidator` is an ABC with `validate()` and `_make_finding()` helper.
 
 **Inconsistencies found:**
-- ✅ FIXED: **PROTOCOL IS UNUSED / DUAL ABSTRACTION:** The `Validator` protocol and `runtime_checkable` import have been removed. Only the `BaseValidator` ABC remains (44 lines, down from 67). Clean single abstraction.
+- ✅ FIXED: **PROTOCOL IS UNUSED / DUAL ABSTRACTION:** The `Validator` protocol and `runtime_checkable` import have been removed. Only the `BaseValidator` ABC remains (33 lines, down from 67). Clean single abstraction.
 
 ### 2.8 `validators/exceptions.py` — ✅ DELETED (was 220 lines of dead code)
 
@@ -498,8 +498,8 @@ All validators implement `BaseValidator.validate(packet) → list[ValidationFind
 | Real packet smoke tests | ✅ 3 tests | ✅ 3 tests |
 | Individual validator unit tests | ❌ Zero | ✅ **25 tests** (zero-touch 5, bug-fix 7, conservation 4, risk-tier 9) |
 | Parser (classification, methodology) | ❌ Minimal | ✅ **11 tests** (classification 7, evidence collection 2, methodology 2) |
-| Guard module | ❌ N/A | ✅ **36 tests** |
-| SVP module | ❌ N/A | ✅ **43 tests** |
+| Guard module | ❌ N/A | ✅ **test_guard.py** (380 lines) + E2E tests in test_e2e_compliance.py |
+| SVP module | ❌ N/A | ✅ **test_svp.py** (753 lines) + **test_svp_full_workflow.py** (561 lines) |
 | `DiffAnalyzer` | ❌ Dead code | ✅ N/A — deleted |
 | `guard/security.py` | ❌ Dead code | ✅ N/A — deleted |
 | `validators/exceptions.py` | ❌ Dead code | ✅ N/A — deleted |
