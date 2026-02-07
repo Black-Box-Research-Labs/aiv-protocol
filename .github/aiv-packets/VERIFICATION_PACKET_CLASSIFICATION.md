@@ -1,6 +1,6 @@
 # AIV Verification Packet (v2.1)
 
-**Commit:** `pending`  
+**Commit:** `711d192`  
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
 ---
@@ -33,7 +33,7 @@ classification:
 
 ### Class E (Intent Alignment)
 
-- **Link:** AUDIT_REPORT.md — §4.4.3: "Classification YAML block is present in all real packets but completely ignored by the parser."
+- **Link:** [AUDIT_REPORT.md — §4.4.3: "Classification YAML block is present in all real packets but completely ignored by the parser."](https://github.com/ImmortalDemonGod/aiv-protocol/blob/711d192/AUDIT_REPORT.md)
 - **Requirements Verified:**
   1. ✅ Parser extracts risk_tier from YAML
   2. ✅ Pipeline enforces tier-specific evidence requirements
