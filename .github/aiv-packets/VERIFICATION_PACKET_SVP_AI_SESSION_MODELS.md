@@ -2,9 +2,12 @@
 
 ## Classification
 
-- **Risk Tier:** R2
-- **Blast Radius:** component
-- **SoD Mode:** S1
+```yaml
+classification:
+  risk_tier: R2
+  blast_radius: component
+  sod_mode: S1
+```
 
 ## Claim(s)
 
@@ -30,6 +33,10 @@
 - 384 tests pass after change. SessionType enum serializes correctly.
 - TraceRecord accepts verified_output field. FalsificationScenario accepts test_code field.
 - SVPSession defaults to human_verification, backwards-compatible.
+
+### Class C (Negative Evidence)
+
+- All 384 existing tests pass with no regressions. New fields are Optional with defaults, so all existing session JSON files remain valid without modification.
 
 ## Summary
 
