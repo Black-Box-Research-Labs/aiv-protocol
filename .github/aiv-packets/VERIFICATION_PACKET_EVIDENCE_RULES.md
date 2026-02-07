@@ -1,6 +1,6 @@
 # AIV Verification Packet (v2.1)
 
-**Commit:** `pending`  
+**Commit:** `8f70926`  
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
 ---
@@ -30,7 +30,7 @@ classification:
 
 ### Class E (Intent Alignment)
 
-- **Link:** AUDIT_REPORT.md — Findings L03 and L04.
+- **Link:** [AUDIT_REPORT.md — Findings L03 and L04.](https://github.com/ImmortalDemonGod/aiv-protocol/blob/8f70926/AUDIT_REPORT.md)
 - **Requirements Verified:**
   1. ✅ "prefix handling" no longer triggers bug-fix heuristic
   2. ✅ "issue #42" still triggers correctly
