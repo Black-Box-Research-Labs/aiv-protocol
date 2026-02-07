@@ -59,7 +59,7 @@ This is a greenfield project built by one developer + AI. The velocity claim is 
 
 ## Empirically Validated: The AI First-Pass Proof
 
-We gave an AI 3 verification scopes to verify using the SVP protocol, then audited every claim it produced. The results define the core value proposition.
+We gave an AI 3 change sets to verify using the SVP protocol (which works against PRs, feature branches, or any scoped change), then audited every claim it produced. The results define the core value proposition.
 
 ### The Scorecard
 
