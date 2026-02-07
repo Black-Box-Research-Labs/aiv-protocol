@@ -1,16 +1,16 @@
 # AIV Protocol — Codebase Audit Report
 
 **Original Date:** 2026-02-06  
-**Re-Audit Date:** 2026-02-06 (later session, same day)  
+**Re-Audit Date:** 2026-02-07  
 **Auditor:** Cascade (Senior Software Engineer role)  
 **Scope:** Full Python implementation in `src/aiv/` (including `src/aiv/svp/`), tests in `tests/`, CI workflows, pre-commit hook  
-**Method:** Static analysis, code tracing, execution verification (188/188 tests pass)  
+**Method:** Static analysis, code tracing, execution verification (428/428 tests pass)  
 **Previous baseline:** 39 tests, 22 Python source files, ~2,318 lines  
-**Current baseline:** 188 tests, 32 Python source files, ~6,500+ lines
+**Current baseline:** 428 tests, 33 Python source files, ~5,631 lines
 
-> **Re-Audit Note:** This report has been updated in-place. Each finding now
-> includes a **Status** tag: ✅ FIXED, ⚠️ PARTIALLY FIXED, ❌ STILL PRESENT,
-> or 🆕 NEW FINDING. A consolidated delta summary appears in §8.
+> **Re-Audit Note:** This report has been updated in-place (latest: 2026-02-07).
+> Each finding includes a **Status** tag: ✅ FIXED, ⚠️ PARTIALLY FIXED,
+> ❌ STILL PRESENT, or 🆕 NEW FINDING. A consolidated delta summary appears in §8.
 
 ---
 
@@ -26,81 +26,90 @@ aiv-protocol/
 │   ├── py.typed                      # PEP 561 typed marker
 │   ├── cli/
 │   │   ├── __init__.py
-│   │   └── main.py                   # Typer CLI: check, init, generate commands (366 lines)
-│   ├── guard/                        # 🆕 Python AIV Guard (replaced dead security.py)
+│   │   └── main.py                   # Typer CLI: check, init, audit, generate (665 lines)
+│   ├── guard/                        # Python AIV Guard (replaced dead security.py + JS guard)
 │   │   ├── __init__.py
 │   │   ├── __main__.py               # Entry point for `python -m aiv.guard`
-│   │   ├── models.py                 # Guard data models (215 lines)
-│   │   ├── github_api.py             # GitHub REST API client (196 lines)
-│   │   ├── canonical.py              # Canonical JSON packet validator (522 lines)
-│   │   ├── manifest.py               # Manifest handling (211 lines)
-│   │   └── runner.py                 # Guard orchestrator (427 lines)
-│   └── lib/
-│       ├── __init__.py
-│       ├── config.py                 # Pydantic configuration models (152 lines)
-│       ├── errors.py                 # Exception hierarchy (69 lines)
-│       ├── models.py                 # Core Pydantic models (381 lines)
-│       ├── parser.py                 # Markdown packet parser (516 lines)
-│       └── validators/
-│           ├── __init__.py
-│           ├── base.py               # ABC for validators (44 lines, Protocol removed)
-│           ├── anti_cheat.py         # Test manipulation detection (198 lines)
-│           ├── evidence.py           # Evidence class-specific validation (280 lines)
-│           ├── links.py              # URL immutability checking (100 lines)
-│           ├── pipeline.py           # Orchestrator + risk-tier enforcement (252 lines)
-│           ├── structure.py          # Packet structural completeness (76 lines)
-│           └── zero_touch.py         # Zero-Touch compliance checking (202 lines)
-│   └── svp/                          # ✅ MOVED from src/svp/ to src/aiv/svp/ (Rec #24)
+│   │   ├── models.py                 # Guard data models (178 lines)
+│   │   ├── github_api.py             # GitHub REST API client (164 lines)
+│   │   ├── canonical.py              # Canonical JSON packet validator (467 lines)
+│   │   ├── manifest.py               # Manifest handling (174 lines)
+│   │   └── runner.py                 # Guard orchestrator (414 lines)
+│   ├── lib/
+│   │   ├── __init__.py
+│   │   ├── auditor.py                # PacketAuditor — bulk packet quality scanner (330 lines)
+│   │   ├── config.py                 # Pydantic configuration models (143 lines)
+│   │   ├── errors.py                 # Exception hierarchy (43 lines)
+│   │   ├── models.py                 # Core Pydantic models (355 lines)
+│   │   ├── parser.py                 # Markdown packet parser (540 lines)
+│   │   └── validators/
+│   │       ├── __init__.py
+│   │       ├── base.py               # ABC for validators (33 lines)
+│   │       ├── anti_cheat.py         # Test manipulation detection (174 lines)
+│   │       ├── evidence.py           # Evidence class-specific validation (413 lines)
+│   │       ├── links.py              # URL immutability checking (82 lines)
+│   │       ├── pipeline.py           # Orchestrator + risk-tier enforcement (275 lines)
+│   │       ├── structure.py          # Packet structural completeness (65 lines)
+│   │       └── zero_touch.py         # Zero-Touch compliance checking (148 lines)
+│   └── svp/                          # SVP Protocol Suite (relocated from src/svp/)
 │       ├── __init__.py
 │       ├── cli/
 │       │   ├── __init__.py
-│       │   └── main.py               # SVP CLI: status/predict/trace/probe/validate
+│       │   └── main.py               # SVP CLI: status/predict/trace/probe/validate (413 lines)
 │       └── lib/
 │           ├── __init__.py
-│           ├── models.py             # SVP Pydantic models (phases 0-4, session, rating)
+│           ├── models.py             # SVP Pydantic models (511 lines)
+│           ├── rating.py             # ELO rating engine (162 lines)
 │           └── validators/
 │               ├── __init__.py
-│               └── session.py        # SVP session validator (rules S001-S013)
+│               └── session.py        # SVP session validator (rules S001-S016, 327 lines)
 ├── tests/
-│   ├── conftest.py                   # Shared fixtures (286 lines)
+│   ├── conftest.py                   # Shared fixtures (238 lines)
 │   ├── unit/
-│   │   ├── test_models.py            # Model unit tests (270 lines)
-│   │   ├── test_parser.py            # 🆕 Parser unit tests (251 lines)
-│   │   ├── test_validators.py        # 🆕 Validator unit tests (382 lines)
-│   │   ├── test_guard.py             # 🆕 Guard unit tests (36 tests)
-│   │   ├── test_svp.py              # 🆕 SVP unit tests (43 tests)
-│   │   └── test_coverage.py         # 🆕 Additional coverage tests (25 tests)
+│   │   ├── test_models.py            # Model unit tests (259 lines)
+│   │   ├── test_parser.py            # Parser unit tests (241 lines)
+│   │   ├── test_validators.py        # Validator unit tests (327 lines)
+│   │   ├── test_guard.py             # Guard unit tests (380 lines)
+│   │   ├── test_svp.py              # SVP unit tests (753 lines)
+│   │   ├── test_auditor.py          # Auditor unit tests (305 lines)
+│   │   └── test_coverage.py         # Additional coverage tests (324 lines)
 │   └── integration/
-│       └── test_full_workflow.py      # Pipeline integration tests
+│       ├── test_full_workflow.py      # Pipeline integration tests (99 lines)
+│       ├── test_e2e_compliance.py    # E2E compliance tests (1026 lines)
+│       └── test_svp_full_workflow.py # SVP E2E integration tests (561 lines)
+├── scripts/
+│   └── map_packets.py                # Source-file-to-packet mapping generator
 ├── .github/
 │   ├── workflows/
-│   │   ├── aiv-guard.yml             # CI PR validation (2243 lines, JS — preserved)
-│   │   ├── aiv-guard-python.yml      # 🆕 Python guard workflow (45 lines)
-│   │   └── verify-architecture.yml   # CI build/evidence generation
-│   ├── aiv-packets/                  # 30 verification packet files (was 13)
+│   │   ├── aiv-guard-python.yml      # Python guard workflow (44 lines)
+│   │   ├── ci.yml                    # CI: ruff, mypy, pytest, evidence generation
+│   │   └── verify-architecture.yml   # (disabled — cannibalized into ci.yml)
+│   ├── aiv-packets/                  # 66 verification packet files (was 13)
 │   └── PULL_REQUEST_TEMPLATE.md
 ├── .husky/
-│   └── pre-commit                    # Atomic commit enforcer (shell)
+│   └── pre-commit                    # Atomic commit + aiv check + aiv audit gate (285 lines)
 ├── docs/specs/                       # Canonical specification documents
 ├── pyproject.toml                    # Build config, dependencies
 ├── SPECIFICATION.md                  # Canonical AIV spec v1.0.0
+├── FILE_PACKET_MAP.md                # Source-file-to-packet evidence index
+├── FILE_PACKET_MAP.json              # Machine-readable packet mapping
 └── README.md
 ```
 
-**Total Python source:** ~4,700+ lines across 32 files (was ~2,318 across 22)  
-**Total test code:** ~2,600+ lines across 7 test files (was ~705 across 3)  
-**CI workflows:** aiv-guard.yml (JS, preserved) + aiv-guard-python.yml (45 lines, new)
+**Total Python source:** ~5,631 lines across 33 files (was ~2,318 across 22)  
+**Total test code:** ~4,513 lines across 10 test files (was ~705 across 3)  
+**CI workflows:** aiv-guard-python.yml (44 lines) + ci.yml (evidence generation). JS guard deleted.
 
 ### 1.2 Entry Points
 
-1. **CLI:** `aiv check <packet>` / `aiv init <path>` / `aiv generate <name>` — via `src/aiv/cli/main.py:app` (Typer)
+1. **CLI:** `aiv check <packet>` / `aiv init <path>` / `aiv audit [--fix]` / `aiv generate <name>` — via `src/aiv/cli/main.py:app` (Typer)
 2. **SVP CLI:** `aiv svp status/predict/trace/probe/validate` — via `src/aiv/svp/cli/main.py:svp_app`, integrated into main CLI
 3. **Module:** `python -m aiv` — via `src/aiv/__main__.py`
-4. **Guard Module:** `python -m aiv.guard` — via `src/aiv/guard/__main__.py` (🆕)
+4. **Guard Module:** `python -m aiv.guard` — via `src/aiv/guard/__main__.py`
 5. **Console script:** `aiv` — registered in `pyproject.toml` → `aiv.cli.main:app`
-6. **CI (JS):** `.github/workflows/aiv-guard.yml` — standalone JavaScript (preserved)
-7. **CI (Python):** `.github/workflows/aiv-guard-python.yml` — uses Python guard module (🆕)
-8. **Pre-commit:** `.husky/pre-commit` — standalone shell, does NOT use the Python package
+6. **CI (Python):** `.github/workflows/aiv-guard-python.yml` — uses Python guard module
+7. **CI (evidence):** `.github/workflows/ci.yml` — ruff, mypy, pytest, Class A/C manifest generation
+8. **Pre-commit:** `.husky/pre-commit` — atomic commit enforcer + `aiv check` + `aiv audit` gate (285 lines)
 
 ### 1.3 High-Level Architecture
 
@@ -125,7 +134,7 @@ All validators implement `BaseValidator.validate(packet) → list[ValidationFind
 
 ## 2. Functional Modules
 
-### 2.1 `models.py` — Core Data Models (381 lines, was 352)
+### 2.1 `models.py` — Core Data Models (355 lines, was 352)
 
 **Stated purpose:** Immutable Pydantic models for the AIV domain.
 
@@ -145,11 +154,11 @@ All validators implement `BaseValidator.validate(packet) → list[ValidationFind
 - ✅ FIXED: **DEPRECATION: `datetime.utcnow()`** — replaced with `datetime.now(timezone.utc)` at line 321.
 - ✅ FIXED: **NAMING INCONSISTENCY RESOLVED:** `EvidenceClass.STATE` renamed to `DIFFERENTIAL` (Class D) and `EvidenceClass.CONSERVATION` renamed to `PROVENANCE` (Class F), matching the canonical spec. Docstrings, validator methods, CLI labels, and all tests updated. Property `has_conservation_evidence` renamed to `has_provenance_evidence`.
 
-### 2.2 `parser.py` — Markdown Parser (516 lines, was 453)
+### 2.2 `parser.py` — Markdown Parser (540 lines, was 453)
 
 **Stated purpose:** Convert markdown verification packets into structured `VerificationPacket` objects.
 
-**Actual behavior — verified against 30 real packets:**
+**Actual behavior — verified against 66 real packets:**
 - Section extraction via heading detection works correctly.
 - Intent parsing: tries `### Class E` first (level 3), falls back to legacy `## 0. Intent Alignment`. Extracts `**Link:**` and `**Requirements Verified:**` fields via regex.
 - Claim parsing: extracts numbered list items from `## Claim(s)` section. Minimum description length enforced (10 chars).
@@ -165,7 +174,7 @@ All validators implement `BaseValidator.validate(packet) → list[ValidationFind
 - ✅ FIXED: **LEGACY PARSER DELETED:** `_build_intent_from_legacy()` removed entirely (was untested dead code). Only the modern `### Class E` parser path remains.
 - ❌ STILL PRESENT: **VERSION FALLBACK:** If the header lacks a version (e.g., `# AIV Verification Packet`), version defaults to `"2.1"` (line 101). This is an assumption, not a parsing result.
 
-### 2.3 `config.py` — Configuration Models (152 lines)
+### 2.3 `config.py` — Configuration Models (143 lines)
 
 **Stated purpose:** Pydantic-based configuration for all validators.
 
@@ -179,13 +188,13 @@ All validators implement `BaseValidator.validate(packet) → list[ValidationFind
 - ✅ FIXED: **`fast_track_patterns` UNIFIED:** Guard `runner.py` now reads `AIVConfig.fast_track_patterns` instead of maintaining its own `FAST_TRACK_EXT`/`FAST_TRACK_NAMES` constants. Single source of truth for fast-track patterns.
 - ✅ FIXED: **`MutableBranchConfig` DUPLICATED:** `ArtifactLink.from_url()` now accepts `mutable_branches` and `min_sha_length` parameters (line 95-96). `LinkValidator.validate_packet_links()` re-checks blob links using `self.config.mutable_branches` and `self.config.min_sha_length` (lines 79-83). Config is now respected.
 
-### 2.4 `errors.py` — Exception Hierarchy (69 lines)
+### 2.4 `errors.py` — Exception Hierarchy (43 lines)
 
 **Stated purpose:** Exception classes for distinct failure modes.
 
 **Actual behavior — verified:**
-- Clean hierarchy: `AIVError` → `PacketParseError`, `PacketValidationError`, `ConfigurationError`, `GitHubAPIError`, `EvidenceResolutionError`.
-- Each exception has appropriate metadata fields (rule_id, status_code, url).
+- Clean hierarchy: `AIVError` → `PacketParseError`, `ConfigurationError`, `GitHubAPIError`.
+- `GitHubAPIError` has `status_code` field. Others are bare subclasses.
 
 **Inconsistencies found:**
 - ✅ FIXED: **Error classes wired or removed:** `GitHubAPIError` now wraps `HTTPError` in `guard/github_api.py` `_request()`/`_request_bytes()`. `ConfigurationError` raised by `AIVConfig.from_file()` on YAML parse/validation failures. `PacketValidationError` and `EvidenceResolutionError` removed as truly unused.
@@ -194,22 +203,23 @@ All validators implement `BaseValidator.validate(packet) → list[ValidationFind
 
 **Previous state:** `guard/security.py` — 82 lines of dead code (5 unused functions).
 
-**Current state:** ✅ FIXED — `security.py` has been **deleted entirely** and replaced with a complete Python Guard module (6 files, ~1,571 lines total):
-- `models.py` (215 lines) — `GuardContext`, `GuardResult`, `GuardFinding`, `EvidenceClassResult`, regex helpers
-- `github_api.py` (196 lines) — Minimal GitHub REST API client using only `urllib` (no deps)
-- `canonical.py` (522 lines) — Canonical JSON packet validator (replaces core JS guard logic)
-- `manifest.py` (211 lines) — Manifest handling
-- `runner.py` (427 lines) — Full guard orchestrator with 9-stage pipeline
+**Current state:** ✅ FIXED — `security.py` has been **deleted entirely** and replaced with a complete Python Guard module (6 files, ~1,401 lines total). The legacy 2,244-line JS guard workflow (`aiv-guard.yml`) has also been **deleted** (commit `59167a1`):
+- `models.py` (178 lines) — `GuardContext`, `GuardResult`, `GuardFinding`, `EvidenceClassResult`, regex helpers
+- `github_api.py` (164 lines) — Minimal GitHub REST API client using only `urllib` (no deps)
+- `canonical.py` (467 lines) — Canonical JSON packet validator (replaces core JS guard logic)
+- `manifest.py` (174 lines) — Manifest handling (now accepts Python runtime, not just node/npm)
+- `runner.py` (414 lines) — Full guard orchestrator with 9-stage pipeline
 - `__main__.py` — Entry point for `python -m aiv.guard`
 
 **Key improvements over previous state:**
-- Guard module now **uses `aiv-lib` pipeline** internally (`runner.py:215` calls `ValidationPipeline`)
+- Guard module now **uses `aiv-lib` pipeline** internally (`runner.py:211` calls `ValidationPipeline`)
 - GitHub API client fetches PR files, workflow runs, CI artifacts
 - Critical surface detection ported from JS guard (path + semantic patterns)
 - Fast-track detection for docs-only changes
 - Canonical JSON validation (required fields, immutability, SoD, attestations)
 - CI artifact inspection (Class A run URL verification, aiv-evidence artifact check)
-- 36 unit tests in `tests/unit/test_guard.py`
+- JS guard workflow **deleted** — Python guard is now the sole CI enforcement layer
+- Tests in `tests/unit/test_guard.py` (380 lines)
 
 **New inconsistencies found:**
 - ✅ FIXED: **GUARD NOW USES AIVConfig:** `runner.py` reads `AIVConfig.fast_track_patterns` instead of its own constants. Single source of truth.
@@ -221,7 +231,7 @@ All validators implement `BaseValidator.validate(packet) → list[ValidationFind
 
 **Current state:** ✅ FIXED — `diff.py` has been **deleted**. The `analyzers/` directory has also been **deleted entirely** (empty package, D12). Critical surface detection functionality has been re-implemented in `guard/runner.py` (lines 37-68) with proper file tracking per pattern match.
 
-### 2.7 `validators/base.py` — Validator Interface (44 lines, was 67)
+### 2.7 `validators/base.py` — Validator Interface (33 lines, was 67)
 
 **Stated purpose:** ABC defining the validator interface.
 
@@ -237,7 +247,7 @@ All validators implement `BaseValidator.validate(packet) → list[ValidationFind
 
 **Current state:** ✅ FIXED — `exceptions.py` has been **deleted entirely**. Fast-track logic now lives in `guard/runner.py` (lines 107-118). Bootstrap and flake report handlers were not re-implemented — their functionality was not needed for the current validation workflow.
 
-### 2.9 `validators/pipeline.py` — Validation Pipeline (252 lines, was 181)
+### 2.9 `validators/pipeline.py` — Validation Pipeline (275 lines, was 181)
 
 **Stated purpose:** Orchestrates all validators in sequence.
 
@@ -252,7 +262,7 @@ All validators implement `BaseValidator.validate(packet) → list[ValidationFind
 - ✅ FIXED: **BROAD EXCEPTION CATCH NARROWED:** Stage 1 parse now catches `(PacketParseError, ValidationError)` instead of bare `Exception`. Unexpected errors propagate normally.
 - ✅ FIXED: **E014 RULE ID SPLIT:** `_check_tier_requirements()` now uses distinct rule IDs: E014 (missing classification, WARN), E019 (missing required evidence, BLOCK), E020 (missing optional evidence, INFO).
 
-### 2.10 `validators/structure.py` — Structure Validator (76 lines)
+### 2.10 `validators/structure.py` — Structure Validator (65 lines)
 
 **Stated purpose:** Validates packet structural completeness.
 
@@ -265,7 +275,7 @@ All validators implement `BaseValidator.validate(packet) → list[ValidationFind
 - ❌ STILL PRESENT: **DUAL LENGTH THRESHOLDS:** The parser skips claims with description < 10 chars (line 366), but the structure validator warns on claims with description < 15 chars (line 50). A 12-char description passes the parser but gets a warning from the structure validator. This dual threshold is confusing.
 - ⚠️ PARTIALLY FIXED: **REPRODUCTION CHECK:** The parser now extracts `## Verification Methodology` content as the `reproduction` field (lines 457-462), defaulting to `"N/A"` only when absent. The structure validator's empty-check (line 63) can now trigger if a packet has an empty Verification Methodology section. However, the check still validates the parser's extraction rather than the raw packet content — if the methodology section exists but is whitespace, the parser sets `reproduction` to `"N/A"` (line 460 falls through), so the check remains vacuous in that edge case.
 
-### 2.11 `validators/evidence.py` — Evidence Validator (262 lines)
+### 2.11 `validators/evidence.py` — Evidence Validator (413 lines)
 
 **Stated purpose:** Class-specific evidence validation rules.
 
@@ -277,8 +287,10 @@ All validators implement `BaseValidator.validate(packet) → list[ValidationFind
 - ✅ FIXED: **RULE ID COLLISION: E007** — Resolved. Each evidence class now has its own unique rule IDs: E015 (Class B non-blob), E016 (Class B missing file ref), E017 (Class C negative framing), E018 (Class D manual DB). Rule IDs are now unambiguous.
 - ✅ FIXED: **BUG FIX HEURISTIC FALSE POSITIVES:** `_is_bug_fix()` (lines 254-279) now uses word-boundary regex patterns (`\bfix(?:ed|es|ing)?\b`, `\bissue\s*#?\d+`, etc.) instead of substring matching. "prefix" no longer triggers "fix"; "tissue" no longer triggers "issue". Tested with 7 unit tests in `test_validators.py::TestBugFixHeuristic`.
 - ❌ STILL PRESENT: **CLASS A VALIDATION MOSTLY EMPTY:** `_validate_execution()` (lines 73-110) still only checks sub-conditions when the artifact is a non-CI URL AND the description mentions "performance" or "ui/visual". For the common case (CI link or string artifact), it returns no findings. Class A validation is effectively a no-op for most claims. Rule IDs used are E012 and E013.
+- 🆕 **E020 (Class A code blob warning):** Warns when Class A evidence links to a `github_blob` instead of a `github_actions`/`external` CI link. Added in `_validate_execution()` at line 109.
+- 🆕 **E021/E022 (file-type Class D triggers):** `_validate_differential_triggers()` (lines 230-327) detects when changed files match patterns (`.sql`, `pyproject.toml`, `.proto`, `Dockerfile`, etc.) and warns if Class D evidence is missing (E021) or doesn't mention the relevant keyword (E022). This is a new capability not present at original audit.
 
-### 2.12 `validators/links.py` — Link Validator (138 lines)
+### 2.12 `validators/links.py` — Link Validator (82 lines)
 
 **Stated purpose:** URL immutability checking per Addendum 2.2.
 
@@ -287,11 +299,11 @@ All validators implement `BaseValidator.validate(packet) → list[ValidationFind
 - Validates claim artifact links. Mutable github_blob → block.
 
 **Inconsistencies found:**
-- ✅ FIXED: **`validate_link_format()` IS DEAD CODE:** Removed entirely. `links.py` is now 100 lines (was 138). Only `validate()` → `validate_packet_links()` remains.
+- ✅ FIXED: **`validate_link_format()` IS DEAD CODE:** Removed entirely. `links.py` is now 82 lines (was 138). Only `validate()` → `validate_packet_links()` remains.
 - ❌ STILL PRESENT: **NO NETWORK VALIDATION:** Comments mention "Links should be accessible (optional, requires network)" (line 40) but no network checks exist. All validation is structural/heuristic.
 - ✅ FIXED: **CONFIG NOT USED FOR IMMUTABILITY:** `LinkValidator.validate_packet_links()` now re-checks blob/tree links using `self.config.mutable_branches` and `self.config.min_sha_length` (lines 79-83). Config is fully wired through.
 
-### 2.13 `validators/zero_touch.py` — Zero-Touch Validator (202 lines, was 174)
+### 2.13 `validators/zero_touch.py` — Zero-Touch Validator (148 lines, was 174)
 
 **Stated purpose:** Ensures reproduction instructions don't require local execution.
 
@@ -306,7 +318,7 @@ All validators implement `BaseValidator.validate(packet) → list[ValidationFind
 - ✅ FIXED: **ALWAYS PASSES IN PRACTICE:** The parser now extracts `## Verification Methodology` content as the `reproduction` field (parser.py lines 457-462). Real packets with methodology content like "**Zero-Touch Mandate:** Verifier inspects artifacts only" are correctly parsed and validated. The validator can now find violations when methodology sections contain prohibited patterns outside code blocks. Tested with 5 unit tests in `test_validators.py::TestZeroTouchCodeBlockStripping`.
 - ✅ FIXED: **DEPRECATED IMPORT:** Now uses `from re import Pattern` (line 10) instead of `from typing import Pattern`.
 
-### 2.14 `validators/anti_cheat.py` — Anti-Cheat Scanner (196 lines)
+### 2.14 `validators/anti_cheat.py` — Anti-Cheat Scanner (174 lines)
 
 **Stated purpose:** Detects test manipulation in git diffs.
 
