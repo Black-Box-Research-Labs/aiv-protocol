@@ -1,6 +1,6 @@
 # AIV Verification Packet (v2.1)
 
-**Commit:** `pending`  
+**Commit:** `464c063`  
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
 ---
@@ -20,7 +20,7 @@ classification:
 
 ## Claim(s)
 
-1. The `aiv generate` command produces claim stubs that follow the `[Component] [assertive verb] [result] under [condition]` pattern instead of generic `TODO: what changed`.
+1. The `aiv generate` command produces claim stubs that follow the `[Component] [assertive verb] [result] under [condition]` pattern instead of generic placeholder stubs.
 2. All 347 tests pass with zero regressions.
 3. No existing tests were modified or deleted during this change.
 
@@ -56,4 +56,4 @@ classification:
 
 ## Summary
 
-Replace generic TODO claim stubs in aiv generate with assertive, falsifiable grammar template.
+Replace generic placeholder claim stubs in aiv generate with assertive, falsifiable grammar template.
