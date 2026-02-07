@@ -1,6 +1,6 @@
 # AIV Verification Packet (v2.1) — Evidence Pipeline Cannibalization
 
-**Commit:** `pending` (format manifest.py)
+**Commit:** `66a874a` (format manifest.py)
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
 ---
