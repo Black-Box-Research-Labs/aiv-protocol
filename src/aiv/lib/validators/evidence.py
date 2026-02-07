@@ -36,11 +36,11 @@ class EvidenceValidator(BaseValidator):
             errors.extend(class_errors)
 
         # Check for required Class F on bug fixes
-        if self._is_bug_fix(packet) and not packet.has_conservation_evidence:
+        if self._is_bug_fix(packet) and not packet.has_provenance_evidence:
             errors.append(self._make_finding(
                 rule_id="E010",
                 severity="block",
-                message="Bug fixes require Class F (Conservation) evidence",
+                message="Bug fixes require Class F (Provenance) evidence",
                 location="Packet-wide",
                 suggestion=(
                     "Add a claim showing that existing tests were preserved. "
@@ -59,9 +59,9 @@ class EvidenceValidator(BaseValidator):
             EvidenceClass.EXECUTION: self._validate_execution,
             EvidenceClass.REFERENTIAL: self._validate_referential,
             EvidenceClass.NEGATIVE: self._validate_negative,
-            EvidenceClass.STATE: self._validate_state,
+            EvidenceClass.DIFFERENTIAL: self._validate_differential,
             EvidenceClass.INTENT: self._validate_intent,
-            EvidenceClass.CONSERVATION: self._validate_conservation,
+            EvidenceClass.PROVENANCE: self._validate_provenance,
         }
 
         validator = validators.get(claim.evidence_class)
@@ -168,9 +168,9 @@ class EvidenceValidator(BaseValidator):
 
         return errors
 
-    def _validate_state(self, claim: Claim) -> list[ValidationFinding]:
+    def _validate_differential(self, claim: Claim) -> list[ValidationFinding]:
         """
-        Class D: State Evidence
+        Class D: Differential Evidence
 
         Requirements:
         - Must show actual state change (not just logs)
@@ -220,9 +220,9 @@ class EvidenceValidator(BaseValidator):
 
         return errors
 
-    def _validate_conservation(self, claim: Claim) -> list[ValidationFinding]:
+    def _validate_provenance(self, claim: Claim) -> list[ValidationFinding]:
         """
-        Class F: Conservation Evidence
+        Class F: Provenance Evidence
 
         Requirements:
         - Must show test file diff (no deleted assertions)
@@ -232,7 +232,7 @@ class EvidenceValidator(BaseValidator):
         errors: list[ValidationFinding] = []
 
         # Check for justification if this is a test *modification* claim.
-        # Conservation claims asserting no tests were changed (negative framing)
+        # Provenance claims asserting no tests were changed (negative framing)
         # don't need additional justification — the absence IS the evidence.
         test_keywords = ["test", "assertion", "spec"]
         is_test_related = any(kw in claim.description.lower() for kw in test_keywords)
