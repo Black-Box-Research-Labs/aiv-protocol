@@ -9,11 +9,11 @@
 
 ```yaml
 classification:
-  risk_tier: R1
+  risk_tier: R2
   sod_mode: S0
   critical_surfaces: []
-  blast_radius: local
-  classification_rationale: "Implements the SVP Protocol Suite (cognitive verification layer) as a new Python module. No existing code modified except adding one import line in aiv/cli/main.py to integrate the SVP subcommand. All new code, additive only."
+  blast_radius: component
+  classification_rationale: "Implements the entire SVP Protocol Suite — 9 new files including session validator (S001-S013), CLI commands, and data models. Creates a new enforcement layer with validation rules that gate cognitive verification. Upgraded from R1 to R2: introduces a new validation subsystem with public API."
   classified_by: "cascade"
   classified_at: "2026-02-07T01:30:00Z"
 ```
@@ -60,6 +60,12 @@ classification:
 
 - 163/163 pytest tests pass (84 original + 36 guard + 43 SVP)
 - SVP imports verified: `from aiv.svp.lib.models import SVPSession`
+
+### Class C (Negative Evidence)
+
+- All 84 original tests and 36 guard tests pass unchanged — zero regressions from SVP addition.
+- Only modification to existing code is a single `add_typer` import line in `src/aiv/cli/main.py`.
+- `aiv check` pipeline behavior unchanged: SVP is a separate subsystem with no coupling to AIV validation.
 
 ---
 
