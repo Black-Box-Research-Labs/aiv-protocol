@@ -54,7 +54,7 @@ Repository = "https://github.com/ImmortalDemonGod/aiv-protocol"
 Issues = "https://github.com/ImmortalDemonGod/aiv-protocol/issues"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/aiv"]
+packages = ["src/aiv", "src/svp"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

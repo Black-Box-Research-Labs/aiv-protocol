@@ -18,7 +18,7 @@ from rich.table import Table
 from aiv.lib.models import ValidationStatus, ValidationFinding
 from aiv.lib.validators.pipeline import ValidationPipeline
 from aiv.lib.config import AIVConfig
-from aiv.svp.cli.main import svp_app
+from svp.cli.main import svp_app
 
 app = typer.Typer(
     name="aiv",
