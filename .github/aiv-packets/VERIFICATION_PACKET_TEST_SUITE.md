@@ -1,6 +1,6 @@
 # AIV Verification Packet (v2.1)
 
-**Commit:** `pending`  
+**Commit:** `af67c1a`  
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
 ---
@@ -38,7 +38,7 @@ classification:
 
 ### Class E (Intent Alignment)
 
-- **Link:** AUDIT_REPORT.md — All implemented fixes now have regression test coverage.
+- **Link:** [AUDIT_REPORT.md — All implemented fixes now have regression test coverage.](https://github.com/ImmortalDemonGod/aiv-protocol/blob/af67c1a/AUDIT_REPORT.md)
 - **Requirements Verified:**
   1. ✅ Every new feature has dedicated tests
   2. ✅ Both positive and negative test cases included
