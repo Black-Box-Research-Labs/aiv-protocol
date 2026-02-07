@@ -9,11 +9,11 @@
 
 ```yaml
 classification:
-  risk_tier: R1
+  risk_tier: R2
   sod_mode: S0
   critical_surfaces: []
-  blast_radius: module
-  classification_rationale: "Add CT-013 canonical rule: R2+ claims with Class A evidence must include test_refs for falsifiability"
+  blast_radius: component
+  classification_rationale: "Adds CT-013 canonical validation rule to guard/canonical.py — changes what the guard accepts/rejects for R2+ packets. Upgraded from R1 to R2: modifying enforcement logic that gates PR acceptance."
   classified_by: "cascade"
   classified_at: "2026-02-07T03:25:00Z"
 ```
@@ -49,6 +49,12 @@ classification:
 ### Class A (Execution Evidence)
 
 - 347/347 pytest tests pass (338 existing + 4 new CT-013 + 5 new SVP)
+
+### Class C (Negative Evidence)
+
+- 347 tests pass (338 pre-existing + 4 new CT-013 + 5 new SVP), 0 failures, 0 regressions.
+- R0/R1 packets are explicitly exempted from CT-013 — no false rejections on low-risk changes.
+- All pre-existing canonical validation tests pass unchanged.
 
 ### Class F (Provenance Evidence)
 
