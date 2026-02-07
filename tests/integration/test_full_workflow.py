@@ -7,9 +7,10 @@ End-to-end integration tests using the ACTUAL packet template format.
 from pathlib import Path
 
 import pytest
-from aiv.lib.validators.pipeline import ValidationPipeline
-from aiv.lib.models import ValidationStatus, Severity
+
 from aiv.lib.config import AIVConfig
+from aiv.lib.models import Severity, ValidationStatus
+from aiv.lib.validators.pipeline import ValidationPipeline
 
 
 class TestFullValidationWorkflow:
@@ -53,16 +54,10 @@ class TestFullValidationWorkflow:
         assert result.status == ValidationStatus.FAIL
 
     def test_deleted_assertion_without_justification_fails(
-        self,
-        lenient_pipeline,
-        valid_minimal_packet,
-        diff_with_deleted_assertion
+        self, lenient_pipeline, valid_minimal_packet, diff_with_deleted_assertion
     ):
         """Deleted assertion without Class F justification should fail."""
-        result = lenient_pipeline.validate(
-            valid_minimal_packet,
-            diff=diff_with_deleted_assertion
-        )
+        result = lenient_pipeline.validate(valid_minimal_packet, diff=diff_with_deleted_assertion)
 
         assert result.status == ValidationStatus.FAIL
         assert any(e.rule_id == "E011" for e in result.errors)
@@ -73,17 +68,9 @@ class TestFullValidationWorkflow:
 
         assert result.status == ValidationStatus.PASS
 
-    def test_skip_decorator_detected(
-        self,
-        lenient_pipeline,
-        valid_minimal_packet,
-        diff_with_skip_decorator
-    ):
+    def test_skip_decorator_detected(self, lenient_pipeline, valid_minimal_packet, diff_with_skip_decorator):
         """Added skip decorator should be detected."""
-        result = lenient_pipeline.validate(
-            valid_minimal_packet,
-            diff=diff_with_skip_decorator
-        )
+        result = lenient_pipeline.validate(valid_minimal_packet, diff=diff_with_skip_decorator)
 
         assert result.status == ValidationStatus.FAIL
         assert any(e.rule_id == "E011" for e in result.errors)
@@ -128,8 +115,7 @@ class TestRealPacketSmoke:
             result = lenient_pipeline.validate(body)
             assert result is not None, f"Pipeline returned None for {packet_path.name}"
             assert result.packet is not None, (
-                f"Failed to parse {packet_path.name}: "
-                f"{[e.message for e in result.errors]}"
+                f"Failed to parse {packet_path.name}: {[e.message for e in result.errors]}"
             )
 
     def test_implementation_packet_passes(self, lenient_pipeline):
@@ -143,6 +129,4 @@ class TestRealPacketSmoke:
 
         assert result.packet is not None
         assert result.packet.claims, "No claims parsed"
-        assert len(result.blocking_errors) == 0, (
-            f"Blocking errors: {[e.message for e in result.blocking_errors]}"
-        )
+        assert len(result.blocking_errors) == 0, f"Blocking errors: {[e.message for e in result.blocking_errors]}"

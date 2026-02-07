@@ -46,7 +46,7 @@ classification:
 
 Files modified in this atomic commit series:
 
-<!-- CURRENT_FILE: tests/integration/test_e2e_compliance.py (26/37) -->
+<!-- CURRENT_FILE: tests/integration/test_full_workflow.py (27/37) -->
 
 ---
 
