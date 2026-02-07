@@ -103,6 +103,13 @@ classification:
 - All 163 pre-existing tests pass unchanged.
 - No regressions in guard, SVP, parser, validator, or model test suites.
 
+### Class F (Provenance Evidence)
+
+**Claim 3: No tests weakened**
+- No existing test assertions were deleted, skipped, or modified to weaken coverage.
+- All 163 pre-existing tests pass alongside the 25 new tests (188 total, 0 failures).
+- Anti-cheat scanner confirms zero unjustified test manipulation findings across all commits.
+
 ---
 
 ## Verification Methodology
