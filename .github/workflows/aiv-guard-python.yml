@@ -27,7 +27,7 @@ jobs:
           cache: 'pip'
 
       - name: Install aiv-protocol
-        run: pip install -e .
+        run: pip install -e ".[dev]"
 
       - name: Run AIV Guard
         env:
