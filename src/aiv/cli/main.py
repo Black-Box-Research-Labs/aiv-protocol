@@ -144,6 +144,81 @@ def init(
 
 
 @app.command()
+def audit(
+    packets_dir: Path = typer.Argument(
+        Path(".github/aiv-packets"),
+        help="Directory containing verification packets"
+    ),
+    fix: bool = typer.Option(
+        False,
+        "--fix",
+        help="Auto-fix COMMIT_PENDING and CLASS_E_NO_URL where possible"
+    ),
+) -> None:
+    """
+    Audit all verification packets for quality issues.
+
+    Checks for problems the validation pipeline does not catch:
+    commit SHA traceability, Class E link immutability, TODO remnants,
+    missing Class F for bug-fix claims, and more.
+
+    Examples:
+        aiv audit
+        aiv audit --fix
+        aiv audit .github/aiv-packets --fix
+    """
+    from aiv.lib.auditor import PacketAuditor, AuditSeverity
+
+    auditor = PacketAuditor()
+    result = auditor.audit(packets_dir, fix=fix)
+
+    if not result.findings:
+        console.print(Panel(
+            f"[green]All {result.packets_scanned} packets clean[/green]",
+            title="[OK] Audit",
+            border_style="green",
+        ))
+        return
+
+    # Build findings table
+    table = Table(title="Audit Findings", show_lines=True)
+    table.add_column("Severity", style="bold", width=8)
+    table.add_column("Packet", width=30)
+    table.add_column("Finding", width=20)
+    table.add_column("Message", width=50)
+
+    severity_styles = {
+        AuditSeverity.ERROR: "[red]ERROR[/red]",
+        AuditSeverity.WARNING: "[yellow]WARN[/yellow]",
+        AuditSeverity.INFO: "[blue]INFO[/blue]",
+    }
+
+    for f in result.findings:
+        sev_text = severity_styles.get(f.severity, str(f.severity))
+        short_name = f.packet_name.replace("VERIFICATION_PACKET_", "").replace(".md", "")
+        table.add_row(sev_text, short_name, f.finding_type, f.message[:80])
+
+    console.print(table)
+
+    # Summary
+    if fix and result.fixed:
+        console.print(f"\n[green]Auto-fixed {len(result.fixed)} packet(s).[/green]")
+
+    console.print(Panel(
+        f"Scanned: {result.packets_scanned} | "
+        f"Issues: {result.packets_with_issues} | "
+        f"Errors: {result.error_count} | "
+        f"Warnings: {result.warning_count}"
+        + (f" | Fixed: {len(result.fixed)}" if fix else ""),
+        title="[X] Audit Summary" if result.error_count > 0 else "[!] Audit Summary",
+        border_style="red" if result.error_count > 0 else "yellow",
+    ))
+
+    if result.error_count > 0:
+        raise typer.Exit(1)
+
+
+@app.command()
 def generate(
     name: str = typer.Argument(
         ...,
