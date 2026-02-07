@@ -17,22 +17,23 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from .errors import PacketParseError
 from .models import (
     ArtifactLink,
     Claim,
     EvidenceClass,
     IntentSection,
     RiskTier,
-    VerificationPacket,
-    ValidationFinding,
     Severity,
+    ValidationFinding,
+    VerificationPacket,
 )
-from .errors import PacketParseError
 
 
 @dataclass
 class ParsedSection:
     """Intermediate representation of a parsed section."""
+
     level: int
     title: str
     content: list[str] = field(default_factory=list)
@@ -43,6 +44,7 @@ class ParsedSection:
 @dataclass
 class ParseResult:
     """Result of parsing a verification packet."""
+
     packet: VerificationPacket | None
     errors: list[ValidationFinding] = field(default_factory=list)
 
@@ -64,10 +66,7 @@ class PacketParser:
     URL_PATTERN = re.compile(r"\[([^\]]*)\]\(([^)]+)\)")
 
     # Pattern for packet header
-    HEADER_PATTERN = re.compile(
-        r"#\s*AIV\s+Verification\s+Packet(?:\s*\(v?([\d.]+)\))?",
-        re.IGNORECASE
-    )
+    HEADER_PATTERN = re.compile(r"#\s*AIV\s+Verification\s+Packet(?:\s*\(v?([\d.]+)\))?", re.IGNORECASE)
 
     # Pattern for markdown headings
     HEADING_PATTERN = re.compile(r"^(#{1,6})\s+(.+)$", re.MULTILINE)
@@ -76,9 +75,7 @@ class PacketParser:
     NUMBERED_ITEM_PATTERN = re.compile(r"^(\d+)\.\s+(.+)$")
 
     # Pattern for evidence class subsection titles
-    EVIDENCE_CLASS_PATTERN = re.compile(
-        r"Class\s+([A-F])\b", re.IGNORECASE
-    )
+    EVIDENCE_CLASS_PATTERN = re.compile(r"Class\s+([A-F])\b", re.IGNORECASE)
 
     # Always-placeholder keywords: strip entire line regardless of trailing text.
     # "TODO: Before/after diff" is a placeholder even with descriptive text.
@@ -123,9 +120,7 @@ class PacketParser:
         # Check for packet header
         header_match = self.HEADER_PATTERN.search(markdown_text)
         if not header_match:
-            raise PacketParseError(
-                "Missing packet header. Expected '# AIV Verification Packet'"
-            )
+            raise PacketParseError("Missing packet header. Expected '# AIV Verification Packet'")
 
         version = header_match.group(1) or "2.1"
 
@@ -135,16 +130,12 @@ class PacketParser:
         # Parse intent from ## Evidence > ### Class E
         intent = self._parse_intent(sections)
         if intent is None:
-            raise PacketParseError(
-                "Missing Class E (Intent Alignment) evidence section"
-            )
+            raise PacketParseError("Missing Class E (Intent Alignment) evidence section")
 
         # Parse claims from ## Claim(s) section
         claims = self._parse_claims(sections, errors)
         if not claims:
-            raise PacketParseError(
-                "No valid claims found. At least one numbered claim is required."
-            )
+            raise PacketParseError("No valid claims found. At least one numbered claim is required.")
 
         # Enrich claims with evidence from ## Evidence subsections
         claims = self._enrich_claims_with_evidence(claims, sections)
@@ -195,7 +186,11 @@ class PacketParser:
                     fence_len = len(matched)
                 else:
                     stripped = line.strip()
-                    if stripped[0] == fence_char and len(stripped) >= fence_len and stripped == fence_char * len(stripped):
+                    if (
+                        stripped[0] == fence_char
+                        and len(stripped) >= fence_len
+                        and stripped == fence_char * len(stripped)
+                    ):
                         in_fence = False
                         fence_char = ""
                         fence_len = 0
@@ -247,9 +242,7 @@ class PacketParser:
                     return section
         return None
 
-    def _parse_classification(
-        self, sections: list[ParsedSection], errors: list[ValidationFinding]
-    ) -> RiskTier | None:
+    def _parse_classification(self, sections: list[ParsedSection], errors: list[ValidationFinding]) -> RiskTier | None:
         """
         Parse risk_tier from ## Classification (required) YAML code block.
 
@@ -279,12 +272,14 @@ class PacketParser:
         try:
             return RiskTier.from_string(tier_match.group(1))
         except ValueError:
-            errors.append(ValidationFinding(
-                rule_id="E001",
-                severity=Severity.WARN,
-                message=f"Invalid risk_tier value: {tier_match.group(1)!r}",
-                location="## Classification",
-            ))
+            errors.append(
+                ValidationFinding(
+                    rule_id="E001",
+                    severity=Severity.WARN,
+                    message=f"Invalid risk_tier value: {tier_match.group(1)!r}",
+                    location="## Classification",
+                )
+            )
             return None
 
     def _collect_evidence_classes(self, sections: list[ParsedSection]) -> set[EvidenceClass]:
@@ -335,10 +330,7 @@ class PacketParser:
         content = "\n".join(section.content)
 
         # Extract **Link:** field
-        link_match = re.search(
-            r"\*\*Link:\*\*\s*(.+?)(?=\n\*\*|\n##|\n###|\Z)",
-            content, re.DOTALL | re.IGNORECASE
-        )
+        link_match = re.search(r"\*\*Link:\*\*\s*(.+?)(?=\n\*\*|\n##|\n###|\Z)", content, re.DOTALL | re.IGNORECASE)
 
         evidence_link: ArtifactLink | str
         if link_match:
@@ -356,8 +348,7 @@ class PacketParser:
 
         # Extract **Requirements Verified:** as verifier check
         req_match = re.search(
-            r"\*\*Requirements\s+Verified:\*\*\s*(.+?)(?=\n###|\n##|\Z)",
-            content, re.DOTALL | re.IGNORECASE
+            r"\*\*Requirements\s+Verified:\*\*\s*(.+?)(?=\n###|\n##|\Z)", content, re.DOTALL | re.IGNORECASE
         )
         if req_match:
             verifier_check = req_match.group(1).strip()
@@ -374,9 +365,7 @@ class PacketParser:
             verifier_check=verifier_check[:500],  # Truncate if very long
         )
 
-    def _parse_claims(
-        self, sections: list[ParsedSection], errors: list[ValidationFinding]
-    ) -> list[Claim]:
+    def _parse_claims(self, sections: list[ParsedSection], errors: list[ValidationFinding]) -> list[Claim]:
         """
         Parse claims from ## Claim(s) section.
 
@@ -399,21 +388,25 @@ class PacketParser:
 
                 # Skip if description is too short
                 if len(description) < 10:
-                    errors.append(ValidationFinding(
-                        rule_id="E005",
-                        severity=Severity.WARN,
-                        message=f"Claim {number} description is too brief",
-                        location=f"Claim {number}",
-                    ))
+                    errors.append(
+                        ValidationFinding(
+                            rule_id="E005",
+                            severity=Severity.WARN,
+                            message=f"Claim {number} description is too brief",
+                            location=f"Claim {number}",
+                        )
+                    )
                     continue
 
-                claims.append(Claim(
-                    section_number=number,
-                    description=description,
-                    evidence_class=EvidenceClass.REFERENTIAL,  # Default; enriched later
-                    artifact="See Evidence section",  # Default; enriched later
-                    reproduction="N/A",  # Default; enriched later
-                ))
+                claims.append(
+                    Claim(
+                        section_number=number,
+                        description=description,
+                        evidence_class=EvidenceClass.REFERENTIAL,  # Default; enriched later
+                        artifact="See Evidence section",  # Default; enriched later
+                        reproduction="N/A",  # Default; enriched later
+                    )
+                )
 
         return sorted(claims, key=lambda c: c.section_number)
 
@@ -428,10 +421,7 @@ class PacketParser:
         Scans ### Class B, ### Class A, etc. for "Claim N:" references
         and updates the corresponding claim's evidence_class and artifact.
         """
-        evidence_sections = [
-            s for s in sections
-            if s.level == 3 and self.EVIDENCE_CLASS_PATTERN.search(s.title)
-        ]
+        evidence_sections = [s for s in sections if s.level == 3 and self.EVIDENCE_CLASS_PATTERN.search(s.title)]
 
         # Build a map: claim_number -> (evidence_class, artifact_text)
         claim_evidence: dict[int, tuple[EvidenceClass, str]] = {}
@@ -455,10 +445,9 @@ class PacketParser:
             content = "\n".join(ev_section.content)
 
             # Find "Claim N:" references
-            claim_refs = list(re.finditer(
-                r"(?:\*\*)?Claim\s+(\d+)(?:-(\d+))?(?:\s*:.+?)?(?:\*\*)?",
-                content, re.IGNORECASE
-            ))
+            claim_refs = list(
+                re.finditer(r"(?:\*\*)?Claim\s+(\d+)(?:-(\d+))?(?:\s*:.+?)?(?:\*\*)?", content, re.IGNORECASE)
+            )
 
             if claim_refs:
                 for ref in claim_refs:
@@ -466,11 +455,9 @@ class PacketParser:
                     end = int(ref.group(2)) if ref.group(2) else start
                     # Extract the content after this claim reference
                     ref_pos = ref.end()
-                    next_claim = re.search(
-                        r"\n\*\*Claim\s+\d+",
-                        content[ref_pos:], re.IGNORECASE
-                    )
-                    artifact_text = content[ref_pos:ref_pos + (next_claim.start() if next_claim else len(content[ref_pos:]))]
+                    next_claim = re.search(r"\n\*\*Claim\s+\d+", content[ref_pos:], re.IGNORECASE)
+                    end_offset = next_claim.start() if next_claim else len(content[ref_pos:])
+                    artifact_text = content[ref_pos : ref_pos + end_offset]
                     artifact_text = artifact_text.strip()
 
                     # Try to extract a URL from the artifact text
@@ -524,13 +511,15 @@ class PacketParser:
                 ev_class, artifact = best
 
             # Since Claim is frozen, we must create a new instance
-            enriched.append(Claim(
-                section_number=claim.section_number,
-                description=claim.description,
-                evidence_class=ev_class,
-                artifact=artifact,
-                reproduction=reproduction,
-            ))
+            enriched.append(
+                Claim(
+                    section_number=claim.section_number,
+                    description=claim.description,
+                    evidence_class=ev_class,
+                    artifact=artifact,
+                    reproduction=reproduction,
+                )
+            )
 
         return enriched
 
