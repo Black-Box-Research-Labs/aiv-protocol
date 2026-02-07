@@ -11,10 +11,10 @@ All packet fixtures use the ACTUAL template format from
 
 import pytest
 
-
 # ============================================================================
 # Valid Packet Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def valid_minimal_packet():
@@ -141,6 +141,7 @@ SSO authentication fix with regression test coverage.
 # Invalid Packet Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def invalid_missing_header():
     """Packet without required header."""
@@ -227,6 +228,7 @@ Feature fix.
 # ============================================================================
 # Diff Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def diff_with_deleted_assertion():
