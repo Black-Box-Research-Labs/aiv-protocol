@@ -9,31 +9,40 @@
 | Category | Right | Wrong | Partial | Total | Accuracy |
 |----------|-------|-------|---------|-------|----------|
 | Predictions | 22 | 8 | 1 | 31 | 74% |
-| Line numbers | 40 | 0 | 2 | 42 | 95% |
-| Trace content | 14 | 1 | 0 | 15 | 93% |
+| Trace content (code-read only) | 13 | 2 | 0 | 15 | 87% |
+| Trace content (execution-verified) | 10 | 0 | 0 | 10 | 100% |
 | Probe findings | 11 | 0 | 0 | 11 | 100% |
 
-## Known Issue: Line Number Fragility
+## Verification Method
 
-State transitions cite line numbers that are **snapshots at time of trace** and
-will rot with any code edit. The `StateTransition.line_number` field should be
-treated as informational context, not a stable reference. Future sessions should
-prefer anchoring to function/method signatures or code snippets over line numbers.
+**Round 1 (code-read):** Traces written by reading source code and mentally
+simulating execution. Found 2 errors: one factually wrong (sod_mode S3) and
+one misleading (renamed file critical surface).
+
+**Round 2 (execution-verified):** Each edge case actually executed via Python.
+All 10 testable traces confirmed correct after corrections. PR#2 traces target
+a JS workflow and cannot be executed from Python — these remain code-read only.
 
 ---
 
 ## PR#1: AIV_IMPLEMENTATION (R2, 7 claims)
 
-### Prediction Errors
+### Prediction Errors (4 of 12)
 
 - **"12 models"** → actual 13 (missed `FrictionScore`)
 - **"computed property evidence_classes_present"** → it's a regular field
 - **"sanitize_shell_input"** → hallucinated, does not exist
 - **"DiffAnalyzer class"** → hallucinated, actual is `AntiCheatScanner`
 
-### Trace Errors
+### Trace Verification (5/5 execution-verified)
 
-None. All 18 line citations matched actual code.
+| Trace | Edge Case | Execution Result |
+|-------|-----------|-----------------|
+| ArtifactLink.from_url | `/blob/abcdef1/` (7-char hex) | `is_immutable=True` — **CONFIRMED** |
+| PacketParser.parse | `##` inside fenced code block | 8 sections found (should be 7) — **BUG CONFIRMED** |
+| ValidationPipeline.validate | Mutable `/blob/main/` link | E004 BLOCK + pipeline continues — **CONFIRMED** |
+| CLI check | Piped stdin without `-` arg | "No packet body provided", exit 1 — **CONFIRMED** |
+| AntiCheatScanner.scan_diff | Production assertion deletion | 0 findings, 0 test files — **CONFIRMED** |
 
 ### Findings Confirmed
 
@@ -44,18 +53,20 @@ None. All 18 line citations matched actual code.
 
 ## PR#2: AIV_GUARD (R2, 8 claims)
 
-### Prediction Errors
+### Prediction Errors (2 of 10)
 
 - **"regex for section headers"** → actual uses `packetContent.includes(h)` (substring)
 - **"artifact download via direct API call"** → actual is env-var inter-step communication
 
-### Trace Errors
+### Trace Verification (0/5 execution-verified — JS workflow, cannot run from Python)
 
-- 2 off-by-one line citations (628→627, 1984→1983)
+All 5 traces are **code-read only**. The JS workflow runs inside GitHub Actions
+and cannot be executed locally. These traces should be treated as unverified
+mental models until a JS test harness or live CI run confirms them.
 
 ### Findings Confirmed
 
-- `.py` excluded from `shouldFetchContentAtHead` → **REAL** (line 605)
+- `.py` excluded from `shouldFetchContentAtHead` → **REAL** (regex on line 605)
 - Mutable branch list JS≠Python (5 vs 7) → **REAL**
 - Substring `includes()` for section detection → **REAL**
 
@@ -63,18 +74,32 @@ None. All 18 line citations matched actual code.
 
 ## PR#3: GUARD_REFACTOR (R2, 5 claims)
 
-### Prediction Errors
+### Prediction Errors (3 of 9)
 
 - **"5 files"** → actual 7 (missed `__init__.py`, `__main__.py`)
 - **"45-line workflow"** → actual 36 lines (parroted packet claim without verifying)
 - **"84+36=120 tests"** → not independently verified
 
-### Trace Errors
+### Trace Verification (5/5 execution-verified)
 
-- **CRITICAL: `validate_canonical` sod_mode trace was factually wrong.**
-  Original claimed `sod_mode='S3'` would "pass silently for R0/R1".
-  Actual code has `if sod_mode not in ("S0", "S1")` at line ~147 which
-  BLOCKS S3 before the R2+ check runs. **Corrected in session JSON.**
+| Trace | Edge Case | Execution Result |
+|-------|-----------|-----------------|
+| GuardRunner._check_critical_surfaces | Renamed `helpers.py` (no auth path), empty patch | Path: [], Semantic: [] — **CONFIRMED** (trace fixed: was misleading) |
+| validate_canonical | `sod_mode='S3'` | BLOCK CLS-003 immediately — **CONFIRMED** (trace fixed: was factually wrong) |
+| GuardResult.finalize | WARN-only findings | `overall_result=PASS` — **CONFIRMED** |
+| GitHubAPI._request_bytes | 429 HTTPError | `GitHubAPIError(status_code=429)`, no retry — **CONFIRMED** |
+| validate_class_a_manifest | `test_results: {pass:0, fail:0, skip:0}` | `errors=[]`, validation passes — **CONFIRMED** |
+
+### Trace Corrections Applied
+
+1. **Trace 1 (critical surfaces):** Original said "would miss the file" without
+   specifying that path patterns still catch files with auth keywords in the path.
+   Fixed to show both path AND semantic checks explicitly, with note that
+   `src/auth/login.py` would still be caught by path patterns.
+
+2. **Trace 2 (sod_mode):** Original claimed S3 "passes silently for R0/R1".
+   Execution proved code has `sod_mode not in ("S0", "S1")` check that catches
+   S3 BEFORE the R2+ check. Fixed with `AUDIT CORRECTION` note.
 
 ### Findings Confirmed
 
@@ -86,16 +111,17 @@ None. All 18 line citations matched actual code.
 
 ## Lessons for Future AI First-Pass
 
-1. **Don't hallucinate functions.** If a claim says "guard sanitization", predict
+1. **Execute every edge case.** Mental traces without execution verification caught
+   only 87% accuracy. Execution verification caught 100%. The sod_mode error would
+   have misled a human reviewer if not caught by running the code.
+2. **Don't hallucinate functions.** If a claim says "guard sanitization", predict
    the mechanism, don't invent specific function names.
-2. **Don't parrot packet claims.** Verify counts independently (file count, line
+3. **Don't parrot packet claims.** Verify counts independently (file count, line
    count, test count) during the trace phase.
-3. **Line numbers are fragile.** Prefer function signatures or code snippet
-   anchors in state transitions over absolute line numbers.
-4. **Self-audit catches real errors.** The sod_mode trace error would have misled
-   a human reviewer. Post-hoc verification is essential.
-5. **Prediction accuracy (74%) is the weakest phase.** This is expected — black-box
-   prediction before reading code is inherently speculative. The value is in
-   documenting what was expected vs. actual, not in being right.
+4. **Line numbers are fragile.** `StateTransition.line_number` was removed from the
+   model. Variable name + before/after values tell the story without brittle refs.
+5. **Mark unverifiable traces.** PR#2 JS traces cannot be executed from Python.
+   They should be explicitly marked as "code-read only" until a JS test harness
+   or live CI run confirms them.
 6. **Probe findings were 100% real.** The adversarial probe phase produced the
    highest-value output — every flagged issue is a genuine code concern.

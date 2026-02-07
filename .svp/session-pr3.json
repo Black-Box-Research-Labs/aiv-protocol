@@ -50,14 +50,26 @@
         },
         {
           "step_number": 4,
-          "variable_name": "_CS_SEMANTIC match on patch",
+          "variable_name": "_CS_PATH match on 'src/utils/helpers.py'",
           "before_value": "(not tested)",
-          "after_value": "no match (empty string has no content to scan)"
+          "after_value": "[] (no auth/crypto keywords in path)"
+        },
+        {
+          "step_number": 5,
+          "variable_name": "_CS_SEMANTIC match on empty patch",
+          "before_value": "(not tested)",
+          "after_value": "[] (empty string has no content to scan)"
+        },
+        {
+          "step_number": 6,
+          "variable_name": "critical_surfaces detected",
+          "before_value": "[]",
+          "after_value": "[] — file with verify_token() code missed entirely"
         }
       ],
-      "edge_case_tested": "PR with a renamed file (status='renamed') where the patch is empty",
-      "predicted_output": "Critical surface check would miss the file because the patch is empty string and semantic regex has nothing to match against",
-      "confidence": "medium",
+      "edge_case_tested": "Renamed file src/utils/helpers.py (no auth keywords in path) containing verify_token() — patch is empty because it's a rename",
+      "predicted_output": "VERIFIED BY EXECUTION: Path patterns return [] (no auth keywords in 'src/utils/helpers.py'). Semantic patterns return [] (empty patch). File missed entirely. Note: if the path contained auth keywords (e.g. src/auth/login.py), path patterns WOULD still catch it even with an empty patch.",
+      "confidence": "high",
       "uncertainty_notes": null,
       "created_at": "2026-02-07T03:57:36.047367Z"
     },
