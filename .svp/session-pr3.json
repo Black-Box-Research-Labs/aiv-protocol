@@ -239,7 +239,7 @@
         "line_number": null,
         "description": "execution_environment requires node and npm fields - hardcoded Astro/JS assumption that would reject valid Python-only CI manifests",
         "severity": "medium",
-        "is_confirmed_bug": false
+        "is_confirmed_bug": true
       },
       {
         "finding_type": "magic_numbers",
@@ -247,7 +247,7 @@
         "line_number": null,
         "description": "test_results validation accepts pass=0, fail=0, skip=0 as valid - a manifest with zero tests would pass Class A validation",
         "severity": "high",
-        "is_confirmed_bug": false
+        "is_confirmed_bug": true
       },
       {
         "finding_type": "magic_numbers",
@@ -255,7 +255,7 @@
         "line_number": null,
         "description": "MUTABLE_BRANCH_PATTERN checks 5 branches (main/master/develop/dev/staging) but aiv-lib ArtifactLink checks 7 (adds trunk/HEAD) - inconsistent enforcement",
         "severity": "medium",
-        "is_confirmed_bug": false
+        "is_confirmed_bug": true
       }
     ],
     "why_questions": [
