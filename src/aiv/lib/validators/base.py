@@ -7,31 +7,8 @@ Validator protocol defining the interface all validators must implement.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Protocol, runtime_checkable
 
 from ..models import ValidationFinding, VerificationPacket
-
-
-@runtime_checkable
-class Validator(Protocol):
-    """
-    Protocol that all AIV validators must satisfy.
-
-    Each validator inspects a VerificationPacket and returns
-    a list of findings (errors, warnings, or info).
-    """
-
-    def validate(self, packet: VerificationPacket) -> list[ValidationFinding]:
-        """
-        Validate a packet and return findings.
-
-        Args:
-            packet: The parsed verification packet to validate.
-
-        Returns:
-            List of validation findings (may be empty if valid).
-        """
-        ...
 
 
 class BaseValidator(ABC):
