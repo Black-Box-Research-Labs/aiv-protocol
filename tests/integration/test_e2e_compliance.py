@@ -443,11 +443,16 @@ class TestEvidenceSubstance:
         """L2-07: Bug-fix claims WITH Class F evidence pass E010."""
         evidence = (
             "### Class F (Provenance Evidence)\n\n"
+            "**Claim 3: No regressions**\n"
             "- No existing tests were modified or deleted during this change.\n"
             "- All test assertions preserved. Full provenance chain intact.\n"
         )
         body = _build_packet(
-            claims_text="1. Fixed authentication bypass vulnerability in login handler.",
+            claims_text=(
+                "1. Fixed authentication bypass vulnerability in login handler.\n"
+                "2. All existing tests pass with zero regressions after the fix.\n"
+                "3. No existing tests were modified or deleted during this change."
+            ),
             evidence_sections=evidence,
         )
         cfg = AIVConfig(strict_mode=False)
@@ -633,8 +638,15 @@ class TestGenerateCheckRoundTrip:
     """L4: Does generate → check work for all tiers?"""
 
     @pytest.mark.parametrize("tier", ["R0", "R1", "R2", "R3"])
-    def test_generate_then_check_passes(self, tier: str, tmp_path: Path):
-        """L4-01: Generated packet passes check for each tier."""
+    def test_generate_produces_parseable_packet(self, tier: str, tmp_path: Path):
+        """L4-01: Generated scaffold is parseable by PacketParser for each tier.
+
+        Note: Generated scaffolds contain TODO placeholders by design.
+        The substance patch correctly rejects these as non-evidence, so
+        scaffolds won't pass full tier enforcement. This test verifies
+        the generator produces structurally valid packets that the parser
+        can parse without error.
+        """
         gen_result = subprocess.run(
             [
                 sys.executable, "-m", "aiv", "generate",
@@ -654,19 +666,12 @@ class TestGenerateCheckRoundTrip:
         generated = list(tmp_path.glob("VERIFICATION_PACKET_*.md"))
         assert len(generated) == 1, f"Expected 1 file, found {len(generated)}"
 
-        check_result = subprocess.run(
-            [
-                sys.executable, "-m", "aiv", "check",
-                str(generated[0]), "--no-strict",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=30,
-            cwd=str(PROJECT_ROOT),
-        )
-        assert check_result.returncode == 0, (
-            f"check failed for generated {tier} packet:\n{check_result.stdout[-500:]}"
-        )
+        # Verify the scaffold is parseable (not that it passes full validation)
+        body = generated[0].read_text(encoding="utf-8")
+        parser = PacketParser()
+        packet = parser.parse(body)
+        assert packet is not None, f"Generated {tier} packet failed to parse"
+        assert packet.version is not None
 
     def test_generate_r3_includes_all_six_sections(self):
         """L4-02: R3 scaffold includes all six ### Class X headers."""
@@ -679,12 +684,13 @@ class TestGenerateCheckRoundTrip:
             )
 
     def test_generate_r0_omits_non_required_sections(self):
-        """L4-03: R0 scaffold only includes A and B."""
+        """L4-03: R0 scaffold includes A, B, E but not C, D, F."""
         from aiv.cli.main import _build_evidence_sections
 
         output = _build_evidence_sections("R0", "  - TODO: list modified files")
         assert "### Class A" in output
         assert "### Class B" in output
+        assert "### Class E" in output  # structurally required by parser
         # R0 should NOT include these
         assert "### Class C" not in output
         assert "### Class D" not in output
