@@ -46,7 +46,7 @@ classification:
 
 Files modified in this atomic commit series:
 
-<!-- CURRENT_FILE: tests/unit/test_coverage.py (30/37) -->
+<!-- CURRENT_FILE: tests/unit/test_guard.py (31/37) -->
 
 ---
 

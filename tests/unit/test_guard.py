@@ -7,36 +7,34 @@ Unit tests for the AIV Guard module (§7.5 P2 refactor).
 from __future__ import annotations
 
 import json
+
 import pytest
 
-from aiv.guard.models import (
-    GuardContext,
-    GuardFinding,
-    GuardResult,
-    GuardSeverity,
-    EvidenceClassResult,
-    OverallResult,
-    RuleResult,
-    HEX_SHA_40_OR_64,
-    MUTABLE_BRANCH_PATTERN,
-    GITHUB_BLOB_FULL_SHA,
-    GITHUB_ACTIONS_RUN,
-    LINE_ANCHOR,
-)
-from aiv.guard.canonical import validate_canonical, REQUIRED_CLASSES, _get_path
+from aiv.guard.canonical import REQUIRED_CLASSES, _get_path, validate_canonical
+from aiv.guard.github_api import ChangedFile
 from aiv.guard.manifest import (
     validate_class_a_manifest,
     validate_class_c_manifest,
-    validate_semantic_manifest,
     validate_durable_manifest,
+    validate_semantic_manifest,
+)
+from aiv.guard.models import (
+    GITHUB_ACTIONS_RUN,
+    HEX_SHA_40_OR_64,
+    LINE_ANCHOR,
+    MUTABLE_BRANCH_PATTERN,
+    EvidenceClassResult,
+    GuardContext,
+    GuardResult,
+    GuardSeverity,
+    OverallResult,
 )
 from aiv.guard.runner import GuardRunner
-from aiv.guard.github_api import GitHubAPI, ChangedFile
-
 
 # ------------------------------------------------------------------ #
 # Fixtures
 # ------------------------------------------------------------------ #
+
 
 @pytest.fixture
 def ctx() -> GuardContext:
@@ -81,23 +79,32 @@ def _minimal_canonical(ctx: GuardContext) -> dict:
             {"id": "C1", "description": "Test claim", "evidence_refs": ["E-B1"]},
         ],
         "evidence_items": [
-            {"id": "E-A1", "class": "A", "claim_refs": ["C1"],
-             "artifacts": [{"type": "ci_run", "reference": "https://github.com/x/y/actions/runs/123"}]},
-            {"id": "E-B1", "class": "B", "claim_refs": ["C1"],
-             "artifacts": [{"type": "scope_inventory",
-                            "reference": "inline-json:" + json.dumps(["README.md"])}]},
+            {
+                "id": "E-A1",
+                "class": "A",
+                "claim_refs": ["C1"],
+                "artifacts": [{"type": "ci_run", "reference": "https://github.com/x/y/actions/runs/123"}],
+            },
+            {
+                "id": "E-B1",
+                "class": "B",
+                "claim_refs": ["C1"],
+                "artifacts": [{"type": "scope_inventory", "reference": "inline-json:" + json.dumps(["README.md"])}],
+            },
         ],
-        "attestations": [{
-            "id": "att-1",
-            "verifier_id": "verifier",
-            "verifier_identity_type": "github",
-            "timestamp": "2026-01-01T00:00:00Z",
-            "evidence_classes_validated": ["A", "B"],
-            "validation_rules_checked": ["CT-001"],
-            "findings": [],
-            "signature_method": "unsigned",
-            "decision": "COMPLIANT",
-        }],
+        "attestations": [
+            {
+                "id": "att-1",
+                "verifier_id": "verifier",
+                "verifier_identity_type": "github",
+                "timestamp": "2026-01-01T00:00:00Z",
+                "evidence_classes_validated": ["A", "B"],
+                "validation_rules_checked": ["CT-001"],
+                "findings": [],
+                "signature_method": "unsigned",
+                "decision": "COMPLIANT",
+            }
+        ],
         "known_limitations": ["Markdown-only validation"],
     }
 
@@ -105,6 +112,7 @@ def _minimal_canonical(ctx: GuardContext) -> dict:
 # ------------------------------------------------------------------ #
 # Model tests
 # ------------------------------------------------------------------ #
+
 
 class TestGuardModels:
     def test_guard_result_add_block(self, result: GuardResult):
@@ -162,6 +170,7 @@ class TestGuardModels:
 # Regex tests
 # ------------------------------------------------------------------ #
 
+
 class TestGuardRegex:
     def test_hex_sha_40(self):
         assert HEX_SHA_40_OR_64.match("a" * 40)
@@ -189,6 +198,7 @@ class TestGuardRegex:
 # ------------------------------------------------------------------ #
 # Canonical validation tests
 # ------------------------------------------------------------------ #
+
 
 class TestCanonicalValidation:
     def test_valid_r0_packet(self, ctx: GuardContext, result: GuardResult):
@@ -223,14 +233,20 @@ class TestCanonicalValidation:
         packet["classification"]["sod_mode"] = "S0"
         # Add required evidence for R2
         packet["evidence_items"].append(
-            {"id": "E-C1", "class": "C", "claim_refs": ["C1"],
-             "validation_method": "AST analysis",
-             "artifacts": []}
+            {"id": "E-C1", "class": "C", "claim_refs": ["C1"], "validation_method": "AST analysis", "artifacts": []}
         )
         packet["evidence_items"].append(
-            {"id": "E-E1", "class": "E", "claim_refs": ["C1"],
-             "artifacts": [{"type": "requirement_reference",
-                            "reference": f"https://github.com/x/y/blob/{'a' * 40}/spec.md#L1-L5"}]}
+            {
+                "id": "E-E1",
+                "class": "E",
+                "claim_refs": ["C1"],
+                "artifacts": [
+                    {
+                        "type": "requirement_reference",
+                        "reference": f"https://github.com/x/y/blob/{'a' * 40}/spec.md#L1-L5",
+                    }
+                ],
+            }
         )
         ok = validate_canonical(packet, ctx, result, ["README.md"])
         assert ok is False
@@ -261,6 +277,7 @@ class TestCanonicalValidation:
 # ------------------------------------------------------------------ #
 # Manifest validation tests
 # ------------------------------------------------------------------ #
+
 
 class TestManifestValidation:
     def test_valid_class_a(self):
@@ -366,12 +383,16 @@ class TestManifestValidation:
 # Runner tests (with mocked API)
 # ------------------------------------------------------------------ #
 
+
 class MockAPI:
     """Mock GitHubAPI that returns no files / no runs."""
+
     def list_pr_files(self, ctx):
         return []
+
     def get_workflow_run(self, ctx, run_id):
         return None
+
     def list_run_artifacts(self, ctx, run_id):
         return []
 
