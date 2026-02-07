@@ -561,16 +561,16 @@ All validators implement `BaseValidator.validate(packet) → list[ValidationFind
 | Dimension | Previous Rating | Current Rating | Notes |
 |-----------|----------------|----------------|-------|
 | **Correctness** | 6/10 | **9/10** | All HIGH/MEDIUM/LOW bugs fixed (L01-L12). No known open issues. |
-| **Completeness** | 4/10 | **9/10** | Dead code reduced from ~30% to ~0%. Classification/risk-tier enforcement. Guard, SVP, generate all implemented. |
-| **Test Coverage** | 5/10 | **9/10** | 188 tests pass (was 39). Validators, parser, guard, SVP, generate, anti-cheat, config all have dedicated tests. |
-| **Architecture** | 7/10 | **8/10** | Pipeline still clean. Guard module shares aiv-lib. JS workflow preserved but Python alternative exists. SVP integrated via CLI. |
+| **Completeness** | 4/10 | **9/10** | Dead code reduced from ~30% to ~0%. Classification/risk-tier enforcement. Guard, SVP, generate, auditor all implemented. |
+| **Test Coverage** | 5/10 | **9/10** | 428 tests pass (was 39). Validators, parser, guard, SVP, auditor, generate, anti-cheat, config, E2E compliance all have dedicated tests. |
+| **Architecture** | 7/10 | **9/10** | Pipeline clean. Guard module shares aiv-lib. JS guard **deleted** — single enforcement stack. SVP integrated via CLI. Pre-commit runs `aiv check` + `aiv audit`. |
 | **Maintainability** | 5/10 | **9/10** | Dead code eliminated. Rule IDs unique. Config wired. Fast-track unified. Parser stateless. Error hierarchy clean. |
 | **Security** | N/A | N/A | Dead security module deleted. Guard module handles URL/SHA validation. No local execution surface in Python package. |
-| **Spec Fidelity** | 4/10 | **9/10** | Risk tiers enforced. Classification parsed. Fast-track unified. Class D/F naming aligned with spec. |
+| **Spec Fidelity** | 4/10 | **9/10** | Risk tiers enforced. Classification parsed. Fast-track unified. Class D/F naming aligned with spec. E021/E022 file-type D triggers. |
 
 **Previous bottom line:** The Python implementation was a functional proof-of-concept with ~30% dead code, structurally broken validators (zero-touch, anti-cheat), and no risk-tier enforcement.
 
-**Current bottom line:** The implementation is now a **production-ready** validation suite. All HIGH, MEDIUM, and LOW bugs are fixed. Dead code eliminated entirely. Risk-tier enforcement implemented and tested. Guard module replaces JS with Python. SVP Protocol Suite relocated under `aiv` namespace. 188 tests pass. Class D/F naming aligned with spec. Parser stateless. Exception handling precise. No open findings remain.
+**Current bottom line:** The implementation is now a **production-ready** validation suite. All HIGH, MEDIUM, and LOW bugs are fixed. Dead code eliminated entirely. Risk-tier enforcement implemented and tested. JS guard **deleted** — Python guard is sole CI layer. SVP Protocol Suite relocated under `aiv` namespace. 428 tests pass. Class D/F naming aligned with spec. Pre-commit hook validates packet content. Generator auto-populates CI URLs and issue links. No open findings remain.
 
 ---
 
