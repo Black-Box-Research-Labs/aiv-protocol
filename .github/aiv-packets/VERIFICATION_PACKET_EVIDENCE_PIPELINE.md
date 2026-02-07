@@ -9,11 +9,11 @@
 
 ```yaml
 classification:
-  risk_tier: R1
+  risk_tier: R2
   sod_mode: S0
   critical_surfaces: []
   blast_radius: component
-  classification_rationale: "CI infrastructure change: new evidence generation job, manifest validator update, disabled legacy workflow. No changes to core validation logic or runtime behavior of the aiv library itself."
+  classification_rationale: "Modifies guard/manifest.py validation logic (runtime check) and CI evidence generation pipeline. Changes what manifests pass/fail validation. Upgraded from R1 to R2: modifies enforcement logic and CI infrastructure that produces evidence artifacts."
   classified_by: "cascade-ai"
   classified_at: "2026-02-07T06:45:00Z"
 ```
@@ -78,6 +78,14 @@ classification:
 - Semantic integrity report (lines 186-450) → Simplified Python YAML-based checker
 - OCI export (lines 452-507) → Shell script ported unchanged
 - Artifact upload (lines 509-527) → Adapted file list
+
+### Class C (Negative Evidence)
+
+- 420 tests pass, 0 failures, 0 regressions.
+- Node.js manifests with `env.node` + `env.npm` still validate (backward compatible).
+- Python manifests with `env.python` now validate (new capability, not a regression).
+- Manifests with neither node nor python correctly fail validation.
+- Existing guard unit tests (`test_guard.py -k manifest`) pass unchanged.
 
 ---
 
