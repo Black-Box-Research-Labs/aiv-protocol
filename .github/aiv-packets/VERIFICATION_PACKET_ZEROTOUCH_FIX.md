@@ -1,6 +1,6 @@
 # AIV Verification Packet (v2.1)
 
-**Commit:** `pending`  
+**Commit:** `8a50936`  
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
 ---
@@ -32,7 +32,7 @@ classification:
 
 ### Class E (Intent Alignment)
 
-- **Link:** AUDIT_REPORT.md — Finding L05: "Zero-touch validator is structurally incapable of finding violations because the parser hardcodes reproduction='N/A'."
+- **Link:** [AUDIT_REPORT.md — Finding L05: "Zero-touch validator is structurally incapable of finding violations because the parser hardcodes reproduction='N/A'."](https://github.com/ImmortalDemonGod/aiv-protocol/blob/8a50936/AUDIT_REPORT.md)
 - **Requirements Verified:**
   1. ✅ Parser extracts Verification Methodology content
   2. ✅ Validator strips code blocks before pattern matching
