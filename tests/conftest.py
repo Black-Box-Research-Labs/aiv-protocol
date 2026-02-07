@@ -283,3 +283,51 @@ index abc123..def456 100644
      if verify_password(user, password):
          return user
 """
+
+
+@pytest.fixture
+def diff_multi_hunk_multi_file():
+    """Diff with 3 anti-cheat violations across 2 files and 3 hunks."""
+    return """\
+diff --git a/tests/test_auth.py b/tests/test_auth.py
+index abc123..def456 100644
+--- a/tests/test_auth.py
++++ b/tests/test_auth.py
+@@ -10,7 +10,6 @@ class TestAuth:
+     def test_login(self):
+         user = login("test@example.com", "pw")
+-        assert user.is_authenticated
+         assert user.email == "test@example.com"
+@@ -50,6 +49,7 @@ class TestAuth:
+     def test_refresh_token(self):
++        pytest.skip("Flaky")
+         token = refresh("old-token")
+         assert token is not None
+diff --git a/tests/test_payment.py b/tests/test_payment.py
+index aaa111..bbb222 100644
+--- a/tests/test_payment.py
++++ b/tests/test_payment.py
+@@ -25,7 +25,6 @@ class TestPayment:
+     def test_charge(self):
+         result = charge(100)
+-        assert result.success
+         assert result.amount == 100
+"""
+
+
+@pytest.fixture
+def diff_deleted_test_file():
+    """Diff that deletes an entire test file."""
+    return """\
+diff --git a/tests/test_old_feature.py b/tests/test_old_feature.py
+deleted file mode 100644
+index abc123..0000000
+--- a/tests/test_old_feature.py
++++ /dev/null
+@@ -1,20 +0,0 @@
+-import pytest
+-from app.old_feature import do_thing
+-
+-def test_do_thing():
+-    assert do_thing() == 42
+"""
