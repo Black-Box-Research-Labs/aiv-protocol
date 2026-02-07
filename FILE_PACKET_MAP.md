@@ -13,12 +13,12 @@ Auto-generated from git commit history.
 
 ## Summary
 
-- **Mapped source files (live):** 56
-- **Mapped packets (live):** 62
+- **Mapped source files (live):** 55
+- **Mapped packets (live):** 73
 - **Unmapped source files:** 11
 - **Unmapped packets (packet-only commits):** 3
 - **Ghost packets (deleted from disk):** 27
-- **Deleted source files:** 11
+- **Deleted source files:** 12
 
 ## Source Files → Verification Packets
 
@@ -40,7 +40,6 @@ Auto-generated from git commit history.
 | Source File | Packet(s) | Commit(s) |
 |---|---|---|
 | `aiv-guard-python.yml` | CI_LINT_FORMAT, GUARD_REFACTOR | `3535166`, `779b9d2` |
-| `aiv-guard.yml` | AIV_GUARD, CRITIQUE_FIXES | `60ea728`, `9955e75` |
 | `ci.yml` | CI_LINT_FORMAT, EVIDENCE_PIPELINE | `9bfac7d`, `efc32ee` |
 | `verify-architecture.yml` | EVIDENCE_PIPELINE, VERIFY_ARCH | `03c4bd0`, `0acdfe1` |
 
@@ -48,13 +47,13 @@ Auto-generated from git commit history.
 
 | Source File | Packet(s) | Commit(s) |
 |---|---|---|
-| `pre-commit` | CRITIQUE_FIXES, PRECOMMIT, PRECOMMIT_HOOK_FIX, SNAPSHOT_WINDOWS_FIX | `0b00c63`, `5ced0b3`, `b25af40`, `c4128a1` |
+| `pre-commit` | CRITIQUE_FIXES, PRECOMMIT, PRECOMMIT_AUDIT_GATE, PRECOMMIT_HOOK_FIX, SNAPSHOT_WINDOWS_FIX | `0b00c63`, `32d4310`, `5ced0b3`, `b25af40`, `c4128a1` |
 
 ### `scripts/`
 
 | Source File | Packet(s) | Commit(s) |
 |---|---|---|
-| `map_packets.py` | FILE_PACKET_MAP | `f3202e4` |
+| `map_packets.py` | FILE_PACKET_MAP | `85f2d28`, `f3202e4` |
 
 ### `src\aiv/`
 
@@ -69,7 +68,7 @@ Auto-generated from git commit history.
 | Source File | Packet(s) | Commit(s) |
 |---|---|---|
 | `__init__.py` | CLI_INIT | `9292c8e` |
-| `main.py` | AIV_AUDIT_FIXES, AUDIT_CLI_COMMAND, CI_LINT_FORMAT, CLI_CLEANUP, CLI_MAIN, CRITIQUE_FIXES, FALSIFIABILITY_GUIDED_GEN, GENERATE_CMD, GENERATOR_CLASS_E_FIX, SVP_IMPL | `3665936`, `3842564`, `464c063`, `4784c47`, `8b8f941`, `9214766`, `adae01d`, `bc3982e`, `d56b589`, `fea5aed` |
+| `main.py` | AIV_AUDIT_FIXES, AUDIT_CLI_COMMAND, CI_LINT_FORMAT, CLI_CLEANUP, CLI_INIT_TIP, CLI_MAIN, CRITIQUE_FIXES, FALSIFIABILITY_GUIDED_GEN, GENERATE_CMD, GENERATOR_CLASS_E_FIX, LINK_VITALITY_CLI, SVP_IMPL | `3665936`, `3842564`, `464c063`, `4784c47`, `562b695`, `8b8f941`, `9214766`, `adae01d`, `bc3982e`, `d2607d3`, `d56b589`, `fea5aed` |
 
 ### `src\aiv\guard/`
 
@@ -89,10 +88,10 @@ Auto-generated from git commit history.
 |---|---|---|
 | `__init__.py` | LIB_INIT | `e7c55f9` |
 | `auditor.py` | AUDITOR_FALSE_POSITIVE_FIX, CI_LINT_FORMAT, PACKET_AUDITOR | `39d1685`, `6d708e6`, `7633861` |
-| `config.py` | AIV_AUDIT_FIXES, CI_LINT_FORMAT, CONFIG | `1454ac9`, `3f1db42`, `5cfb386` |
+| `config.py` | AIV_AUDIT_FIXES, CI_LINT_FORMAT, CONFIG, CONFIG_YAML_GUARD | `1454ac9`, `3f1db42`, `5cfb386`, `6bfef32` |
 | `errors.py` | AIV_AUDIT_FIXES, CI_LINT_FORMAT, ERRORS | `16c0ced`, `34ee79c`, `56af5e7` |
 | `models.py` | AIV_AUDIT_FIXES, CI_LINT_FORMAT, CLASSIFICATION, MODELS, MODELS_CLEANUP, MUTABLE_CONFIG, ZEROTOUCH_FIX | `1b22fc5`, `4f2f07d`, `547b126`, `63dfe83`, `711d192`, `e1d94f1` |
-| `parser.py` | AIV_AUDIT_FIXES, CI_LINT_FORMAT, CLASSIFICATION, CLI_CLEANUP, EVIDENCE_RULES, PARSER, PARSER_CLEANUP, PARSER_CODEBLOCK_FIX, PARSER_ENRICHMENT, PARSER_SUBSTANCE_FIX, PARSER_SUBSTANCE_REFINE, ZEROTOUCH_FIX | `2158886`, `2ad8101`, `304d47e`, `36071ce`, `4f41529`, `5f0f951`, `711d192`, `8a50936`, `8aee121`, `dfe6438` |
+| `parser.py` | AIV_AUDIT_FIXES, CI_LINT_FORMAT, CLASSIFICATION, CLI_CLEANUP, EVIDENCE_RULES, PARSER, PARSER_AUDIT_FIXES, PARSER_CLEANUP, PARSER_CODEBLOCK_FIX, PARSER_ENRICHMENT, PARSER_SUBSTANCE_FIX, PARSER_SUBSTANCE_REFINE, ZEROTOUCH_FIX | `2158886`, `2ad8101`, `304d47e`, `36071ce`, `4f41529`, `5f0f951`, `711d192`, `74724c3`, `8a50936`, `8aee121`, `dfe6438` |
 
 ### `src\aiv\lib\validators/`
 
@@ -101,9 +100,9 @@ Auto-generated from git commit history.
 | `__init__.py` | VALIDATORS_INIT | `3d299a7` |
 | `anti_cheat.py` | AIV_AUDIT_FIXES, ANTICHEAT_DELETED_FILE_REGEX, ANTICHEAT_FIX, ANTI_CHEAT, CI_LINT_FORMAT | `14d5fef`, `3b48465`, `6e0daaf`, `b3feb5b`, `fa7f0ac` |
 | `base.py` | BASE_CLEANUP, VALIDATOR_BASE | `08ecfe4`, `e6b12e7` |
-| `evidence.py` | AIV_AUDIT_FIXES, CI_LINT_FORMAT, CLI_CLEANUP, CRITIQUE_FIXES, EVIDENCE_COHERENCE_E020, EVIDENCE_RULES, EVIDENCE_VALIDATOR, PARSER_ENRICHMENT, ZEROTOUCH_FIX | `0d6b1ea`, `67f7580`, `7e6c6bb`, `7fb04c2`, `8a50936`, `8f70926`, `a4617d2`, `c26371a` |
-| `links.py` | CI_LINT_FORMAT, LINKS_CLEANUP, LINKS_VALIDATOR, LINK_VALIDATOR, MUTABLE_CONFIG, TEST_SUITE | `12b2287`, `1b22fc5`, `3eedd50`, `6f26fb1`, `7b42e0b`, `af67c1a` |
-| `pipeline.py` | AIV_AUDIT_FIXES, CI_LINT_FORMAT, CLASSIFICATION, PIPELINE, ZEROTOUCH_FIX | `3dd5d1a`, `711d192`, `7fb5f3c`, `bf71977` |
+| `evidence.py` | AIV_AUDIT_FIXES, CI_LINT_FORMAT, CLI_CLEANUP, CRITIQUE_FIXES, EVIDENCE_CLASS_A_VALIDATION, EVIDENCE_COHERENCE_E020, EVIDENCE_RULES, EVIDENCE_VALIDATOR, PARSER_ENRICHMENT, ZEROTOUCH_FIX | `0d6b1ea`, `67f7580`, `7e6c6bb`, `7fb04c2`, `8a50936`, `8f70926`, `a4617d2`, `b5da13d`, `c26371a` |
+| `links.py` | CI_LINT_FORMAT, LINKS_CLEANUP, LINKS_COMMENT_FIX, LINKS_VALIDATOR, LINK_VALIDATOR, LINK_VITALITY_E021, MUTABLE_CONFIG, TEST_SUITE | `12b2287`, `1b22fc5`, `3eedd50`, `6f26fb1`, `7b42e0b`, `af67c1a`, `c01ae20`, `c1cea0c` |
+| `pipeline.py` | AIV_AUDIT_FIXES, CI_LINT_FORMAT, CLASSIFICATION, LINK_VITALITY_PIPELINE, PIPELINE, ZEROTOUCH_FIX | `2e95885`, `3dd5d1a`, `711d192`, `7fb5f3c`, `bf71977` |
 | `structure.py` | CI_LINT_FORMAT, STRUCTURE_VALIDATOR | `4ff34a3`, `a5ba911` |
 | `zero_touch.py` | CI_LINT_FORMAT, CLI_CLEANUP, EVIDENCE_RULES, PARSER_ENRICHMENT, ZEROTOUCH_DEPRECATION, ZEROTOUCH_FIX, ZERO_TOUCH | `4cc63e2`, `7f1ec1c`, `8a50936`, `ee3f9cb` |
 
@@ -161,7 +160,7 @@ Auto-generated from git commit history.
 | `test_models.py` | AIV_AUDIT_FIXES, CI_LINT_FORMAT, TEST_MODELS, TEST_SUITE | `2092704`, `563f054`, `90830ab`, `af67c1a` |
 | `test_parser.py` | AIV_AUDIT_FIXES, CI_LINT_FORMAT, PARSER_REGRESSION_TESTS, TEST_SUITE | `0d857d8`, `6ca1787`, `af67c1a`, `c37ba5d` |
 | `test_svp.py` | AIV_AUDIT_FIXES, CI_LINT_FORMAT, FALSIFIABILITY_SVP_S014, SVP_AI_SESSION_TESTS, SVP_IMPL, SVP_RATING_TESTS | `1b9766a`, `1f697d5`, `3842564`, `49f1310`, `674d3e4`, `afb1e15`, `d8b6225` |
-| `test_validators.py` | AIV_AUDIT_FIXES, CI_LINT_FORMAT, TEST_SUITE | `af67c1a`, `b1a3fdf`, `e4ae2d6` |
+| `test_validators.py` | AIV_AUDIT_FIXES, CI_LINT_FORMAT, LINK_VITALITY_TESTS, TEST_SUITE | `a244df3`, `af67c1a`, `b1a3fdf`, `e4ae2d6` |
 
 ## Verification Packets → Source Files
 
@@ -179,12 +178,15 @@ Auto-generated from git commit history.
 | CI_LINT_FORMAT | `.github/workflows/aiv-guard-python.yml`, `.github/workflows/ci.yml`, `src/aiv/__init__.py`, `src/aiv/cli/main.py`, `src/aiv/guard/__init__.py`, `src/aiv/guard/canonical.py`, `src/aiv/guard/github_api.py`, `src/aiv/guard/manifest.py`, `src/aiv/guard/models.py`, `src/aiv/guard/runner.py`, `src/aiv/lib/auditor.py`, `src/aiv/lib/config.py`, `src/aiv/lib/errors.py`, `src/aiv/lib/models.py`, `src/aiv/lib/parser.py`, `src/aiv/lib/validators/anti_cheat.py`, `src/aiv/lib/validators/evidence.py`, `src/aiv/lib/validators/links.py`, `src/aiv/lib/validators/pipeline.py`, `src/aiv/lib/validators/structure.py`, `src/aiv/lib/validators/zero_touch.py`, `src/aiv/svp/cli/main.py`, `src/aiv/svp/lib/models.py`, `src/aiv/svp/lib/rating.py`, `src/aiv/svp/lib/validators/session.py`, `tests/conftest.py`, `tests/integration/test_e2e_compliance.py`, `tests/integration/test_full_workflow.py`, `tests/integration/test_svp_full_workflow.py`, `tests/unit/test_auditor.py`, `tests/unit/test_coverage.py`, `tests/unit/test_guard.py`, `tests/unit/test_models.py`, `tests/unit/test_parser.py`, `tests/unit/test_svp.py`, `tests/unit/test_validators.py` | `09283a0`, `0d857d8`, `11cfb83`, `1f697d5`, `22f7c10`, `245e786`, `24c0e6b`, `2b0aa56`, `2fa0f15`, `3535166`, `3dd5d1a`, `3f1db42`, `4ff34a3`, `50d9cad`, `53b9612`, `563f054`, `56af5e7`, `5f0f951`, `63dfe83`, `6d708e6`, `7b42e0b`, `90e23b6`, `9af7633`, `a4617d2`, `a7724ea`, `a7fe749`, `b3feb5b`, `bb3fe91`, `c222774`, `ca8c8af`, `d33a9e5`, `e4ae2d6`, `e523989`, `ee3f9cb`, `efc32ee`, `fea5aed` |
 | CLASSIFICATION | `src/aiv/lib/models.py`, `src/aiv/lib/parser.py`, `src/aiv/lib/validators/pipeline.py` | `711d192` |
 | CLI_CLEANUP | `src/aiv/cli/main.py`, `src/aiv/lib/parser.py`, `src/aiv/lib/validators/evidence.py`, `src/aiv/lib/validators/zero_touch.py` | `8a50936`, `9214766` |
+| CLI_INIT_TIP | `src/aiv/cli/main.py` | `562b695` |
+| CONFIG_YAML_GUARD | `src/aiv/lib/config.py` | `6bfef32` |
 | CONFTEST_E2E_FIXTURES | `tests/conftest.py` | `0260232` |
 | CRITIQUE_FIXES | `.github/workflows/aiv-guard.yml`, `.husky/pre-commit`, `src/aiv/cli/main.py`, `src/aiv/lib/validators/evidence.py`, `tests/integration/test_e2e_compliance.py` | `5ced0b3`, `7e6c6bb`, `9955e75`, `adae01d`, `ffd62ca` |
 | CRITIQUE_TEST_GAPS | `tests/integration/test_e2e_compliance.py` | `dd4daf0` |
 | DEAD_MODULE_REMOVAL | `src/aiv/guard/security.py`, `src/aiv/lib/analyzers/diff.py`, `src/aiv/lib/validators/exceptions.py` | `e06ee44` |
 | E2E_COMPLIANCE_TESTS | `tests/integration/test_e2e_compliance.py` | `dca3d1f` |
 | E2E_TEST_FIXES | `tests/integration/test_e2e_compliance.py` | `5998e73` |
+| EVIDENCE_CLASS_A_VALIDATION | `src/aiv/lib/validators/evidence.py` | `b5da13d` |
 | EVIDENCE_COHERENCE_E020 | `src/aiv/lib/validators/evidence.py` | `0d6b1ea` |
 | EVIDENCE_PIPELINE | `.github/workflows/ci.yml`, `.github/workflows/verify-architecture.yml`, `src/aiv/guard/manifest.py` | `0acdfe1`, `66a874a`, `9bfac7d`, `a1cfb9f` |
 | EVIDENCE_RULES | `src/aiv/lib/parser.py`, `src/aiv/lib/validators/evidence.py`, `src/aiv/lib/validators/zero_touch.py` | `8a50936`, `8f70926` |
@@ -192,18 +194,24 @@ Auto-generated from git commit history.
 | FALSIFIABILITY_CT013 | `src/aiv/guard/canonical.py`, `tests/integration/test_e2e_compliance.py` | `90557ff` |
 | FALSIFIABILITY_GUIDED_GEN | `src/aiv/cli/main.py` | `464c063` |
 | FALSIFIABILITY_SVP_S014 | `src/aiv/svp/lib/models.py`, `src/aiv/svp/lib/validators/session.py`, `tests/unit/test_svp.py` | `d8b6225` |
-| FILE_PACKET_MAP | `scripts/map_packets.py` | `f3202e4` |
+| FILE_PACKET_MAP | `scripts/map_packets.py` | `85f2d28`, `f3202e4` |
 | GENERATE_CMD | `src/aiv/cli/main.py` | `d56b589` |
 | GENERATOR_CLASS_E_FIX | `src/aiv/cli/main.py` | `8b8f941` |
 | GITIGNORE | `.gitignore` | `83c5a1c` |
 | GUARD_REFACTOR | `.github/workflows/aiv-guard-python.yml`, `src/aiv/guard/__init__.py`, `src/aiv/guard/__main__.py`, `src/aiv/guard/canonical.py`, `src/aiv/guard/github_api.py`, `src/aiv/guard/manifest.py`, `src/aiv/guard/models.py`, `src/aiv/guard/runner.py`, `tests/unit/test_guard.py` | `779b9d2` |
 | LINKS_CLEANUP | `src/aiv/lib/validators/links.py` | `3eedd50` |
+| LINKS_COMMENT_FIX | `src/aiv/lib/validators/links.py` | `c01ae20` |
 | LINK_VALIDATOR | `src/aiv/lib/validators/links.py` | `6f26fb1` |
+| LINK_VITALITY_CLI | `src/aiv/cli/main.py` | `d2607d3` |
+| LINK_VITALITY_E021 | `src/aiv/lib/validators/links.py` | `c1cea0c` |
+| LINK_VITALITY_PIPELINE | `src/aiv/lib/validators/pipeline.py` | `2e95885` |
+| LINK_VITALITY_TESTS | `tests/unit/test_validators.py` | `a244df3` |
 | MAIN_ENTRY | `src/aiv/__main__.py` | `57482d9` |
 | MISTUNE_REMOVAL | `pyproject.toml` | `42c7869` |
 | MODELS_CLEANUP | `src/aiv/lib/models.py` | `4f2f07d` |
 | MUTABLE_CONFIG | `src/aiv/lib/models.py`, `src/aiv/lib/validators/links.py` | `1b22fc5` |
 | PACKET_AUDITOR | `src/aiv/lib/auditor.py` | `39d1685` |
+| PARSER_AUDIT_FIXES | `src/aiv/lib/parser.py` | `74724c3` |
 | PARSER_CLEANUP | `src/aiv/lib/parser.py` | `dfe6438` |
 | PARSER_CODEBLOCK_FIX | `src/aiv/lib/parser.py` | `304d47e` |
 | PARSER_ENRICHMENT | `src/aiv/lib/parser.py`, `src/aiv/lib/validators/evidence.py`, `src/aiv/lib/validators/zero_touch.py` | `2158886`, `8a50936` |
@@ -211,8 +219,10 @@ Auto-generated from git commit history.
 | PARSER_SUBSTANCE_FIX | `src/aiv/lib/parser.py` | `36071ce` |
 | PARSER_SUBSTANCE_REFINE | `src/aiv/lib/parser.py` | `4f41529` |
 | PRECOMMIT | `.husky/pre-commit` | `c4128a1` |
+| PRECOMMIT_AUDIT_GATE | `.husky/pre-commit` | `32d4310` |
 | PRECOMMIT_HOOK_FIX | `.husky/pre-commit` | `b25af40` |
 | PR_TEMPLATE | `.github/PULL_REQUEST_TEMPLATE.md` | `acf0766` |
+| REMOVE_JS_GUARD | `.github/workflows/aiv-guard.yml` | `59167a1` |
 | SNAPSHOT_WINDOWS_FIX | `.husky/pre-commit` | `0b00c63` |
 | SVP_AI_FIRST_PASS | `src/aiv/svp/cli/main.py`, `src/aiv/svp/lib/models.py` | `5400cb7` |
 | SVP_AI_SESSION_MODELS | `src/aiv/svp/lib/models.py` | `cee0ec9` |
@@ -294,6 +304,7 @@ These packets appeared in git history but have been deleted
 These files appeared in git history but no longer exist on disk 
 (typically relocated or removed during refactoring).
 
+- `.github/workflows/aiv-guard.yml` (was: AIV_GUARD, CRITIQUE_FIXES, REMOVE_JS_GUARD)
 - `src/aiv/guard/security.py` (was: DEAD_MODULE_REMOVAL, SECURITY)
 - `src/aiv/lib/analyzers/__init__.py` (was: AIV_AUDIT_FIXES, ANALYZERS_INIT)
 - `src/aiv/lib/analyzers/diff.py` (was: DEAD_MODULE_REMOVAL, DIFF_ANALYZER)
