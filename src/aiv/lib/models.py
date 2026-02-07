@@ -7,9 +7,9 @@ All models are immutable (frozen) to ensure validation integrity.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
-from typing import Annotated, Literal
+from typing import Literal
 from urllib.parse import urlparse
 
 from pydantic import (
@@ -17,8 +17,6 @@ from pydantic import (
     ConfigDict,
     Field,
     HttpUrl,
-    field_validator,
-    model_validator,
 )
 
 
@@ -289,7 +287,7 @@ class ValidationResult(BaseModel):
     info: list[ValidationFinding] = Field(default_factory=list)
 
     # Metadata
-    validated_at: datetime = Field(default_factory=datetime.utcnow)
+    validated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     validator_version: str = Field(default="1.0.0")
 
     @property
