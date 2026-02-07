@@ -80,11 +80,17 @@ class PacketParser:
         r"Class\s+([A-F])\b", re.IGNORECASE
     )
 
-    # Pattern matching placeholder-only content lines
-    _PLACEHOLDER_RE = re.compile(
-        r"^[\s\-*]*"
-        r"(TODO|TBD|PENDING|N/?A|NONE|FIXME|XXX)"
-        r"[:\s.]",
+    # Always-placeholder keywords: strip entire line regardless of trailing text.
+    # "TODO: Before/after diff" is a placeholder even with descriptive text.
+    _ALWAYS_PLACEHOLDER_RE = re.compile(
+        r"^[\s\-*]*(TODO|TBD|PENDING|FIXME|XXX)[:\s.].*$",
+        re.IGNORECASE | re.MULTILINE,
+    )
+
+    # Exemption keywords: only placeholder when alone (no explanation).
+    # "N/A" alone is a placeholder; "N/A — config file, no execution" is valid.
+    _EXEMPTION_PLACEHOLDER_RE = re.compile(
+        r"^[\s\-*]*(N/?A|NONE)\s*[:\.]?\s*$",
         re.IGNORECASE | re.MULTILINE,
     )
 
@@ -280,8 +286,10 @@ class PacketParser:
         joined = "\n".join(content).strip()
         if not joined:
             return False
-        # Strip all placeholder lines; if nothing remains, not substantive
-        non_placeholder = self._PLACEHOLDER_RE.sub("", joined).strip()
+        # Strip lines with always-placeholder keywords (TODO, TBD, etc.)
+        cleaned = self._ALWAYS_PLACEHOLDER_RE.sub("", joined)
+        # Strip exemption keywords only when alone (N/A, NONE without explanation)
+        non_placeholder = self._EXEMPTION_PLACEHOLDER_RE.sub("", cleaned).strip()
         # Must have real alphanumeric content beyond punctuation/bullets
         alpha_content = re.sub(r"[^a-zA-Z0-9]", "", non_placeholder)
         return len(alpha_content) >= self._MIN_SUBSTANCE_ALPHA
