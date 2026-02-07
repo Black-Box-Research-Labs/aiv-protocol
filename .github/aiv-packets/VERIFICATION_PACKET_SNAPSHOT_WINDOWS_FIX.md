@@ -2,9 +2,12 @@
 
 ## Classification
 
-- **Risk Tier:** R2
-- **Blast Radius:** tooling
-- **SoD Mode:** S0
+```yaml
+classification:
+  risk_tier: R2
+  blast_radius: tooling
+  sod_mode: S0
+```
 
 ## Claim(s)
 
@@ -29,6 +32,10 @@
 
 - Tested with untracked file present: snapshot directory contains copied file with correct path structure.
 - Commits proceed normally after successful snapshot.
+
+### Class C (Negative Evidence)
+
+- No regressions: all atomicity rules (1-6) still enforced. Verified by commit test that was correctly rejected for 6 staged files.
 
 ## Summary
 
