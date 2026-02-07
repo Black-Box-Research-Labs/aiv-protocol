@@ -228,7 +228,7 @@
         "line_number": null,
         "description": "shouldFetchContentAtHead excludes .py files from semantic critical surface analysis - Python auth/crypto code is invisible to content-based detection",
         "severity": "high",
-        "is_confirmed_bug": false
+        "is_confirmed_bug": true
       },
       {
         "finding_type": "magic_numbers",
@@ -236,7 +236,7 @@
         "line_number": null,
         "description": "Mutable branch list (main/master/develop/dev/staging) is hardcoded and differs from Python ArtifactLink which also checks trunk and HEAD",
         "severity": "medium",
-        "is_confirmed_bug": false
+        "is_confirmed_bug": true
       },
       {
         "finding_type": "magic_numbers",
@@ -244,7 +244,7 @@
         "line_number": null,
         "description": "Section detection uses substring includes() not heading-level matching - '## Summary' in a claim description would falsely satisfy the required section check",
         "severity": "medium",
-        "is_confirmed_bug": false
+        "is_confirmed_bug": true
       }
     ],
     "why_questions": [
