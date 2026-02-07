@@ -1,9 +1,12 @@
-name: AIV Packet Validation
+name: AIV Packet Validation (DISABLED — replaced by aiv-guard-python.yml)
 
+# DISABLED: This 2244-line JS guard has been replaced by the Python guard in
+# aiv-guard-python.yml which uses the shared aiv.lib validation logic.
+# Running both creates a split-brain architecture where two guards with different
+# logic validate the same PRs, leading to conflicting results and alert fatigue.
+# Preserved for reference only. To re-enable, restore pull_request trigger.
 on:
-  pull_request:
-    branches: [ main ]
-    types: [ opened, edited, synchronize ]
+  workflow_dispatch: {}
 
 jobs:
   validate-packet:
