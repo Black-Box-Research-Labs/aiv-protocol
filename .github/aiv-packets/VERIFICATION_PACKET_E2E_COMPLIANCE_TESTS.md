@@ -50,6 +50,13 @@ classification:
 
 - 188/188 existing tests pass; 87/93 E2E tests pass (6 expected RED per Red-Green-Refactor strategy)
 
+### Class F (Provenance Evidence)
+
+**Claim 3: No tests weakened**
+- No existing tests were modified, deleted, or skipped during this change.
+- All 188 pre-existing tests pass alongside the new E2E test file.
+- The new test file is purely additive — zero impact on existing test coverage.
+
 ---
 
 ## Verification Methodology
