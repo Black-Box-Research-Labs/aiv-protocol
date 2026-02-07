@@ -2,7 +2,7 @@
 tests/unit/test_validators.py
 
 Unit tests for validator fixes — zero-touch code block stripping,
-bug-fix heuristic word boundaries, conservation negative framing,
+bug-fix heuristic word boundaries, provenance negative framing,
 and risk-tier evidence enforcement.
 """
 
@@ -173,57 +173,57 @@ class TestBugFixHeuristic:
 
 
 # ============================================================================
-# Conservation Negative Framing Tests
+# Provenance Negative Framing Tests
 # ============================================================================
 
-class TestConservationNegativeFraming:
-    """Tests for conservation validator negative framing logic."""
+class TestProvenanceNegativeFraming:
+    """Tests for provenance validator negative framing logic."""
 
     @pytest.fixture
     def validator(self):
         return EvidenceValidator()
 
-    def _make_conservation_claim(self, description: str) -> Claim:
+    def _make_provenance_claim(self, description: str) -> Claim:
         return Claim(
             section_number=1,
             description=description,
-            evidence_class=EvidenceClass.CONSERVATION,
+            evidence_class=EvidenceClass.PROVENANCE,
             artifact="See evidence section",
             reproduction="N/A",
         )
 
     def test_negative_framing_no_justification_needed(self, validator):
         """'No existing tests modified' should NOT require justification."""
-        claim = self._make_conservation_claim(
+        claim = self._make_provenance_claim(
             "No existing tests were modified or deleted during this change."
         )
-        errors = validator._validate_conservation(claim)
+        errors = validator._validate_provenance(claim)
         assert len(errors) == 0
 
     def test_preserved_framing_no_justification_needed(self, validator):
         """'Tests preserved' should NOT require justification."""
-        claim = self._make_conservation_claim(
+        claim = self._make_provenance_claim(
             "All existing test assertions were preserved unchanged."
         )
-        errors = validator._validate_conservation(claim)
+        errors = validator._validate_provenance(claim)
         assert len(errors) == 0
 
     def test_test_modification_requires_justification(self, validator):
         """Test modification without negative framing SHOULD warn."""
-        claim = self._make_conservation_claim(
+        claim = self._make_provenance_claim(
             "Updated test assertions to match new API response format."
         )
-        errors = validator._validate_conservation(claim)
+        errors = validator._validate_provenance(claim)
         e011 = [e for e in errors if e.rule_id == "E011"]
         assert len(e011) == 1
         assert e011[0].severity == Severity.WARN
 
     def test_non_test_claim_no_warning(self, validator):
-        """Conservation claim without test keywords should not warn."""
-        claim = self._make_conservation_claim(
+        """Provenance claim without test keywords should not warn."""
+        claim = self._make_provenance_claim(
             "Configuration file backed up before migration."
         )
-        errors = validator._validate_conservation(claim)
+        errors = validator._validate_provenance(claim)
         assert len(errors) == 0
 
 
@@ -322,8 +322,8 @@ class TestRiskTierEnforcement:
                 RiskTier.R3,
                 {
                     EvidenceClass.EXECUTION, EvidenceClass.REFERENTIAL,
-                    EvidenceClass.NEGATIVE, EvidenceClass.STATE,
-                    EvidenceClass.INTENT, EvidenceClass.CONSERVATION,
+                    EvidenceClass.NEGATIVE, EvidenceClass.DIFFERENTIAL,
+                    EvidenceClass.INTENT, EvidenceClass.PROVENANCE,
                 }
             )
         )
@@ -338,7 +338,7 @@ class TestRiskTierEnforcement:
                 {
                     EvidenceClass.EXECUTION, EvidenceClass.REFERENTIAL,
                     EvidenceClass.NEGATIVE, EvidenceClass.INTENT,
-                    EvidenceClass.CONSERVATION,
+                    EvidenceClass.PROVENANCE,
                 }
             )
         )
