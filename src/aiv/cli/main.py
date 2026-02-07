@@ -125,6 +125,7 @@ def init(
         console.print(f"[green]Created:[/green] {aiv_yml}")
 
     console.print(f"[green][OK] AIV Protocol initialized in {path}[/green]")
+    console.print("[dim]Tip: Use [bold]aiv generate <name>[/bold] to create a verification packet.[/dim]")
 
 
 @app.command()
