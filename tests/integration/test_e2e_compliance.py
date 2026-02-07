@@ -1033,6 +1033,78 @@ class TestCanonicalCompliance:
             + "\n".join(f"  [{f.rule_id}] {f.description}" for f in cls002)
         )
 
+    def test_canonical_ct013_missing_test_refs_r2(self):
+        """L5-12: R2 claim with Class A evidence but no test_refs triggers CT-013 WARN."""
+        ctx = _make_guard_context()
+        packet = _make_canonical_packet(
+            ctx, risk_tier="R2", sod_mode="S1",
+            evidence_classes=("A", "B", "C", "E"),
+        )
+        # Claim has Class A evidence_refs but no test_refs
+        assert "test_refs" not in packet["claims"][0]
+
+        result = GuardResult()
+        validate_canonical(packet, ctx, result, ["src/a.py"])
+        ct013 = [f for f in result.findings if f.rule_id == "CT-013"]
+        assert len(ct013) > 0, (
+            "R2 claim with Class A evidence but no test_refs should trigger CT-013:\n"
+            + "\n".join(f"  [{f.rule_id}] {f.description}" for f in result.findings)
+        )
+
+    def test_canonical_ct013_valid_test_refs_r2(self):
+        """L5-13: R2 claim with valid test_refs does NOT trigger CT-013."""
+        ctx = _make_guard_context()
+        packet = _make_canonical_packet(
+            ctx, risk_tier="R2", sod_mode="S1",
+            evidence_classes=("A", "B", "C", "E"),
+        )
+        # Add test_list to Class A evidence and test_refs to claim
+        for e in packet["evidence_items"]:
+            if e["class"] == "A":
+                e["test_list"] = ["test_login", "test_logout"]
+        packet["claims"][0]["test_refs"] = ["test_login"]
+
+        result = GuardResult()
+        validate_canonical(packet, ctx, result, ["src/a.py"])
+        ct013 = [f for f in result.findings if f.rule_id == "CT-013"]
+        assert len(ct013) == 0, (
+            "R2 claim with valid test_refs should not trigger CT-013:\n"
+            + "\n".join(f"  [{f.rule_id}] {f.description}" for f in ct013)
+        )
+
+    def test_canonical_ct013_unknown_test_ref_r2(self):
+        """L5-14: R2 claim referencing unknown test_id triggers CT-013 WARN."""
+        ctx = _make_guard_context()
+        packet = _make_canonical_packet(
+            ctx, risk_tier="R2", sod_mode="S1",
+            evidence_classes=("A", "B", "C", "E"),
+        )
+        for e in packet["evidence_items"]:
+            if e["class"] == "A":
+                e["test_list"] = ["test_login"]
+        packet["claims"][0]["test_refs"] = ["test_nonexistent"]
+
+        result = GuardResult()
+        validate_canonical(packet, ctx, result, ["src/a.py"])
+        ct013 = [f for f in result.findings if f.rule_id == "CT-013"]
+        assert any("unknown test_id" in f.description for f in ct013), (
+            "Unknown test_ref should trigger CT-013:\n"
+            + "\n".join(f"  [{f.rule_id}] {f.description}" for f in result.findings)
+        )
+
+    def test_canonical_ct013_skipped_for_r1(self):
+        """L5-15: R1 claims skip CT-013 (falsifiability not enforced for low-risk)."""
+        ctx = _make_guard_context()
+        packet = _make_canonical_packet(ctx, risk_tier="R1")
+        # R1 claim with Class A but no test_refs — should NOT trigger CT-013
+        result = GuardResult()
+        validate_canonical(packet, ctx, result, ["src/a.py"])
+        ct013 = [f for f in result.findings if f.rule_id == "CT-013"]
+        assert len(ct013) == 0, (
+            "R1 should skip CT-013:\n"
+            + "\n".join(f"  [{f.rule_id}] {f.description}" for f in ct013)
+        )
+
     def test_canonical_conditional_decision_validation(self):
         """L5-08: CONDITIONAL decision without conditions triggers CT-009."""
         ctx = _make_guard_context()

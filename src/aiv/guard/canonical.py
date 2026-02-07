@@ -275,6 +275,10 @@ def validate_canonical(
     if risk_tier in ("R2", "R3"):
         _validate_class_c(evidence_items, result)
 
+    # --- Falsifiability: claim → test_refs mapping for R2+ ---
+    if risk_tier in ("R2", "R3"):
+        _validate_claim_test_refs(claims, evidence_items, result)
+
     return True
 
 
@@ -519,3 +523,57 @@ def _validate_class_c(evidence_items: list[dict[str, Any]], result: GuardResult)
         for e in class_c
     ):
         result.add_block("C-004", "MUST include at least one Class C semantic analysis method.")
+
+
+def _validate_claim_test_refs(
+    claims: list[dict[str, Any]],
+    evidence_items: list[dict[str, Any]],
+    result: GuardResult,
+) -> None:
+    """CT-013: R2+ claims with Class A evidence must include test_refs.
+
+    Falsifiability enforcement: a claim is only verifiable if it maps
+    to specific, named tests that exercise the claimed behaviour.
+    """
+    # Build set of Class A evidence IDs
+    class_a_ids = {
+        e["id"] for e in evidence_items
+        if isinstance(e, dict) and e.get("class") == "A" and isinstance(e.get("id"), str)
+    }
+
+    # Collect known test IDs from Class A test_list arrays
+    known_test_ids: set[str] = set()
+    for e in evidence_items:
+        if not isinstance(e, dict) or e.get("class") != "A":
+            continue
+        tl = e.get("test_list", [])
+        if isinstance(tl, list):
+            known_test_ids.update(t for t in tl if isinstance(t, str))
+
+    for claim in claims:
+        if not isinstance(claim, dict) or not isinstance(claim.get("id"), str):
+            continue
+
+        erefs = claim.get("evidence_refs", [])
+        has_class_a = any(ref in class_a_ids for ref in erefs if isinstance(ref, str))
+
+        if not has_class_a:
+            continue
+
+        test_refs = claim.get("test_refs", [])
+        if not isinstance(test_refs, list) or len(test_refs) == 0:
+            result.add_warn(
+                "CT-013",
+                f"Claim {claim['id']} uses Class A evidence but provides no test_refs. "
+                f"Map this claim to specific test(s) for falsifiability.",
+            )
+            continue
+
+        if known_test_ids:
+            for t_id in test_refs:
+                if isinstance(t_id, str) and t_id not in known_test_ids:
+                    result.add_warn(
+                        "CT-013",
+                        f"Claim {claim['id']} references unknown test_id: {t_id}. "
+                        f"Ensure test_id matches an entry in the Class A test_list.",
+                    )
