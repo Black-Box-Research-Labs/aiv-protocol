@@ -176,19 +176,6 @@ class PacketParser:
                     return section
         return None
 
-    def _find_sections(
-        self,
-        sections: list[ParsedSection],
-        title_contains: str,
-        level: int | None = None,
-    ) -> list[ParsedSection]:
-        """Find all sections matching title substring and optional level."""
-        return [
-            s for s in sections
-            if title_contains.lower() in s.title.lower()
-            and (level is None or s.level == level)
-        ]
-
     def _parse_intent(self, sections: list[ParsedSection]) -> IntentSection | None:
         """
         Parse intent from ### Class E (Intent Alignment) under ## Evidence.
@@ -422,8 +409,15 @@ class PacketParser:
                 else:
                     artifact = artifact_raw
             elif unlinked_evidence:
-                # Apply first matching unlinked evidence to unenriched claims
-                ev_class, artifact = unlinked_evidence[0]
+                # Apply the best matching unlinked evidence to unenriched claims.
+                # Prefer evidence whose class matches the claim's default, then
+                # fall back to the first available unlinked evidence.
+                best = unlinked_evidence[0]
+                for ue_class, ue_artifact in unlinked_evidence:
+                    if ue_class == claim.evidence_class:
+                        best = (ue_class, ue_artifact)
+                        break
+                ev_class, artifact = best
 
             # Since Claim is frozen, we must create a new instance
             enriched.append(Claim(
