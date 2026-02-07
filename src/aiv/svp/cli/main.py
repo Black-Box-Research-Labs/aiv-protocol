@@ -8,40 +8,32 @@ Provides: svp status, svp predict, svp trace, svp probe, svp ownership, svp vali
 from __future__ import annotations
 
 import json
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
-from uuid import uuid4
 
 import typer
 
 from ..lib.models import (
-    Complexity,
-    Confidence,
-    SVPSession,
-    SVPStatus,
-    PredictionRecord,
-    TraceRecord,
-    StateTransition,
-    ProbeRecord,
-    WhyQuestion,
-    FalsificationScenario,
     AITellType,
     BugSeverity,
-    ProbeFinding,
+    Complexity,
+    Confidence,
+    FalsificationScenario,
     OwnershipCommit,
+    PredictionRecord,
+    ProbeFinding,
+    ProbeRecord,
     RenameChange,
-    DocstringChange,
-    VerifierRating,
-    VerifierTier,
+    StateTransition,
+    SVPSession,
+    TraceRecord,
+    WhyQuestion,
 )
 from ..lib.rating import (
     calculate_rating,
     load_all_sessions,
     load_ratings,
     save_ratings,
-    score_session,
 )
 from ..lib.validators.session import validate_session
 
@@ -78,6 +70,7 @@ def _save_session(session: SVPSession) -> None:
 # ------------------------------------------------------------------ #
 # svp status
 # ------------------------------------------------------------------ #
+
 
 @svp_app.command()
 def status(
@@ -125,6 +118,7 @@ def status(
 # svp predict
 # ------------------------------------------------------------------ #
 
+
 @svp_app.command()
 def predict(
     pr: int = typer.Argument(..., help="PR number"),
@@ -171,6 +165,7 @@ def predict(
 # svp trace
 # ------------------------------------------------------------------ #
 
+
 @svp_app.command()
 def trace(
     pr: int = typer.Argument(..., help="PR number"),
@@ -204,14 +199,16 @@ def trace(
 
     transitions: list[StateTransition] = []
     for i, (var, before, after) in enumerate(
-        zip(transition_var, transition_before, transition_after), start=1
+        zip(transition_var, transition_before, transition_after, strict=False), start=1
     ):
-        transitions.append(StateTransition(
-            step_number=i,
-            variable_name=var,
-            before_value=before,
-            after_value=after,
-        ))
+        transitions.append(
+            StateTransition(
+                step_number=i,
+                variable_name=var,
+                before_value=before,
+                after_value=after,
+            )
+        )
 
     tr = TraceRecord(
         pr_number=pr,
@@ -238,6 +235,7 @@ def trace(
 # svp probe
 # ------------------------------------------------------------------ #
 
+
 @svp_app.command()
 def probe(
     pr: int = typer.Argument(..., help="PR number"),
@@ -247,7 +245,9 @@ def probe(
     why_question: str = typer.Option(..., help="A 'Why?' question (≥10 chars)"),
     why_context: str = typer.Option("", help="Context for the Why question"),
     falsify_claim: list[str] = typer.Option([], help="Claim ID for falsification scenario (repeatable)"),
-    falsify_scenario: list[str] = typer.Option([], help="Falsification evidence, paired with --falsify-claim (repeatable)"),
+    falsify_scenario: list[str] = typer.Option(
+        [], help="Falsification evidence, paired with --falsify-claim (repeatable)"
+    ),
     finding_type: list[str] = typer.Option([], help="AI tell type for structured finding (repeatable)"),
     finding_file: list[str] = typer.Option([], help="File path for finding, paired with --finding-type (repeatable)"),
     finding_desc: list[str] = typer.Option([], help="Finding description, paired with --finding-type (repeatable)"),
@@ -275,16 +275,18 @@ def probe(
 
     # Build new scenarios from paired --falsify-claim / --falsify-scenario
     new_scenarios: list[FalsificationScenario] = []
-    for claim_id, scenario_text in zip(falsify_claim, falsify_scenario):
+    for claim_id, scenario_text in zip(falsify_claim, falsify_scenario, strict=False):
         if claim_id and scenario_text:
-            new_scenarios.append(FalsificationScenario(
-                claim_id=claim_id,
-                scenario=scenario_text,
-            ))
+            new_scenarios.append(
+                FalsificationScenario(
+                    claim_id=claim_id,
+                    scenario=scenario_text,
+                )
+            )
 
     # Build structured findings from paired options
     new_findings: list[ProbeFinding] = []
-    for ft, ff, fd, fs in zip(finding_type, finding_file, finding_desc, finding_severity):
+    for ft, ff, fd, fs in zip(finding_type, finding_file, finding_desc, finding_severity, strict=False):
         if ft and ff and fd:
             try:
                 tell_type = AITellType(ft)
@@ -294,12 +296,14 @@ def probe(
                 sev = BugSeverity(fs) if fs else BugSeverity.LOW
             except ValueError:
                 sev = BugSeverity.LOW
-            new_findings.append(ProbeFinding(
-                finding_type=tell_type,
-                file_path=ff,
-                description=fd,
-                severity=sev,
-            ))
+            new_findings.append(
+                ProbeFinding(
+                    finding_type=tell_type,
+                    file_path=ff,
+                    description=fd,
+                    severity=sev,
+                )
+            )
 
     # Merge into existing probe if one exists (resume support)
     if session.probe is not None:
@@ -310,11 +314,13 @@ def probe(
                 existing_scenarios.append(s)
                 existing_claim_ids.add(s.claim_id)
         merged_findings = list(session.probe.findings) + new_findings
-        pr_record = session.probe.model_copy(update={
-            "falsification_scenarios": existing_scenarios,
-            "findings": merged_findings,
-            "overall_assessment": assessment or session.probe.overall_assessment,
-        })
+        pr_record = session.probe.model_copy(
+            update={
+                "falsification_scenarios": existing_scenarios,
+                "findings": merged_findings,
+                "overall_assessment": assessment or session.probe.overall_assessment,
+            }
+        )
     else:
         pr_record = ProbeRecord(
             pr_number=pr,
@@ -323,10 +329,12 @@ def probe(
             happy_path_bias_checked=True,
             context_amnesia_checked=True,
             fragile_assertions_checked=True,
-            why_questions=[WhyQuestion(
-                question=why_question,
-                context=why_context or "Prompted by code review",
-            )],
+            why_questions=[
+                WhyQuestion(
+                    question=why_question,
+                    context=why_context or "Prompted by code review",
+                )
+            ],
             falsification_scenarios=new_scenarios,
             findings=new_findings,
             overall_assessment=assessment,
@@ -335,7 +343,7 @@ def probe(
     session.probe = pr_record
     _save_session(session)
     typer.echo(f"[OK] Adversarial probe recorded for PR #{pr}")
-    typer.echo(f"   Checklist: complete")
+    typer.echo("   Checklist: complete")
     typer.echo(f"   Why questions: {len(pr_record.why_questions)}")
     typer.echo(f"   Falsification scenarios: {len(pr_record.falsification_scenarios)}")
     typer.echo(f"   Structured findings: {len(pr_record.findings)}")
@@ -344,6 +352,7 @@ def probe(
 # ------------------------------------------------------------------ #
 # svp ownership
 # ------------------------------------------------------------------ #
+
 
 @svp_app.command()
 def ownership(
@@ -374,13 +383,15 @@ def ownership(
 
     renames: list[RenameChange] = []
     if rename_file and rename_from and rename_to and rename_reason:
-        renames.append(RenameChange(
-            file_path=rename_file,
-            original_name=rename_from,
-            new_name=rename_to,
-            change_type=rename_type,
-            justification=rename_reason,
-        ))
+        renames.append(
+            RenameChange(
+                file_path=rename_file,
+                original_name=rename_from,
+                new_name=rename_to,
+                change_type=rename_type,  # type: ignore[arg-type]
+                justification=rename_reason,
+            )
+        )
 
     oc = OwnershipCommit(
         pr_number=pr,
@@ -404,6 +415,7 @@ def ownership(
 # svp validate
 # ------------------------------------------------------------------ #
 
+
 @svp_app.command()
 def validate(
     pr: int = typer.Argument(..., help="PR number"),
@@ -426,17 +438,12 @@ def validate(
 # svp rating
 # ------------------------------------------------------------------ #
 
+
 @svp_app.command()
 def rating(
-    verifier_id: str = typer.Argument(
-        ..., help="Verifier ID to calculate rating for"
-    ),
-    save: bool = typer.Option(
-        True, help="Persist updated rating to .svp/ratings.json"
-    ),
-    verbose: bool = typer.Option(
-        False, "--verbose", "-v", help="Show individual rating events"
-    ),
+    verifier_id: str = typer.Argument(..., help="Verifier ID to calculate rating for"),
+    save: bool = typer.Option(True, help="Persist updated rating to .svp/ratings.json"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Show individual rating events"),
 ) -> None:
     """Calculate and display ELO rating for a verifier from all sessions."""
     sessions = load_all_sessions()
@@ -446,9 +453,7 @@ def rating(
 
     verifier_sessions = [s for s in sessions if s.verifier_id == verifier_id]
     if not verifier_sessions:
-        typer.echo(
-            f"No sessions found for verifier '{verifier_id}'", err=True
-        )
+        typer.echo(f"No sessions found for verifier '{verifier_id}'", err=True)
         typer.echo("Available verifiers:", err=True)
         seen: set[str] = set()
         for s in sessions:
@@ -478,4 +483,4 @@ def rating(
         ratings[verifier_id] = result
         save_ratings(ratings)
         typer.echo()
-        typer.echo(f"Rating saved to .svp/ratings.json")
+        typer.echo("Rating saved to .svp/ratings.json")

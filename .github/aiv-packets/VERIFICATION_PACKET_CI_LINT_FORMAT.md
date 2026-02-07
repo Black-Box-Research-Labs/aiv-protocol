@@ -46,7 +46,7 @@ classification:
 
 Files modified in this atomic commit series:
 
-<!-- CURRENT_FILE: src/aiv/lib/validators/zero_touch.py (20/37) -->
+<!-- CURRENT_FILE: src/aiv/svp/cli/main.py (21/37) -->
 
 ---
 
