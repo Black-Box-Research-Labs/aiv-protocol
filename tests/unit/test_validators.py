@@ -18,6 +18,7 @@ from aiv.lib.models import (
     VerificationPacket,
 )
 from aiv.lib.validators.evidence import EvidenceValidator
+from aiv.lib.validators.links import LinkValidator
 from aiv.lib.validators.pipeline import ValidationPipeline
 from aiv.lib.validators.zero_touch import ZeroTouchValidator
 
@@ -375,3 +376,157 @@ class TestRiskTierEnforcement:
         )
         info = [f for f in findings if f.severity == Severity.INFO]
         assert len(info) >= 1  # At least D or F recommended
+
+
+# ============================================================================
+# Link Vitality Tests (E021)
+# ============================================================================
+
+
+class TestLinkVitality:
+    """Tests for E021 link vitality checking via HTTP HEAD requests."""
+
+    @pytest.fixture
+    def _make_packet_with_url(self):
+        """Factory for packets with a specific Class E URL."""
+        from aiv.lib.models import ArtifactLink, IntentSection
+
+        def _factory(url: str) -> VerificationPacket:
+            link = ArtifactLink.from_url(url)
+            return VerificationPacket(
+                version="2.1",
+                raw_markdown="# test packet",
+                intent=IntentSection(
+                    evidence_link=link,
+                    verifier_check="Verify the link is reachable and returns 200",
+                    requirements_verified=["Link resolves"],
+                ),
+                claims=[
+                    Claim(
+                        section_number=1,
+                        description="Test claim with sufficient length for link validation",
+                        evidence_class=EvidenceClass.REFERENTIAL,
+                        artifact="src/feature.py",
+                        reproduction="Inspect CI artifacts.",
+                    )
+                ],
+            )
+
+        return _factory
+
+    def test_audit_links_off_skips_network(self, _make_packet_with_url):
+        """When audit_links=False (default), no HTTP checks run."""
+        validator = LinkValidator(audit_links=False)
+        packet = _make_packet_with_url("https://github.com/owner/repo/blob/abc123def456/docs/spec.md")
+        findings = validator.validate(packet)
+        e021 = [f for f in findings if f.rule_id == "E021"]
+        assert len(e021) == 0
+
+    def test_audit_links_404_blocks(self, _make_packet_with_url, monkeypatch):
+        """E021 BLOCK when HTTP HEAD returns 404."""
+        from urllib.error import HTTPError
+
+        def _mock_urlopen(req, **kwargs):
+            raise HTTPError(req.full_url, 404, "Not Found", {}, None)
+
+        monkeypatch.setattr("aiv.lib.validators.links.urlopen", _mock_urlopen)
+
+        validator = LinkValidator(audit_links=True)
+        packet = _make_packet_with_url("https://github.com/owner/repo/blob/abc123def456/docs/spec.md")
+        findings = validator.validate(packet)
+        e021 = [f for f in findings if f.rule_id == "E021"]
+        assert len(e021) == 1
+        assert e021[0].severity == Severity.BLOCK
+        assert "404" in e021[0].message
+
+    def test_audit_links_200_passes(self, _make_packet_with_url, monkeypatch):
+        """No E021 when HTTP HEAD returns 200."""
+        class FakeResp:
+            status = 200
+            reason = "OK"
+            def __enter__(self): return self
+            def __exit__(self, *a): pass
+
+        monkeypatch.setattr("aiv.lib.validators.links.urlopen", lambda req, **kw: FakeResp())
+
+        validator = LinkValidator(audit_links=True)
+        packet = _make_packet_with_url("https://github.com/owner/repo/blob/abc123def456/docs/spec.md")
+        findings = validator.validate(packet)
+        e021 = [f for f in findings if f.rule_id == "E021"]
+        assert len(e021) == 0
+
+    def test_audit_links_network_error_warns(self, _make_packet_with_url, monkeypatch):
+        """E021 WARN when network is unreachable."""
+        from urllib.error import URLError
+
+        monkeypatch.setattr(
+            "aiv.lib.validators.links.urlopen",
+            lambda req, **kw: (_ for _ in ()).throw(URLError("Name resolution failed")),
+        )
+
+        validator = LinkValidator(audit_links=True)
+        packet = _make_packet_with_url("https://github.com/owner/repo/blob/abc123def456/docs/spec.md")
+        findings = validator.validate(packet)
+        e021 = [f for f in findings if f.rule_id == "E021"]
+        assert len(e021) == 1
+        assert e021[0].severity == Severity.WARN
+        assert "could not be reached" in e021[0].message
+
+    def test_audit_links_403_blocks(self, _make_packet_with_url, monkeypatch):
+        """E021 BLOCK when HTTP HEAD returns 403 (permission denied)."""
+        from urllib.error import HTTPError
+
+        def _mock_urlopen(req, **kwargs):
+            raise HTTPError(req.full_url, 403, "Forbidden", {}, None)
+
+        monkeypatch.setattr("aiv.lib.validators.links.urlopen", _mock_urlopen)
+
+        validator = LinkValidator(audit_links=True)
+        packet = _make_packet_with_url("https://github.com/owner/repo/blob/abc123def456/docs/spec.md")
+        findings = validator.validate(packet)
+        e021 = [f for f in findings if f.rule_id == "E021"]
+        assert len(e021) == 1
+        assert "403" in e021[0].message
+
+    def test_audit_links_deduplicates_urls(self, monkeypatch):
+        """Same URL appearing in multiple places is only checked once."""
+        from aiv.lib.models import ArtifactLink, IntentSection
+
+        call_count = 0
+        class FakeResp:
+            status = 200
+            reason = "OK"
+            def __enter__(self): return self
+            def __exit__(self, *a): pass
+
+        def _counting_urlopen(req, **kw):
+            nonlocal call_count
+            call_count += 1
+            return FakeResp()
+
+        monkeypatch.setattr("aiv.lib.validators.links.urlopen", _counting_urlopen)
+
+        url = "https://github.com/owner/repo/blob/abc123def456/docs/spec.md"
+        link = ArtifactLink.from_url(url)
+        packet = VerificationPacket(
+            version="2.1",
+            raw_markdown="# test packet",
+            intent=IntentSection(
+                evidence_link=link,
+                verifier_check="Verify the link is reachable",
+                requirements_verified=["Link resolves"],
+            ),
+            claims=[
+                Claim(
+                    section_number=1,
+                    description="Test claim referencing the same URL as intent",
+                    evidence_class=EvidenceClass.REFERENTIAL,
+                    artifact=link,
+                    reproduction="Inspect CI artifacts.",
+                ),
+            ],
+        )
+
+        validator = LinkValidator(audit_links=True)
+        validator.validate(packet)
+        assert call_count == 1, f"URL should be checked exactly once, was checked {call_count} times"
