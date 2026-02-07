@@ -1,6 +1,6 @@
 # AIV Verification Packet (v2.1)
 
-**Commit:** `pending`  
+**Commit:** `9214766`  
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
 ---
@@ -30,7 +30,7 @@ classification:
 
 ### Class E (Intent Alignment)
 
-- **Link:** AUDIT_REPORT.md — Finding D06 and §2.15 (init docstring mismatch).
+- **Link:** [AUDIT_REPORT.md — Finding D06 and §2.15 (init docstring mismatch).](https://github.com/ImmortalDemonGod/aiv-protocol/blob/9214766/AUDIT_REPORT.md)
 - **Requirements Verified:**
   1. ✅ No unused imports remain in cli/main.py
   2. ✅ Docstring matches actual behavior
