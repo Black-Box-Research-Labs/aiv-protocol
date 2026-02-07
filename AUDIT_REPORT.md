@@ -632,19 +632,21 @@ Key improvements:
 
 **External claim:** No tooling for Class D (Differential/State) diffs. No sigstore/GPG integration for Class F (Provenance). System accepts plain strings for `classified_by`.
 
-**Audit verdict: PARTIALLY AGREE — but the external analysis has the naming wrong too.**
+**Previous audit verdict: PARTIALLY AGREE — naming conflict identified.**
 
-Code verification:
-- **Class D validators exist** but are trivial. `evidence.py:_validate_state()` (lines 169-196) only checks if the reproduction field contains database CLI keywords (`sqlite3`, `psql`, etc.). It doesn't validate actual state diffs, before/after comparisons, or schema changes. So: **structurally present, functionally hollow.**
-- **Class F validators exist** but are also trivial. `evidence.py:_validate_conservation()` (lines 221-245) only checks if test-related claims have a justification field. No cryptographic integrity checks, no sigstore, no GPG, no hash verification. So: **same — structurally present, functionally hollow.**
-- **`classified_by` is never parsed.** Grep for `classified_by`, `risk_tier`, `sod_mode` in `src/` returns zero matches. The Classification YAML block is completely ignored by the parser.
+**Re-Audit verdict: ⚠️ PARTIALLY ADDRESSED.**
 
-**Critical nuance the external analysis misses:** The external analysis says "Class D (Differential)" and "Class F (Provenance)." But this audit found a **naming conflict** (finding §2.1): the Python codebase calls Class D "STATE" (not Differential) and Class F "CONSERVATION" (not Provenance). The canonical spec (`SPECIFICATION.md`) calls them "Differential" and "Provenance" respectively. The implementation spec (`AIV-SUITE-SPEC`) may use different terminology. This naming confusion is itself a finding — the codebase, the canonical spec, and the implementation spec don't agree on what D and F mean.
+Code verification update:
+- **Class D validators still trivial.** `evidence.py:_validate_state()` (lines 169-220) still only checks for database CLI keywords. No actual state diff validation.
+- **Class F (Conservation) validators improved.** `evidence.py:_validate_conservation()` (lines 223-260) now has **negative framing detection** — claims with "no tests modified" or "preserved" phrasing are recognized as valid without additional justification. Test modification claims without negative framing produce E011 warnings. Tested with 4 unit tests in `test_validators.py::TestConservationNegativeFraming`.
+- ✅ FIXED: **`classified_by` and `risk_tier` are now parsed.** The parser extracts `risk_tier` from the Classification YAML block. The pipeline enforces evidence requirements per tier.
 
-| Class | Canonical Spec | Python `EvidenceClass` | Implementation Spec |
-|-------|---------------|----------------------|-------------------|
-| D | Differential | `STATE` | Varies |
-| F | Provenance | `CONSERVATION` | Varies |
+**Naming conflict still present:**
+
+| Class | Canonical Spec | Python `EvidenceClass` | Status |
+|-------|---------------|----------------------|--------|
+| D | Differential | `STATE` | ❌ Still mismatched |
+| F | Provenance | `CONSERVATION` | ❌ Still mismatched |
 
 ---
 
