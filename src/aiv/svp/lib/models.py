@@ -15,13 +15,14 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
 # ================================================================= #
 # Enums
 # ================================================================= #
 
+
 class Complexity(str, Enum):
     """Big-O complexity estimates for predictions."""
+
     CONSTANT = "O(1)"
     LOGARITHMIC = "O(log n)"
     LINEAR = "O(n)"
@@ -33,6 +34,7 @@ class Complexity(str, Enum):
 
 class Confidence(str, Enum):
     """Confidence level for trace predictions."""
+
     HIGH = "high"
     MEDIUM = "medium"
     LOW = "low"
@@ -40,6 +42,7 @@ class Confidence(str, Enum):
 
 class SVPPhase(str, Enum):
     """The five phases of SVP execution."""
+
     SANITY = "phase_0_sanity"
     PREDICTION = "phase_1_prediction"
     TRACE = "phase_2_trace"
@@ -49,6 +52,7 @@ class SVPPhase(str, Enum):
 
 class SVPStatus(str, Enum):
     """Overall SVP completion status."""
+
     NOT_STARTED = "not_started"
     IN_PROGRESS = "in_progress"
     COMPLETE = "complete"
@@ -57,6 +61,7 @@ class SVPStatus(str, Enum):
 
 class BugSeverity(str, Enum):
     """Severity of discovered bugs."""
+
     CRITICAL = "critical"
     HIGH = "high"
     MEDIUM = "medium"
@@ -65,6 +70,7 @@ class BugSeverity(str, Enum):
 
 class VerifierTier(str, Enum):
     """Verifier skill tiers based on ELO rating."""
+
     NOVICE = "novice"
     COMPETENT = "competent"
     PROFICIENT = "proficient"
@@ -87,6 +93,7 @@ class VerifierTier(str, Enum):
 
 class AITellType(str, Enum):
     """Types of AI Tells to hunt for during adversarial probing."""
+
     HAPPY_PATH_BIAS = "happy_path_bias"
     CONTEXT_AMNESIA = "context_amnesia"
     FRAGILE_ASSERTIONS = "fragile_assertions"
@@ -97,12 +104,14 @@ class AITellType(str, Enum):
 
 class SessionType(str, Enum):
     """Whether the session is human verification or AI adversarial triage."""
+
     HUMAN_VERIFICATION = "human_verification"
     AI_ADVERSARIAL_TRIAGE = "ai_adversarial_triage"
 
 
 class ValidationSeverity(str, Enum):
     """Severity of SVP validation failures."""
+
     BLOCK = "block"
     WARN = "warn"
     INFO = "info"
@@ -112,11 +121,13 @@ class ValidationSeverity(str, Enum):
 # Phase 1: Black Box Prediction
 # ================================================================= #
 
+
 class PredictionRecord(BaseModel):
     """
     Record of a Black Box Prediction (Phase 1).
     Verifier predicts implementation approach BEFORE viewing the diff.
     """
+
     model_config = ConfigDict(frozen=True)
 
     id: UUID = Field(default_factory=uuid4)
@@ -136,9 +147,7 @@ class PredictionRecord(BaseModel):
     )
     expected_data_structures: list[str] = Field(default_factory=list)
 
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     diff_first_viewed_at: datetime | None = None
 
     @property
@@ -151,6 +160,7 @@ class PredictionRecord(BaseModel):
 
 class PredictionComparison(BaseModel):
     """Comparison of prediction against actual implementation."""
+
     model_config = ConfigDict(frozen=True)
 
     prediction_id: UUID
@@ -199,8 +209,10 @@ class PredictionComparison(BaseModel):
 # Phase 2: Mental Trace
 # ================================================================= #
 
+
 class StateTransition(BaseModel):
     """A single state transition during mental trace."""
+
     model_config = ConfigDict(frozen=True)
 
     step_number: int = Field(ge=1)
@@ -216,6 +228,7 @@ class TraceRecord(BaseModel):
     For human verifiers: mental simulation without running code.
     For AI verifiers (S015): must include verified_output from actual execution.
     """
+
     model_config = ConfigDict(frozen=True)
 
     id: UUID = Field(default_factory=uuid4)
@@ -237,17 +250,17 @@ class TraceRecord(BaseModel):
     confidence: Confidence
     uncertainty_notes: str | None = None
 
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 # ================================================================= #
 # Phase 3: Adversarial Probe
 # ================================================================= #
 
+
 class ProbeFinding(BaseModel):
     """A finding from adversarial probing."""
+
     model_config = ConfigDict(frozen=True)
 
     finding_type: AITellType
@@ -260,6 +273,7 @@ class ProbeFinding(BaseModel):
 
 class WhyQuestion(BaseModel):
     """A 'Why?' question asked during probing."""
+
     model_config = ConfigDict(frozen=True)
 
     question: str = Field(min_length=10)
@@ -274,6 +288,7 @@ class FalsificationScenario(BaseModel):
     Forces the verifier to think: 'What specific evidence in the linked
     artifact would prove this claim is a lie?'
     """
+
     model_config = ConfigDict(frozen=True)
 
     claim_id: str = Field(min_length=1, description="Claim identifier, e.g. 'C-001'")
@@ -289,7 +304,9 @@ class FalsificationScenario(BaseModel):
     result: Literal["confirmed", "falsified", "inconclusive"] = "confirmed"
     false_positive: bool = Field(
         default=False,
-        description="True if the scenario itself was wrong (hallucinated, wrong count, untestable). Penalized in rating.",
+        description=(
+            "True if the scenario itself was wrong (hallucinated, wrong count, untestable). Penalized in rating."
+        ),
     )
 
 
@@ -298,6 +315,7 @@ class ProbeRecord(BaseModel):
     Record of an Adversarial Probe (Phase 3).
     Verifier hunts for AI Tells and subtle hallucinations.
     """
+
     model_config = ConfigDict(frozen=True)
 
     id: UUID = Field(default_factory=uuid4)
@@ -318,18 +336,18 @@ class ProbeRecord(BaseModel):
 
     overall_assessment: str = Field(min_length=20)
 
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     @property
     def checklist_complete(self) -> bool:
         """All checklist items must be marked."""
-        return all([
-            self.happy_path_bias_checked,
-            self.context_amnesia_checked,
-            self.fragile_assertions_checked,
-        ])
+        return all(
+            [
+                self.happy_path_bias_checked,
+                self.context_amnesia_checked,
+                self.fragile_assertions_checked,
+            ]
+        )
 
     @property
     def bugs_found(self) -> list[ProbeFinding]:
@@ -340,8 +358,10 @@ class ProbeRecord(BaseModel):
 # Phase 4: Ownership Lock
 # ================================================================= #
 
+
 class RenameChange(BaseModel):
     """A variable/function rename in an ownership commit."""
+
     model_config = ConfigDict(frozen=True)
 
     file_path: str
@@ -353,6 +373,7 @@ class RenameChange(BaseModel):
 
 class DocstringChange(BaseModel):
     """A docstring addition/modification in an ownership commit."""
+
     model_config = ConfigDict(frozen=True)
 
     file_path: str
@@ -368,6 +389,7 @@ class OwnershipCommit(BaseModel):
     Record of an Ownership Lock commit (Phase 4).
     Verifier must push a commit with semantic renames or docstrings.
     """
+
     model_config = ConfigDict(frozen=True)
 
     pr_number: int = Field(ge=1)
@@ -381,9 +403,7 @@ class OwnershipCommit(BaseModel):
     renames: list[RenameChange] = Field(default_factory=list)
     docstrings: list[DocstringChange] = Field(default_factory=list)
 
-    verified_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    verified_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     @property
     def follows_message_pattern(self) -> bool:
@@ -416,11 +436,13 @@ class OwnershipCommit(BaseModel):
 # SVP Session
 # ================================================================= #
 
+
 class SVPSession(BaseModel):
     """
     Complete SVP session for a single PR verification.
     Tracks completion of all phases.
     """
+
     model_config = ConfigDict(frozen=False)
 
     id: UUID = Field(default_factory=uuid4)
@@ -433,7 +455,9 @@ class SVPSession(BaseModel):
     )
     packet_ref: str = Field(
         default="",
-        description="Verification packet filename this session verifies, e.g. VERIFICATION_PACKET_AIV_IMPLEMENTATION.md",
+        description=(
+            "Verification packet filename this session verifies, e.g. VERIFICATION_PACKET_AIV_IMPLEMENTATION.md"
+        ),
     )
 
     prediction: PredictionRecord | None = None
@@ -441,9 +465,7 @@ class SVPSession(BaseModel):
     probe: ProbeRecord | None = None
     ownership_commit: OwnershipCommit | None = None
 
-    started_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: datetime | None = None
 
     aiv_guard_passed: bool = False
@@ -458,8 +480,7 @@ class SVPSession(BaseModel):
             self.prediction is not None,
             len(self.traces) > 0,
             self.probe is not None and self.probe.checklist_complete,
-            (self.ownership_commit is not None
-             and self.ownership_commit.has_substantive_changes),
+            (self.ownership_commit is not None and self.ownership_commit.has_substantive_changes),
         ]
 
         if all(phases):
@@ -479,8 +500,7 @@ class SVPSession(BaseModel):
             missing.append(SVPPhase.TRACE)
         if self.probe is None or not self.probe.checklist_complete:
             missing.append(SVPPhase.PROBE)
-        if (self.ownership_commit is None
-                or not self.ownership_commit.has_substantive_changes):
+        if self.ownership_commit is None or not self.ownership_commit.has_substantive_changes:
             missing.append(SVPPhase.OWNERSHIP)
         return missing
 
@@ -495,8 +515,10 @@ class SVPSession(BaseModel):
 # Bug Reports
 # ================================================================= #
 
+
 class BugReport(BaseModel):
     """Bug discovered during SVP verification."""
+
     model_config = ConfigDict(frozen=True)
 
     id: UUID = Field(default_factory=uuid4)
@@ -523,9 +545,7 @@ class BugReport(BaseModel):
     confirmed: bool = False
     false_positive: bool = False
 
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 # ================================================================= #
@@ -548,6 +568,7 @@ RATING_POINTS: dict[str, int] = {
 
 class RatingEvent(BaseModel):
     """An event that affects a verifier's rating."""
+
     model_config = ConfigDict(frozen=True)
 
     id: UUID = Field(default_factory=uuid4)
@@ -558,13 +579,12 @@ class RatingEvent(BaseModel):
     repository: str | None = None
     description: str
 
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class VerifierRating(BaseModel):
     """A verifier's current rating and statistics."""
+
     model_config = ConfigDict(frozen=False)
 
     verifier_id: str = Field(min_length=1)
@@ -583,9 +603,7 @@ class VerifierRating(BaseModel):
     longest_streak: int = Field(default=0, ge=0)
 
     last_review_at: datetime | None = None
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     def update_tier(self) -> None:
         self.tier = VerifierTier.from_elo(self.elo_rating)
@@ -599,8 +617,10 @@ class VerifierRating(BaseModel):
 # Validation Results
 # ================================================================= #
 
+
 class SVPValidationError(BaseModel):
     """A single SVP validation error."""
+
     model_config = ConfigDict(frozen=True)
 
     rule_id: str
@@ -612,6 +632,7 @@ class SVPValidationError(BaseModel):
 
 class SVPValidationResult(BaseModel):
     """Complete SVP validation result for a PR."""
+
     model_config = ConfigDict(frozen=True)
 
     pr_number: int
@@ -629,9 +650,7 @@ class SVPValidationResult(BaseModel):
     errors: list[SVPValidationError] = Field(default_factory=list)
     warnings: list[SVPValidationError] = Field(default_factory=list)
 
-    validated_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    validated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     @property
     def blocking_errors(self) -> list[SVPValidationError]:
@@ -639,13 +658,18 @@ class SVPValidationResult(BaseModel):
 
     @property
     def is_complete(self) -> bool:
-        return all([
-            self.phase_0_complete,
-            self.phase_1_complete,
-            self.phase_2_complete,
-            self.phase_3_complete,
-            self.phase_4_complete,
-        ]) and len(self.blocking_errors) == 0
+        return (
+            all(
+                [
+                    self.phase_0_complete,
+                    self.phase_1_complete,
+                    self.phase_2_complete,
+                    self.phase_3_complete,
+                    self.phase_4_complete,
+                ]
+            )
+            and len(self.blocking_errors) == 0
+        )
 
     @property
     def completion_percentage(self) -> int:
