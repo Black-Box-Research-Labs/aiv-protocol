@@ -18,7 +18,7 @@ from rich.table import Table
 from aiv.lib.models import ValidationStatus, ValidationFinding
 from aiv.lib.validators.pipeline import ValidationPipeline
 from aiv.lib.config import AIVConfig
-from svp.cli.main import svp_app
+from aiv.svp.cli.main import svp_app
 
 app = typer.Typer(
     name="aiv",
@@ -60,8 +60,10 @@ def check(
         cat pr.md | aiv check -
     """
     # Load configuration
-    cfg = AIVConfig.from_file(config) if config else AIVConfig()
-    cfg.strict_mode = strict
+    if config:
+        cfg = AIVConfig.from_file(config).model_copy(update={"strict_mode": strict})
+    else:
+        cfg = AIVConfig(strict_mode=strict)
 
     # Read body from argument, file, or stdin
     if body == "-":
@@ -334,7 +336,7 @@ def _build_evidence_sections(tier: str, scope_lines: str) -> str:
 
     # Class F — required for R3, optional R2
     if tier in ("R2", "R3"):
-        sections.append("""### Class F (Conservation Evidence)
+        sections.append("""### Class F (Provenance Evidence)
 
 **Claim 3: No regressions**
 - No test files modified or deleted. Full test suite passes.""")

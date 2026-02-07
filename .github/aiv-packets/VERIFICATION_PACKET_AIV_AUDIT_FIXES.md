@@ -64,6 +64,7 @@ classification:
   - `src/aiv/lib/validators/anti_cheat.py` — Fix line number tracking for multi-hunk diffs (L11)
   - `src/aiv/guard/github_api.py` — Wire GitHubAPIError into _request/_request_bytes (Rec #10/#25)
   - `src/aiv/guard/runner.py` — Unify fast-track patterns via AIVConfig (D11, Rec #22)
+  - `src/aiv/cli/main.py` — Fix frozen model mutation (§2.15), update SVP import path (Rec #24), Provenance label
 - Created: (committed incrementally below)
 - Deleted: (committed incrementally below)
 
