@@ -41,7 +41,7 @@ class TestBuildEvidenceSections:
         result = _build_evidence_sections("R0", "  - `src/file.py`")
         assert "### Class B" in result
         assert "### Class A" in result
-        assert "### Class E" not in result
+        assert "### Class E" in result  # structurally required by parser
         assert "### Class C" not in result
 
     def test_r1_adds_class_e(self):
