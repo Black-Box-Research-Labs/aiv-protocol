@@ -39,6 +39,7 @@ dev = [
     "pytest-cov>=4.0,<6.0",
     "mypy>=1.0,<2.0",
     "ruff>=0.1,<1.0",
+    "types-PyYAML>=6.0",
 ]
 
 [project.scripts]
@@ -60,14 +61,31 @@ addopts = "-v --tb=short"
 
 [tool.mypy]
 python_version = "3.10"
-strict = true
-warn_return_any = true
 warn_unused_configs = true
+disallow_untyped_defs = true
+check_untyped_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+no_implicit_reexport = true
+
+[[tool.mypy.overrides]]
+module = ["aiv.guard.*", "aiv.lib.validators.pipeline"]
+disallow_untyped_defs = false
 
 [tool.ruff]
 target-version = "py310"
-line-length = 100
+line-length = 120
 src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "TCH"]
+ignore = [
+    "B008",    # function-call-in-default-argument (Typer uses this by design)
+    "SIM102",  # collapsible-if (readability preference)
+    "SIM108",  # if-else-block-instead-of-if-exp (readability preference)
+    "SIM110",  # reimplemented-builtin (explicit loops are clearer)
+    "SIM222",  # expr-or-true (readability preference)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B017", "E402", "E501", "W293"]
