@@ -5,20 +5,19 @@ Unit tests for core data models.
 """
 
 import pytest
+
 from aiv.lib.models import (
-    EvidenceClass,
-    RiskTier,
-    Severity,
-    ValidationStatus,
-    ArtifactLink,
-    Claim,
-    IntentSection,
-    VerificationPacket,
-    ValidationFinding,
-    ValidationResult,
     AntiCheatFinding,
     AntiCheatResult,
+    ArtifactLink,
+    Claim,
+    EvidenceClass,
     FrictionScore,
+    RiskTier,
+    Severity,
+    ValidationFinding,
+    ValidationResult,
+    ValidationStatus,
 )
 
 
@@ -57,43 +56,31 @@ class TestArtifactLink:
     """Tests for ArtifactLink URL parsing and immutability detection."""
 
     def test_github_actions_immutable(self):
-        link = ArtifactLink.from_url(
-            "https://github.com/owner/repo/actions/runs/12345"
-        )
+        link = ArtifactLink.from_url("https://github.com/owner/repo/actions/runs/12345")
         assert link.is_immutable is True
         assert link.link_type == "github_actions"
 
     def test_github_blob_sha_immutable(self):
-        link = ArtifactLink.from_url(
-            "https://github.com/owner/repo/blob/abc123def456789/src/file.py#L10-L20"
-        )
+        link = ArtifactLink.from_url("https://github.com/owner/repo/blob/abc123def456789/src/file.py#L10-L20")
         assert link.is_immutable is True
         assert link.link_type == "github_blob"
 
     def test_github_blob_main_mutable(self):
-        link = ArtifactLink.from_url(
-            "https://github.com/owner/repo/blob/main/src/file.py"
-        )
+        link = ArtifactLink.from_url("https://github.com/owner/repo/blob/main/src/file.py")
         assert link.is_immutable is False
         assert link.link_type == "github_blob"
         assert "Mutable branch" in (link.immutability_reason or "")
 
     def test_github_blob_master_mutable(self):
-        link = ArtifactLink.from_url(
-            "https://github.com/owner/repo/blob/master/src/file.py"
-        )
+        link = ArtifactLink.from_url("https://github.com/owner/repo/blob/master/src/file.py")
         assert link.is_immutable is False
 
     def test_github_blob_develop_mutable(self):
-        link = ArtifactLink.from_url(
-            "https://github.com/owner/repo/blob/develop/src/file.py"
-        )
+        link = ArtifactLink.from_url("https://github.com/owner/repo/blob/develop/src/file.py")
         assert link.is_immutable is False
 
     def test_github_pr_immutable(self):
-        link = ArtifactLink.from_url(
-            "https://github.com/owner/repo/pull/42"
-        )
+        link = ArtifactLink.from_url("https://github.com/owner/repo/pull/42")
         assert link.is_immutable is True
         assert link.link_type == "github_pr"
 
@@ -103,15 +90,11 @@ class TestArtifactLink:
         assert link.link_type == "external"
 
     def test_short_sha_immutable(self):
-        link = ArtifactLink.from_url(
-            "https://github.com/owner/repo/blob/a1b2c3d/file.py"
-        )
+        link = ArtifactLink.from_url("https://github.com/owner/repo/blob/a1b2c3d/file.py")
         assert link.is_immutable is True
 
     def test_frozen_model(self):
-        link = ArtifactLink.from_url(
-            "https://github.com/owner/repo/actions/runs/123"
-        )
+        link = ArtifactLink.from_url("https://github.com/owner/repo/actions/runs/123")
         with pytest.raises(Exception):
             link.url = "https://other.com"
 
@@ -331,7 +314,5 @@ class TestArtifactLinkConfig:
 
     def test_default_behavior_preserved(self):
         """Without config params, default behavior should be unchanged."""
-        link = ArtifactLink.from_url(
-            "https://github.com/owner/repo/blob/a1b2c3d4e5f6/src/app.py"
-        )
+        link = ArtifactLink.from_url("https://github.com/owner/repo/blob/a1b2c3d4e5f6/src/app.py")
         assert link.is_immutable is True
