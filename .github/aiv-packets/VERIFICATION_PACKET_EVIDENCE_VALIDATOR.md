@@ -30,7 +30,7 @@ classification:
 
 ### Class E (Intent Alignment)
 
-- **Link:** AIV Verification Packet Template — Class B (Referential Evidence) uses a "Scope Inventory (required)" format with "Created:", "Modified:", "Deleted:" subsections. The validator must recognize these terms as valid file reference indicators.
+- **Link:** [AIV Verification Packet Template](https://github.com/ImmortalDemonGod/aiv-protocol/blob/6ff512e/.github/aiv-packets/VERIFICATION_PACKET_TEMPLATE.md) — Class B (Referential Evidence) uses a "Scope Inventory (required)" format with "Created:", "Modified:", "Deleted:" subsections. The validator must recognize these terms as valid file reference indicators.
 - **Requirements Verified:**
   1. ✅ Scope inventory terms are accepted as valid Class B content
   2. ✅ Generic placeholder text ("See Evidence section") still triggers E007
