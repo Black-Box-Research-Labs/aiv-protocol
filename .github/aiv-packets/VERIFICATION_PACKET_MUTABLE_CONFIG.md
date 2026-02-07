@@ -1,6 +1,6 @@
 # AIV Verification Packet (v2.1)
 
-**Commit:** `pending`  
+**Commit:** `1b22fc5`  
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
 ---
@@ -30,7 +30,7 @@ classification:
 
 ### Class E (Intent Alignment)
 
-- **Link:** AUDIT_REPORT.md — Finding L08: "Mutable branch set is hardcoded in model AND defined in config, but config is never consulted."
+- **Link:** [AUDIT_REPORT.md — Finding L08: "Mutable branch set is hardcoded in model AND defined in config, but config is never consulted."](https://github.com/ImmortalDemonGod/aiv-protocol/blob/1b22fc5/AUDIT_REPORT.md)
 - **Requirements Verified:**
   1. ✅ from_url() accepts configurable mutable_branches and min_sha_length
   2. ✅ LinkValidator uses its MutableBranchConfig when checking blob links
