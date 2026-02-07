@@ -18,12 +18,14 @@ from rich.table import Table
 from aiv.lib.models import ValidationStatus, ValidationFinding
 from aiv.lib.validators.pipeline import ValidationPipeline
 from aiv.lib.config import AIVConfig
+from aiv.svp.cli.main import svp_app
 
 app = typer.Typer(
     name="aiv",
     help="AIV Protocol Suite - Evidence-based engineering verification",
     no_args_is_help=True,
 )
+app.add_typer(svp_app, name="svp")
 console = Console()
 
 
