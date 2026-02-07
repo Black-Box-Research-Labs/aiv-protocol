@@ -48,7 +48,7 @@ class LinkValidator(BaseValidator):
         Checks:
         - Class E links must be immutable (SHA-pinned)
         - All GitHub blob/tree links should be immutable
-        - Links should be accessible (optional, requires network)
+        - Links are checked for vitality when audit_links=True (HTTP HEAD)
         """
         errors: list[ValidationFinding] = []
 
