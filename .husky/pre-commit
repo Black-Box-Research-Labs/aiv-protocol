@@ -32,9 +32,22 @@ git ls-files --others --exclude-standard > "$SNAP_DIR/untracked_files.txt" 2>/de
 }
 
 if [ -s "$SNAP_DIR/untracked_files.txt" ]; then
-  tar -czf "$SNAP_DIR/untracked.tgz" -C "$REPO_ROOT" -T "$SNAP_DIR/untracked_files.txt" 2>/dev/null || {
-    echo "WARN: failed to archive untracked files (tar may not be available on this OS)" 1>&2
-  }
+  UNTRACKED_DIR="$SNAP_DIR/untracked_files"
+  mkdir -p "$UNTRACKED_DIR"
+  COPY_OK=true
+  while IFS= read -r ufile; do
+    if [ -n "$ufile" ] && [ -f "$REPO_ROOT/$ufile" ]; then
+      udir=$(dirname "$ufile")
+      mkdir -p "$UNTRACKED_DIR/$udir" 2>/dev/null
+      cp "$REPO_ROOT/$ufile" "$UNTRACKED_DIR/$ufile" 2>/dev/null || {
+        COPY_OK=false
+      }
+    fi
+  done < "$SNAP_DIR/untracked_files.txt"
+  if [ "$COPY_OK" = false ]; then
+    echo "ERROR: failed to copy some untracked files into safety snapshot" 1>&2
+    exit 1
+  fi
 fi
 
 echo "Safety snapshot written to: $SNAP_DIR" 1>&2
