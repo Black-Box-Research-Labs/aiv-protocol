@@ -32,7 +32,7 @@ classification:
 
 ### Class E (Intent Alignment)
 
-- **Link:** AIV Protocol §6.2 (Class A — Execution Evidence) and §6.4 (Class C — Negative Evidence) — CI must generate machine-readable evidence artifacts.
+- **Link:** [AIV Protocol §6.2 (Class A) and §6.4 (Class C)](https://github.com/ImmortalDemonGod/aiv-protocol/blob/9a41695/SPECIFICATION.md) — CI must generate machine-readable evidence artifacts.
 - **Requirements Verified:**
   1. ✅ Class A manifest includes: head_sha, run metadata, execution environment, test results, test list
   2. ✅ Class C manifest includes: search_method, search_scope, patterns, test_integrity
