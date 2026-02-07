@@ -13,6 +13,7 @@ from uuid import uuid4
 from aiv.svp.lib.models import (
     Complexity,
     Confidence,
+    SessionType,
     SVPPhase,
     SVPStatus,
     BugSeverity,
@@ -536,3 +537,114 @@ class TestSessionValidator:
         j = result.model_dump_json()
         assert "pr_number" in j
         assert "phase_0_complete" in j
+
+
+# ------------------------------------------------------------------ #
+# S015: AI Execution Trace
+# ------------------------------------------------------------------ #
+
+class TestS015ExecutionTrace:
+    """S015: AI sessions must include verified_output on traces."""
+
+    def test_human_session_passes_without_verified_output(self):
+        s = _make_complete_session(session_type=SessionType.HUMAN_VERIFICATION)
+        result = validate_session(s)
+        assert not any(e.rule_id == "S015" for e in result.errors)
+        assert result.phase_2_complete is True
+
+    def test_ai_session_blocks_without_verified_output(self):
+        s = _make_complete_session(
+            session_type=SessionType.AI_ADVERSARIAL_TRIAGE,
+        )
+        result = validate_session(s)
+        s015 = [e for e in result.errors if e.rule_id == "S015"]
+        assert len(s015) == 1
+        assert "verified_output" in s015[0].message
+        assert result.phase_2_complete is False
+
+    def test_ai_session_passes_with_verified_output(self):
+        trace = _make_trace(verified_output="exit code: 0\nresult: ValueError raised")
+        s = _make_complete_session(
+            session_type=SessionType.AI_ADVERSARIAL_TRIAGE,
+            traces=[trace],
+        )
+        result = validate_session(s)
+        assert not any(e.rule_id == "S015" for e in result.errors)
+        assert result.phase_2_complete is True
+
+    def test_ai_session_empty_string_verified_output_blocks(self):
+        trace = _make_trace(verified_output="")
+        s = _make_complete_session(
+            session_type=SessionType.AI_ADVERSARIAL_TRIAGE,
+            traces=[trace],
+        )
+        result = validate_session(s)
+        assert any(e.rule_id == "S015" for e in result.errors)
+
+
+# ------------------------------------------------------------------ #
+# S016: Falsification-as-Code
+# ------------------------------------------------------------------ #
+
+class TestS016FalsificationAsCode:
+    """S016: AI sessions must have test_code on falsification scenarios."""
+
+    def test_human_session_passes_without_test_code(self):
+        s = _make_complete_session(session_type=SessionType.HUMAN_VERIFICATION)
+        result = validate_session(s)
+        assert not any(e.rule_id == "S016" for e in result.errors)
+
+    def test_ai_session_blocks_without_test_code(self):
+        s = _make_complete_session(
+            session_type=SessionType.AI_ADVERSARIAL_TRIAGE,
+            traces=[_make_trace(verified_output="confirmed")],
+        )
+        result = validate_session(s)
+        s016 = [e for e in result.errors if e.rule_id == "S016"]
+        assert len(s016) == 1
+        assert "test_code" in s016[0].message
+        assert result.phase_3_complete is False
+
+    def test_ai_session_passes_with_test_code(self):
+        probe = _make_probe(falsification_scenarios=[
+            FalsificationScenario(
+                claim_id="C-001",
+                scenario="If test_auth_login accepts an expired token, claim C-001 is falsified.",
+                test_code="def test_expired_token():\n    assert login(expired) == False",
+            ),
+        ])
+        s = _make_complete_session(
+            session_type=SessionType.AI_ADVERSARIAL_TRIAGE,
+            traces=[_make_trace(verified_output="confirmed")],
+            probe=probe,
+        )
+        result = validate_session(s)
+        assert not any(e.rule_id == "S016" for e in result.errors)
+        assert result.phase_3_complete is True
+
+
+# ------------------------------------------------------------------ #
+# SessionType model tests
+# ------------------------------------------------------------------ #
+
+class TestSessionType:
+    """SessionType enum and session_type field on SVPSession."""
+
+    def test_default_is_human(self):
+        s = SVPSession(pr_number=1, repository="o/r", verifier_id="v")
+        assert s.session_type == SessionType.HUMAN_VERIFICATION
+
+    def test_ai_triage_type(self):
+        s = SVPSession(
+            pr_number=1, repository="o/r", verifier_id="cascade-ai",
+            session_type=SessionType.AI_ADVERSARIAL_TRIAGE,
+        )
+        assert s.session_type == SessionType.AI_ADVERSARIAL_TRIAGE
+
+    def test_session_type_serializes(self):
+        s = SVPSession(
+            pr_number=1, repository="o/r", verifier_id="v",
+            session_type=SessionType.AI_ADVERSARIAL_TRIAGE,
+        )
+        data = s.model_dump()
+        assert data["session_type"] == "ai_adversarial_triage"
