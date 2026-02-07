@@ -46,7 +46,7 @@ classification:
 
 Files modified in this atomic commit series:
 
-<!-- CURRENT_FILE: src/aiv/__init__.py (2/37) -->
+<!-- CURRENT_FILE: src/aiv/cli/main.py (3/37) -->
 
 ---
 

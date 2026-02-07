@@ -8,16 +8,15 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from aiv.lib.models import ValidationStatus, ValidationFinding
-from aiv.lib.validators.pipeline import ValidationPipeline
 from aiv.lib.config import AIVConfig
+from aiv.lib.models import ValidationFinding, ValidationStatus
+from aiv.lib.validators.pipeline import ValidationPipeline
 from aiv.svp.cli.main import svp_app
 
 app = typer.Typer(
@@ -31,25 +30,10 @@ console = Console()
 
 @app.command()
 def check(
-    body: Optional[str] = typer.Argument(
-        None,
-        help="PR body text or path to file containing it"
-    ),
-    diff: Optional[Path] = typer.Option(
-        None,
-        "--diff", "-d",
-        help="Path to diff file for anti-cheat scanning"
-    ),
-    strict: bool = typer.Option(
-        True,
-        "--strict/--no-strict",
-        help="Treat warnings as errors"
-    ),
-    config: Optional[Path] = typer.Option(
-        None,
-        "--config", "-c",
-        help="Path to .aiv.yml configuration file"
-    ),
+    body: str | None = typer.Argument(None, help="PR body text or path to file containing it"),
+    diff: Path | None = typer.Option(None, "--diff", "-d", help="Path to diff file for anti-cheat scanning"),
+    strict: bool = typer.Option(True, "--strict/--no-strict", help="Treat warnings as errors"),
+    config: Path | None = typer.Option(None, "--config", "-c", help="Path to .aiv.yml configuration file"),
 ) -> None:
     """
     Validate a Verification Packet locally.
@@ -93,32 +77,31 @@ def check(
 
     # Summary
     if result.status == ValidationStatus.FAIL:
-        console.print(Panel(
-            f"[red]Validation Failed[/red]\n"
-            f"{len(result.errors)} blocking error(s), {len(result.warnings)} warning(s)",
-            title="[X] Result",
-            border_style="red"
-        ))
+        console.print(
+            Panel(
+                f"[red]Validation Failed[/red]\n"
+                f"{len(result.errors)} blocking error(s), {len(result.warnings)} warning(s)",
+                title="[X] Result",
+                border_style="red",
+            )
+        )
         raise typer.Exit(1)
     else:
         packet = result.packet
         claims_count = len(packet.claims) if packet else 0
         version = packet.version if packet else "?"
-        console.print(Panel(
-            f"[green]Validation Passed[/green]\n"
-            f"Packet version: {version}\n"
-            f"Claims: {claims_count}",
-            title="[OK] Result",
-            border_style="green"
-        ))
+        console.print(
+            Panel(
+                f"[green]Validation Passed[/green]\nPacket version: {version}\nClaims: {claims_count}",
+                title="[OK] Result",
+                border_style="green",
+            )
+        )
 
 
 @app.command()
 def init(
-    path: Path = typer.Argument(
-        Path("."),
-        help="Repository path to initialize"
-    ),
+    path: Path = typer.Argument(Path("."), help="Repository path to initialize"),
 ) -> None:
     """
     Initialize AIV Protocol in a repository.
@@ -134,7 +117,7 @@ def init(
             "# AIV Protocol Configuration\n"
             "# See: https://github.com/ImmortalDemonGod/aiv-protocol\n"
             "\n"
-            "version: \"1.0\"\n"
+            'version: "1.0"\n'
             "strict_mode: true\n",
             encoding="utf-8",
         )
@@ -145,15 +128,8 @@ def init(
 
 @app.command()
 def audit(
-    packets_dir: Path = typer.Argument(
-        Path(".github/aiv-packets"),
-        help="Directory containing verification packets"
-    ),
-    fix: bool = typer.Option(
-        False,
-        "--fix",
-        help="Auto-fix COMMIT_PENDING and CLASS_E_NO_URL where possible"
-    ),
+    packets_dir: Path = typer.Argument(Path(".github/aiv-packets"), help="Directory containing verification packets"),
+    fix: bool = typer.Option(False, "--fix", help="Auto-fix COMMIT_PENDING and CLASS_E_NO_URL where possible"),
 ) -> None:
     """
     Audit all verification packets for quality issues.
@@ -167,17 +143,19 @@ def audit(
         aiv audit --fix
         aiv audit .github/aiv-packets --fix
     """
-    from aiv.lib.auditor import PacketAuditor, AuditSeverity
+    from aiv.lib.auditor import AuditSeverity, PacketAuditor
 
     auditor = PacketAuditor()
     result = auditor.audit(packets_dir, fix=fix)
 
     if not result.findings:
-        console.print(Panel(
-            f"[green]All {result.packets_scanned} packets clean[/green]",
-            title="[OK] Audit",
-            border_style="green",
-        ))
+        console.print(
+            Panel(
+                f"[green]All {result.packets_scanned} packets clean[/green]",
+                title="[OK] Audit",
+                border_style="green",
+            )
+        )
         return
 
     # Build findings table
@@ -204,15 +182,16 @@ def audit(
     if fix and result.fixed:
         console.print(f"\n[green]Auto-fixed {len(result.fixed)} packet(s).[/green]")
 
-    console.print(Panel(
-        f"Scanned: {result.packets_scanned} | "
-        f"Issues: {result.packets_with_issues} | "
-        f"Errors: {result.error_count} | "
-        f"Warnings: {result.warning_count}"
-        + (f" | Fixed: {len(result.fixed)}" if fix else ""),
-        title="[X] Audit Summary" if result.error_count > 0 else "[!] Audit Summary",
-        border_style="red" if result.error_count > 0 else "yellow",
-    ))
+    console.print(
+        Panel(
+            f"Scanned: {result.packets_scanned} | "
+            f"Issues: {result.packets_with_issues} | "
+            f"Errors: {result.error_count} | "
+            f"Warnings: {result.warning_count}" + (f" | Fixed: {len(result.fixed)}" if fix else ""),
+            title="[X] Audit Summary" if result.error_count > 0 else "[!] Audit Summary",
+            border_style="red" if result.error_count > 0 else "yellow",
+        )
+    )
 
     if result.error_count > 0:
         raise typer.Exit(1)
@@ -220,25 +199,12 @@ def audit(
 
 @app.command()
 def generate(
-    name: str = typer.Argument(
-        ...,
-        help="Short name for the packet (used in filename, e.g. 'auth-fix')"
-    ),
-    tier: str = typer.Option(
-        "R1",
-        "--tier", "-t",
-        help="Risk tier: R0, R1, R2, R3"
-    ),
+    name: str = typer.Argument(..., help="Short name for the packet (used in filename, e.g. 'auth-fix')"),
+    tier: str = typer.Option("R1", "--tier", "-t", help="Risk tier: R0, R1, R2, R3"),
     output_dir: Path = typer.Option(
-        Path(".github/aiv-packets"),
-        "--output", "-o",
-        help="Directory to write the packet file"
+        Path(".github/aiv-packets"), "--output", "-o", help="Directory to write the packet file"
     ),
-    rationale: str = typer.Option(
-        "",
-        "--rationale", "-r",
-        help="Classification rationale"
-    ),
+    rationale: str = typer.Option("", "--rationale", "-r", help="Classification rationale"),
 ) -> None:
     """
     Generate a verification packet scaffold.
@@ -282,7 +248,7 @@ def generate(
 
     packet = f"""# AIV Verification Packet (v2.1)
 
-**Commit:** `pending`  
+**Commit:** `pending`
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
 ---
@@ -295,7 +261,7 @@ classification:
   sod_mode: {sod}
   critical_surfaces: []
   blast_radius: TODO
-  classification_rationale: "{rationale or 'TODO: Describe why this tier was chosen'}"
+  classification_rationale: "{rationale or "TODO: Describe why this tier was chosen"}"
   classified_by: "TODO"
   classified_at: "{now}"
 ```
@@ -333,7 +299,7 @@ TODO: One-line summary of the change.
 
     console.print(f"[green]Created:[/green] {filepath}")
     console.print(f"  Risk tier: [bold]{tier_upper}[/bold] | SoD: {sod}")
-    console.print(f"  Fill in the TODO sections, then commit with your functional file.")
+    console.print("  Fill in the TODO sections, then commit with your functional file.")
 
 
 def _detect_git_scope() -> str:
@@ -343,13 +309,17 @@ def _detect_git_scope() -> str:
     try:
         result = subprocess.run(
             ["git", "diff", "--cached", "--name-status"],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         if result.returncode != 0 or not result.stdout.strip():
             # Fallback to unstaged changes
             result = subprocess.run(
                 ["git", "diff", "--name-status"],
-                capture_output=True, text=True, timeout=5,
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
         if result.returncode == 0 and result.stdout.strip():
             lines = []
@@ -429,12 +399,7 @@ def _display_findings(findings: list[ValidationFinding], title: str, color: str)
     table.add_column("Suggestion", style="dim")
 
     for finding in findings:
-        table.add_row(
-            finding.rule_id,
-            finding.location or "-",
-            finding.message,
-            finding.suggestion or "-"
-        )
+        table.add_row(finding.rule_id, finding.location or "-", finding.message, finding.suggestion or "-")
 
     console.print(table)
 
