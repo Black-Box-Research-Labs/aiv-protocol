@@ -26,6 +26,7 @@ from aiv.svp.lib.models import (
     ProbeRecord,
     ProbeFinding,
     WhyQuestion,
+    FalsificationScenario,
     OwnershipCommit,
     RenameChange,
     DocstringChange,
@@ -88,6 +89,10 @@ def _make_probe(**kwargs) -> ProbeRecord:
         why_questions=[WhyQuestion(
             question="Why was this approach chosen over X?",
             context="reviewing auth flow",
+        )],
+        falsification_scenarios=[FalsificationScenario(
+            claim_id="C-001",
+            scenario="If test_auth_login accepts an expired token, claim C-001 is falsified.",
         )],
         overall_assessment="No AI tells detected in this PR.",
     )
@@ -243,6 +248,27 @@ class TestProbe:
         )
         p = _make_probe(findings=[finding])
         assert len(p.bugs_found) == 1
+
+    def test_falsification_scenario_model(self):
+        fs = FalsificationScenario(
+            claim_id="C-001",
+            scenario="If test_login accepts an expired JWT, the claim is falsified.",
+        )
+        assert fs.claim_id == "C-001"
+        assert fs.checked is False
+        assert fs.result == "confirmed"
+
+    def test_falsification_scenario_too_short(self):
+        with pytest.raises(Exception):
+            FalsificationScenario(
+                claim_id="C-001",
+                scenario="too short",  # < 25 chars
+            )
+
+    def test_probe_with_falsification_scenarios(self):
+        p = _make_probe()
+        assert len(p.falsification_scenarios) == 1
+        assert p.falsification_scenarios[0].claim_id == "C-001"
 
 
 # ------------------------------------------------------------------ #
@@ -445,6 +471,27 @@ class TestSessionValidator:
         s = _make_complete_session(probe=probe)
         result = validate_session(s)
         assert any(e.rule_id == "S008" for e in result.errors)
+
+    def test_s014_missing_falsification_scenarios(self):
+        probe = _make_probe(falsification_scenarios=[])
+        s = _make_complete_session(probe=probe)
+        result = validate_session(s)
+        assert any(e.rule_id == "S014" for e in result.errors), (
+            "Empty falsification_scenarios should trigger S014"
+        )
+
+    def test_s014_valid_falsification_scenarios(self):
+        probe = _make_probe(falsification_scenarios=[
+            FalsificationScenario(
+                claim_id="C-001",
+                scenario="If test_auth shows expired token accepted, claim is falsified.",
+            ),
+        ])
+        s = _make_complete_session(probe=probe)
+        result = validate_session(s)
+        assert not any(e.rule_id == "S014" for e in result.errors), (
+            "Valid falsification_scenarios should not trigger S014"
+        )
 
     def test_s010_ownership_required(self):
         s = _make_complete_session(ownership_commit=None)

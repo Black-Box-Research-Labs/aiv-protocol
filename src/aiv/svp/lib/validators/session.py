@@ -159,7 +159,7 @@ def _validate_probe(
     errors: list[SVPValidationError],
     warnings: list[SVPValidationError],
 ) -> bool:
-    """S008-S009: Probe validation."""
+    """S008-S009, S014: Probe validation."""
     probe = session.probe
 
     if probe is None:
@@ -189,6 +189,21 @@ def _validate_probe(
             severity=ValidationSeverity.WARN,
             message='At least one "Why?" question should be documented.',
         ))
+
+    # S014: Falsification scenarios
+    if len(probe.falsification_scenarios) == 0:
+        errors.append(SVPValidationError(
+            rule_id="S014",
+            phase=SVPPhase.PROBE,
+            severity=ValidationSeverity.BLOCK,
+            message="At least one Falsification Scenario is required per primary claim.",
+            suggestion=(
+                "Define what evidence would prove a primary claim false. "
+                "Example: 'If test_parse_header shows a missing-version packet "
+                "accepted, claim C-001 is falsified.'"
+            ),
+        ))
+        return False
 
     return True
 

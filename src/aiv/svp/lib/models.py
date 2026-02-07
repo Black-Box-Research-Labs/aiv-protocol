@@ -257,6 +257,23 @@ class WhyQuestion(BaseModel):
     answer: str | None = None
 
 
+class FalsificationScenario(BaseModel):
+    """A scenario defined by the verifier to prove a claim false.
+
+    Forces the verifier to think: 'What specific evidence in the linked
+    artifact would prove this claim is a lie?'
+    """
+    model_config = ConfigDict(frozen=True)
+
+    claim_id: str = Field(min_length=1, description="Claim identifier, e.g. 'C-001'")
+    scenario: str = Field(
+        min_length=25,
+        description="Evidence that would prove this claim is false",
+    )
+    checked: bool = False
+    result: Literal["confirmed", "falsified", "inconclusive"] = "confirmed"
+
+
 class ProbeRecord(BaseModel):
     """
     Record of an Adversarial Probe (Phase 3).
@@ -275,6 +292,10 @@ class ProbeRecord(BaseModel):
 
     findings: list[ProbeFinding] = Field(default_factory=list)
     why_questions: list[WhyQuestion] = Field(min_length=1)
+    falsification_scenarios: list[FalsificationScenario] = Field(
+        default_factory=list,
+        description="Scenarios that would prove primary claims false",
+    )
 
     overall_assessment: str = Field(min_length=20)
 
