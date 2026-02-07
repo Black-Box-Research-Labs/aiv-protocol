@@ -408,6 +408,10 @@ class SVPSession(BaseModel):
     pr_number: int = Field(ge=1)
     repository: str
     verifier_id: str = Field(min_length=1)
+    packet_ref: str = Field(
+        default="",
+        description="Verification packet filename this session verifies, e.g. VERIFICATION_PACKET_AIV_IMPLEMENTATION.md",
+    )
 
     prediction: PredictionRecord | None = None
     traces: list[TraceRecord] = Field(default_factory=list)

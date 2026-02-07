@@ -1,0 +1,178 @@
+{
+  "id": "ddc260cf-f722-40c0-9497-5d12bd72d075",
+  "pr_number": 3,
+  "repository": "ImmortalDemonGod/aiv-protocol",
+  "verifier_id": "cascade-ai-first-pass",
+  "packet_ref": "VERIFICATION_PACKET_GUARD_REFACTOR.md",
+  "prediction": {
+    "id": "977304de-f827-4a63-b42a-abb8fb0660dc",
+    "pr_number": 3,
+    "repository": "ImmortalDemonGod/aiv-protocol",
+    "verifier_id": "cascade-ai-first-pass",
+    "test_file_path": "tests/unit/test_guard.py",
+    "predicted_approach": "Claim 1 says 5 files in src/aiv/guard/. I predict: models.py defines GuardResult, GuardFinding, GuardContext dataclasses with severity enum and add_block/add_warn/add_info methods plus compiled regex patterns for critical surfaces and mutable branches. github_api.py wraps urllib to call GitHub REST API for PR files, PR body, and artifact downloads without external dependencies. canonical.py has a validate_canonical function that takes a parsed JSON dict and validates all fields (identification, classification, claims, evidence_items, attestations, known_limitations) with early returns on critical failures. manifest.py validates class_a_execution.json and class_c_negative.json manifest schemas. runner.py has GuardRunner class that orchestrates the full pipeline: resolve packet, check fast-track, run aiv-lib markdown validation, parse canonical block, call validate_canonical, check critical surfaces, inspect CI run artifacts. Claim 2 says replication of JS logic: I predict the Python follows the same validation sequence but uses the aiv-lib ValidationPipeline for markdown instead of custom regex. Claim 3 says 45-line workflow: I predict it just does checkout + pip install + python -m aiv.guard with env vars for GitHub token. Claim 4 says 36 tests: I predict heavy use of unittest.mock to mock GitHub API responses. Claim 5 says 120/120 tests: I predict the 84 original + 36 new guard tests.",
+    "predicted_complexity": "O(n)",
+    "expected_edge_cases": [
+      "GitHub API returns 403 rate limit during file listing",
+      "canonical.py validation order differs from JS causing different error messages",
+      "manifest.py receives a class_a_execution.json with zero test results"
+    ],
+    "expected_data_structures": [],
+    "created_at": "2026-02-07T03:57:12.116571Z",
+    "diff_first_viewed_at": null
+  },
+  "traces": [
+    {
+      "id": "74ed6c2a-548e-4291-88ad-60c638e486ba",
+      "pr_number": 3,
+      "repository": "ImmortalDemonGod/aiv-protocol",
+      "verifier_id": "cascade-ai-first-pass",
+      "function_path": "src/aiv/guard/runner.py::GuardRunner.run",
+      "trace_notes": "Traced GuardRunner.run for Claims 1-2. Step 1: _resolve_packet() checks PR body for 'Packet Source:' regex, validates path is within .github/, reads file content. Falls back to PR body if no packet source. Step 2: regex search for aiv-canonical-json fenced block. Step 3: _validate_markdown runs aiv-lib ValidationPipeline on packet content (NOT custom regex like JS). Step 4: If no canonical block and not fast-track, warns CT-001 and returns. Step 5: json.loads the canonical block. Step 6: validate_canonical() from canonical.py does the heavy lifting. Step 7: _check_critical_surfaces() iterates _CS_PATH and _CS_SEMANTIC regex lists against changed file paths and patches. Step 8: _inspect_class_a_run() fetches CI run via API, downloads artifact, validates manifest. Step 9: _build_evidence_class_results() builds per-class pass/fail results. PREDICTION COMPARISON: I predicted GuardRunner class orchestrating the pipeline - CONFIRMED. I predicted aiv-lib for markdown validation - CONFIRMED. I predicted urllib-based API without deps - need to verify in github_api.py. OBSERVATION: The Python runner delegates markdown validation to aiv-lib (line 20-21) which is cleaner than the JS guard's inline section checking. However, the Python _CS_SEMANTIC patterns are identical to the JS ones, meaning the same .py file gap exists - semantic patterns are applied to diff patches, not file content. The Python guard does NOT have shouldFetchContentAtHead - it only checks patches from the PR file listing.",
+      "state_transitions": [],
+      "edge_case_tested": "PR with a renamed file (status='renamed') where the patch is empty",
+      "predicted_output": "Critical surface check would miss the file because the patch is empty string and semantic regex has nothing to match against",
+      "confidence": "medium",
+      "uncertainty_notes": null,
+      "created_at": "2026-02-07T03:57:36.047367Z"
+    },
+    {
+      "id": "29899256-e31e-4475-a7c6-79ddfdfd1e98",
+      "pr_number": 3,
+      "repository": "ImmortalDemonGod/aiv-protocol",
+      "verifier_id": "cascade-ai-first-pass",
+      "function_path": "src/aiv/guard/canonical.py::validate_canonical",
+      "trace_notes": "Traced validate_canonical for Claim 2. Step 1: Defines 18 required fields as path arrays (same as JS guard). Step 2: Missing field check - classification_rationale gets WARN (CLS-004), others BLOCK. Step 3: Version pinning: aiv_version and packet_schema_version must be '1.0.0'. Step 4: SHA validation using HEX_SHA_40_OR_64 regex from models.py. Step 5: head_sha and base_sha must match GuardContext values (case-insensitive). Step 6: pr_id must match ctx.pr_number. Step 7: Risk tier must be R0-R3. Step 8: SoD mode check - R2+ requires S1 (CLS-003). Step 9: Attestation validation via _validate_attestation helper. Step 10: known_limitations must be non-empty string array. Step 11: Evidence items validation - each must have id, claim_refs referencing existing claims. Step 12: Claims validation - each must have evidence_refs referencing existing evidence. Step 13: Each claim must have Class B evidence (B-004). Step 14: Required evidence classes per tier from REQUIRED_CLASSES dict. Step 15: Scope inventory validation. Step 16: Immutability checks on evidence links. Step 17: CT-013 falsifiability check (R2+ claims with Class A must have test_refs). COMPARISON TO JS: The Python validate_canonical uses the same early-return pattern as JS. However, the Python version has additional rules not in JS: B-004 (claim must have Class B), CT-013 (falsifiability test_refs). The Python REQUIRED_CLASSES dict matches JS. OBSERVATION: CLS-003 enforces R2+ requires S1 SoD mode, but the sod_mode field is only checked against S1 string literal - S0/S2 are not validated as known values.",
+      "state_transitions": [],
+      "edge_case_tested": "Canonical packet with sod_mode='S3' which is not a recognized SoD mode",
+      "predicted_output": "No error - the code only checks if R2+ has S1, it does not validate sod_mode against a known set. S3 would pass for R0/R1 and fail for R2+ with CLS-003 (wrong message: says 'requires S1' not 'unknown sod_mode')",
+      "confidence": "high",
+      "uncertainty_notes": null,
+      "created_at": "2026-02-07T03:58:00.444549Z"
+    },
+    {
+      "id": "c67b61cb-181b-4e23-baca-3d6171336947",
+      "pr_number": 3,
+      "repository": "ImmortalDemonGod/aiv-protocol",
+      "verifier_id": "cascade-ai-first-pass",
+      "function_path": "src/aiv/guard/models.py::GuardResult",
+      "trace_notes": "Traced guard models.py for Claim 1. Uses dataclasses (not Pydantic) for guard-specific models. GuardSeverity enum: BLOCK/WARN/INFO. DecisionType enum: COMPLIANT/CONDITIONAL/NON-COMPLIANT. OverallResult enum: PASS/FAIL. GuardFinding dataclass: id, severity, rule_id, description, remediation with to_dict(). RuleResult dataclass: rule_id, result (PASS/FAIL/SKIP), finding_id. EvidenceClassResult dataclass: evidence_class, required, present, valid, findings list. GuardContext dataclass: pr_number, head_sha, base_sha, owner, repo, pr_body, is_draft, run_id, run_url, with full_repo property. GuardResult dataclass: repository, pr_id, head_sha, validated_at, plus findings list, rule_results list, evidence_class_results list, canonical_enabled bool, risk_tier_validated, overall_result. Has add_block/add_warn/add_info methods that auto-generate finding IDs and append to findings list. Has finalize() that sets overall_result based on whether any BLOCK findings exist. Also has to_dict() for JSON serialization. Lines 148-170: Compiled regex patterns - HEX_SHA_40_OR_64, GITHUB_BLOB_FULL_SHA (repo/blob/40hexSHA/path), GITHUB_ACTIONS_RUN (actions/runs/digits), MUTABLE_BRANCH_PATTERN (blob|tree + main/master/develop/dev/staging), GITHUB_BLOB_OR_TREE, LINE_ANCHOR. PREDICTION COMPARISON: I predicted GuardResult/GuardFinding/GuardContext as dataclasses - CONFIRMED. I predicted add_block/add_warn methods - CONFIRMED. I predicted compiled regex patterns - CONFIRMED. OBSERVATION: The mutable branch list in MUTABLE_BRANCH_PATTERN is main/master/develop/dev/staging - same 5 as JS guard. Neither includes 'trunk' or 'HEAD' which the aiv-lib ArtifactLink.from_url does check. This is the same consistency gap noted in PR#2.",
+      "state_transitions": [],
+      "edge_case_tested": "GuardResult.finalize() called when findings list contains only WARN findings, no BLOCK",
+      "predicted_output": "overall_result set to PASS because finalize only checks for BLOCK severity, not WARN",
+      "confidence": "high",
+      "uncertainty_notes": null,
+      "created_at": "2026-02-07T03:58:22.091562Z"
+    },
+    {
+      "id": "7722be82-9e90-453f-85b1-624543bc21d4",
+      "pr_number": 3,
+      "repository": "ImmortalDemonGod/aiv-protocol",
+      "verifier_id": "cascade-ai-first-pass",
+      "function_path": "src/aiv/guard/github_api.py::GitHubAPI",
+      "trace_notes": "Traced GitHubAPI for Claim 1. Uses only urllib.request (no requests/httpx) - CONFIRMED prediction of no external deps. __init__ reads GITHUB_TOKEN from env. _request() makes authenticated GET with Bearer token, X-GitHub-Api-Version header, 30s timeout. Returns parsed JSON. Raises GitHubAPIError on HTTPError. _request_bytes() same but returns raw bytes with 60s timeout (for artifact downloads). context_from_env() reads GITHUB_EVENT_PATH JSON file for PR payload, GITHUB_REPOSITORY for owner/repo, GITHUB_RUN_ID and GITHUB_SERVER_URL for run URL. list_pr_files() paginates through pulls/{number}/files endpoint (100 per page, max 100 pages). get_workflow_run() fetches actions/runs/{run_id}. download_artifact() fetches artifact zip. PREDICTION COMPARISON: I predicted urllib-based API - CONFIRMED. I predicted token from env - CONFIRMED. I predicted pagination for file listing - CONFIRMED. OBSERVATION: The pagination loop has a MAX_PAGES=100 safety limit (same as JS). With 100 files per page, this caps at 10,000 files per PR. If a PR somehow exceeds this, files would be silently dropped. Also, _request does not implement retry logic for transient failures (429 rate limit, 502 gateway). The JS guard also lacks retries, so this is a faithful port of a shared gap.",
+      "state_transitions": [],
+      "edge_case_tested": "GitHub API returns 429 Too Many Requests during artifact download",
+      "predicted_output": "HTTPError caught, GitHubAPIError raised with status_code=429, but no retry or backoff - the guard fails permanently on the first rate limit hit",
+      "confidence": "high",
+      "uncertainty_notes": null,
+      "created_at": "2026-02-07T03:58:42.339263Z"
+    },
+    {
+      "id": "d9e5d2e1-d6dd-471e-a98e-cb1fe27a9eb8",
+      "pr_number": 3,
+      "repository": "ImmortalDemonGod/aiv-protocol",
+      "verifier_id": "cascade-ai-first-pass",
+      "function_path": "src/aiv/guard/manifest.py::validate_class_a_manifest",
+      "trace_notes": "Traced manifest.py for Claim 1. validate_class_a_manifest takes a parsed JSON dict, pr_head_sha, and repo. Returns list of error strings (empty=pass). Validates: schema_version must be '1.0.0', head_sha must match PR head (case-insensitive), run object must have matching repository and non-empty run_id, execution_environment must have os.name/os.release/node/npm, test_results must have int pass/fail/skip, test_list must be non-empty array, executed_checks must be non-empty array. PREDICTION COMPARISON: I predicted manifest schema validation - CONFIRMED. I predicted class_a_execution.json fields - CONFIRMED (schema_version, head_sha, run, test_results, test_list). I did NOT predict execution_environment requiring node/npm (this is JS/Astro-specific from the verify-architecture workflow). OBSERVATION: The manifest validator requires node and npm fields in execution_environment, which makes sense for the Astro site build but would fail for a pure Python project. This is a hardcoded assumption about the build tool. Also, validate_class_c_manifest (later in file) validates class_c_negative.json with search_scope, search_method, patterns_enumerated, and results fields. Both manifest validators return error strings rather than structured findings - the runner must convert these to GuardFindings.",
+      "state_transitions": [],
+      "edge_case_tested": "class_a_execution.json with test_results.pass=0, test_results.fail=0, test_results.skip=0 (all zeros)",
+      "predicted_output": "Validation passes because the check only requires integers, not positive integers. Zero tests passing would be reported as valid.",
+      "confidence": "high",
+      "uncertainty_notes": null,
+      "created_at": "2026-02-07T03:59:01.498121Z"
+    }
+  ],
+  "probe": {
+    "id": "1e29a2a3-fbf8-43b2-af60-68d8618d0deb",
+    "pr_number": 3,
+    "repository": "ImmortalDemonGod/aiv-protocol",
+    "verifier_id": "cascade-ai-first-pass",
+    "happy_path_bias_checked": true,
+    "context_amnesia_checked": true,
+    "fragile_assertions_checked": true,
+    "findings": [
+      {
+        "finding_type": "magic_numbers",
+        "file_path": "src/aiv/guard/manifest.py",
+        "line_number": null,
+        "description": "execution_environment requires node and npm fields - hardcoded Astro/JS assumption that would reject valid Python-only CI manifests",
+        "severity": "medium",
+        "is_confirmed_bug": false
+      },
+      {
+        "finding_type": "magic_numbers",
+        "file_path": "src/aiv/guard/manifest.py",
+        "line_number": null,
+        "description": "test_results validation accepts pass=0, fail=0, skip=0 as valid - a manifest with zero tests would pass Class A validation",
+        "severity": "high",
+        "is_confirmed_bug": false
+      },
+      {
+        "finding_type": "magic_numbers",
+        "file_path": "src/aiv/guard/models.py",
+        "line_number": null,
+        "description": "MUTABLE_BRANCH_PATTERN checks 5 branches (main/master/develop/dev/staging) but aiv-lib ArtifactLink checks 7 (adds trunk/HEAD) - inconsistent enforcement",
+        "severity": "medium",
+        "is_confirmed_bug": false
+      }
+    ],
+    "why_questions": [
+      {
+        "question": "Why does manifest.py require node and npm in execution_environment when this is a Python project?",
+        "context": "The verify-architecture workflow generates Astro/JS-specific manifests, but the guard should validate any CI manifest generically",
+        "answer_found": false,
+        "answer": null
+      }
+    ],
+    "falsification_scenarios": [
+      {
+        "claim_id": "C-001",
+        "scenario": "If src/aiv/guard/ does not contain exactly 5 Python files (models.py, github_api.py, canonical.py, manifest.py, runner.py), claim 1 is falsified",
+        "checked": false,
+        "result": "confirmed"
+      },
+      {
+        "claim_id": "C-002",
+        "scenario": "If validate_canonical does not check head_sha binding between the canonical packet and the PR context, claim 2's SHA matching sub-claim is falsified",
+        "checked": false,
+        "result": "confirmed"
+      },
+      {
+        "claim_id": "C-003",
+        "scenario": "If .github/workflows/aiv-guard-python.yml is longer than 100 lines or does not invoke python -m aiv.guard, claim 3 is falsified",
+        "checked": false,
+        "result": "confirmed"
+      },
+      {
+        "claim_id": "C-004",
+        "scenario": "If tests/unit/test_guard.py contains fewer than 36 test functions, claim 4 is falsified",
+        "checked": false,
+        "result": "confirmed"
+      },
+      {
+        "claim_id": "C-005",
+        "scenario": "If any file outside src/aiv/guard/, tests/unit/test_guard.py, or .github/workflows/aiv-guard-python.yml was modified in this commit, claim 5 is falsified",
+        "checked": false,
+        "result": "confirmed"
+      }
+    ],
+    "overall_assessment": "FINDINGS: (1) manifest.py validate_class_a_manifest hardcodes node and npm as required execution_environment fields. This is Astro/JS-specific and would fail for a pure Python project's class_a_execution.json. The Python guard is supposed to be a general-purpose validator but embeds framework-specific assumptions. (2) test_results validation only checks for integer type, not for test_results.pass > 0. A manifest reporting 0 tests passed, 0 failed, 0 skipped would pass validation - defeating the purpose of Class A evidence. (3) Mutable branch list in models.py MUTABLE_BRANCH_PATTERN matches main/master/develop/dev/staging but NOT trunk or HEAD, creating a consistency gap with aiv-lib ArtifactLink.from_url which checks 7 branches. (4) GitHubAPI has no retry logic for transient failures (429/502). The JS guard has the same gap, so this is a faithful port of a shared deficiency. (5) validate_canonical uses early returns extensively - a packet with multiple errors only reports the first one per validation run. (6) sod_mode is only checked as 'must be S1 for R2+' but S0/S2/S3 are not validated against a known set. No AI tells detected - the code is clean, well-structured, and uses appropriate abstractions.",
+    "created_at": "2026-02-07T03:59:25.864306Z"
+  },
+  "ownership_commit": null,
+  "started_at": "2026-02-07T03:57:12.116571Z",
+  "completed_at": null,
+  "aiv_guard_passed": true,
+  "aiv_guard_passed_at": null
+}

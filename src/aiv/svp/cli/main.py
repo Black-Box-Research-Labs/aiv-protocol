@@ -127,6 +127,7 @@ def predict(
     approach: str = typer.Option(..., help="Predicted implementation approach (≥50 chars)"),
     complexity: str = typer.Option("Unknown", help="Predicted complexity: O(1), O(n), etc."),
     edge_cases: list[str] = typer.Option(..., help="Expected edge cases (≥2)"),
+    packet_ref: str = typer.Option("", help="Verification packet filename this session verifies"),
 ) -> None:
     """Record a Black Box Prediction (Phase 1)."""
     session = _load_session(pr)
@@ -136,6 +137,7 @@ def predict(
             repository=repo,
             verifier_id=verifier,
             aiv_guard_passed=True,
+            packet_ref=packet_ref,
         )
 
     cx = Complexity(complexity) if complexity in [c.value for c in Complexity] else Complexity.UNKNOWN
@@ -218,14 +220,21 @@ def probe(
     why_context: str = typer.Option("", help="Context for the Why question"),
     falsify_claim: list[str] = typer.Option([], help="Claim ID for falsification scenario (repeatable)"),
     falsify_scenario: list[str] = typer.Option([], help="Falsification evidence, paired with --falsify-claim (repeatable)"),
+    finding_type: list[str] = typer.Option([], help="AI tell type for structured finding (repeatable)"),
+    finding_file: list[str] = typer.Option([], help="File path for finding, paired with --finding-type (repeatable)"),
+    finding_desc: list[str] = typer.Option([], help="Finding description, paired with --finding-type (repeatable)"),
+    finding_severity: list[str] = typer.Option([], help="Finding severity: low/medium/high/critical (repeatable)"),
 ) -> None:
     """Submit an Adversarial Probe checklist (Phase 3).
 
     Supports multiple falsification scenarios via repeated options:
         --falsify-claim C-001 --falsify-scenario "If X then false"
-        --falsify-claim C-002 --falsify-scenario "If Y then false"
 
-    If a probe already exists, new scenarios are merged into it.
+    Supports structured probe findings via repeated options:
+        --finding-type magic_numbers --finding-file src/x.py
+        --finding-desc "Hardcoded value" --finding-severity low
+
+    If a probe already exists, new scenarios and findings are merged.
     """
     session = _load_session(pr)
     if session is None:
@@ -245,6 +254,25 @@ def probe(
                 scenario=scenario_text,
             ))
 
+    # Build structured findings from paired options
+    new_findings: list[ProbeFinding] = []
+    for ft, ff, fd, fs in zip(finding_type, finding_file, finding_desc, finding_severity):
+        if ft and ff and fd:
+            try:
+                tell_type = AITellType(ft)
+            except ValueError:
+                tell_type = AITellType.MAGIC_NUMBERS
+            try:
+                sev = BugSeverity(fs) if fs else BugSeverity.LOW
+            except ValueError:
+                sev = BugSeverity.LOW
+            new_findings.append(ProbeFinding(
+                finding_type=tell_type,
+                file_path=ff,
+                description=fd,
+                severity=sev,
+            ))
+
     # Merge into existing probe if one exists (resume support)
     if session.probe is not None:
         existing_scenarios = list(session.probe.falsification_scenarios)
@@ -253,8 +281,10 @@ def probe(
             if s.claim_id not in existing_claim_ids:
                 existing_scenarios.append(s)
                 existing_claim_ids.add(s.claim_id)
+        merged_findings = list(session.probe.findings) + new_findings
         pr_record = session.probe.model_copy(update={
             "falsification_scenarios": existing_scenarios,
+            "findings": merged_findings,
             "overall_assessment": assessment or session.probe.overall_assessment,
         })
     else:
@@ -270,16 +300,17 @@ def probe(
                 context=why_context or "Prompted by code review",
             )],
             falsification_scenarios=new_scenarios,
+            findings=new_findings,
             overall_assessment=assessment,
         )
 
     session.probe = pr_record
     _save_session(session)
-    total = len(pr_record.falsification_scenarios)
     typer.echo(f"[OK] Adversarial probe recorded for PR #{pr}")
     typer.echo(f"   Checklist: complete")
     typer.echo(f"   Why questions: {len(pr_record.why_questions)}")
-    typer.echo(f"   Falsification scenarios: {total}")
+    typer.echo(f"   Falsification scenarios: {len(pr_record.falsification_scenarios)}")
+    typer.echo(f"   Structured findings: {len(pr_record.findings)}")
 
 
 # ------------------------------------------------------------------ #

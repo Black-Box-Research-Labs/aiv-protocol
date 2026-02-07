@@ -1,0 +1,197 @@
+{
+  "id": "291ebd55-96ee-4b9a-ae1d-f9c15ac9ccdc",
+  "pr_number": 2,
+  "repository": "ImmortalDemonGod/aiv-protocol",
+  "verifier_id": "cascade-ai-first-pass",
+  "packet_ref": "VERIFICATION_PACKET_AIV_GUARD.md",
+  "prediction": {
+    "id": "9472e653-2669-4e02-86fa-a9e9eca04250",
+    "pr_number": 2,
+    "repository": "ImmortalDemonGod/aiv-protocol",
+    "verifier_id": "cascade-ai-first-pass",
+    "test_file_path": ".github/workflows/aiv-guard.yml",
+    "predicted_approach": "Claim 1 says a GitHub Actions workflow on PR events. I predict: a workflow triggered by pull_request (opened, edited, synchronize) to main, using github-script action to run inline JavaScript. The JS will use context.payload.pull_request to get the PR body and number. Claim 2 says markdown validation: I predict regex searches for required section headers like '## Claim', '## Evidence', '## Summary'. Claim 3 says immutability: I predict regex matching /blob/(main|master|develop)/ on lines within Evidence sections. Claim 4 says fast-track: I predict file extension checking where if all changed files match doc patterns, the full validation is skipped. Claim 5 says canonical JSON: I predict a fenced code block parser that extracts JSON from aiv-canonical-json blocks, then validates fields like head_sha, base_sha, risk_tier, attestations. Claim 6 says critical surfaces: I predict regex on file paths matching patterns like auth, crypto, secrets, pii. Claim 7 says artifact inspection: I predict using GitHub Actions API to download an artifact named aiv-evidence and parse JSON manifests. Claim 8 says machine-readable output: I predict fs.writeFileSync producing a JSON file with validation results.",
+    "predicted_complexity": "O(n)",
+    "expected_edge_cases": [
+      "PR body exceeding GitHub API payload size limit",
+      "Workflow running on a fork PR with restricted permissions",
+      "Canonical JSON block containing invalid JSON syntax",
+      "CI artifact download failing due to expired or missing artifact"
+    ],
+    "expected_data_structures": [],
+    "created_at": "2026-02-07T03:54:04.387686Z",
+    "diff_first_viewed_at": null
+  },
+  "traces": [
+    {
+      "id": "cf42cf2e-c85b-41fc-b74a-298a074a4943",
+      "pr_number": 2,
+      "repository": "ImmortalDemonGod/aiv-protocol",
+      "verifier_id": "cascade-ai-first-pass",
+      "function_path": ".github/workflows/aiv-guard.yml::validate-step-packet-resolution",
+      "trace_notes": "Traced the JS workflow packet resolution for Claims 1-2. Line 1-6: Triggered on pull_request [opened, edited, synchronize] to main branch. Lines 10-14: Permissions are read-only for PRs, contents, actions. Lines 17-21: Checks out PR head SHA specifically (not merge commit). Lines 29-53: Packet resolution - first tries 'Packet Source: backtick-path' regex, then plain 'Packet Source: path'. If packetSourcePath found, resolves it and verifies it starts with '.github/' AND is within the .github/ directory tree (path traversal protection via path.resolve). Reads file content or fails. Lines 56-65: Initializes canonicalPacket=null, overallResult='PASS', findings array, and sets output defaults. Lines 67-92: inferRuleId function maps finding messages to rule IDs via regex cascade - fallback is CT-001. PREDICTION COMPARISON: I predicted github-script with context.payload.pull_request - CONFIRMED. I predicted regex for section headers - will verify in next trace. OBSERVATION: The path traversal check on line 42-43 is good security but it checks both string prefix (.github/) AND resolved path prefix. However, on Windows the path.sep is backslash, so this check might behave differently in Windows CI runners vs Linux.",
+      "state_transitions": [],
+      "edge_case_tested": "Packet Source path with ../ traversal: .github/../secrets/key.pem",
+      "predicted_output": "path.resolve would resolve to /secrets/key.pem which does NOT start with githubRoot+path.sep, so core.setFailed is called correctly",
+      "confidence": "high",
+      "uncertainty_notes": null,
+      "created_at": "2026-02-07T03:54:43.881892Z"
+    },
+    {
+      "id": "0a1b02e2-fdae-494f-be55-13004ae6de04",
+      "pr_number": 2,
+      "repository": "ImmortalDemonGod/aiv-protocol",
+      "verifier_id": "cascade-ai-first-pass",
+      "function_path": ".github/workflows/aiv-guard.yml::validate-step-markdown-and-immutability",
+      "trace_notes": "Traced markdown validation and immutability for Claims 2-3. Lines 322-330: Required sections defined as exact string matches: header, Claim(s), Evidence, Class E, Class B, Class A, Summary. Lines 332-335: Optional sections: Verification Methodology OR Reproduction (at least one required). Line 337: Canonical block detected via regex /`\u0007iv-canonical-json\\s*([\\s\\S]*?)`/m. Lines 344: Missing sections found by !packetContent.includes(h) — this is a simple substring match, not a heading-level match. A claim description containing '## Summary' would falsely satisfy the check. Lines 392-405: Fast-track eligibility: ALL changed files must end with .md/.txt or be .gitignore/.editorconfig. Lines 414-435: If no canonical block and sections missing, checks fast-track. Fast-track PRs with missing sections get a warning, not a failure. Lines 437: Mutable branch regex: /(blob|tree)/(main|master|develop|dev|staging)/. Lines 445-449: Extracts Class E section and tests for mutable branch pattern. PREDICTION COMPARISON: I predicted regex for section headers - PARTIALLY CORRECT. The workflow uses string includes() not regex for section detection. I predicted immutability via regex - CONFIRMED. OBSERVATION: The mutable branch list (main/master/develop/dev/staging) is hardcoded and differs from the Python ArtifactLink which also includes trunk and HEAD. This is a consistency gap between JS and Python implementations.",
+      "state_transitions": [],
+      "edge_case_tested": "A claim description text that contains the literal string '## Summary'",
+      "predicted_output": "The includes() check would falsely detect the Summary section as present even if there is no actual ## Summary heading",
+      "confidence": "medium",
+      "uncertainty_notes": null,
+      "created_at": "2026-02-07T03:55:09.509665Z"
+    },
+    {
+      "id": "97aa7460-3b27-42e2-8244-83be304049b8",
+      "pr_number": 2,
+      "repository": "ImmortalDemonGod/aiv-protocol",
+      "verifier_id": "cascade-ai-first-pass",
+      "function_path": ".github/workflows/aiv-guard.yml::validate-step-canonical-json",
+      "trace_notes": "Traced canonical JSON validation for Claim 5. Lines 469-474: JSON.parse on canonical block, fails with BLOCK if invalid. Lines 476-480: Extracts headSha from PR context. Lines 486-505: Defines 18 required canonical fields as path arrays (aiv_version, packet_schema_version, identification.*, classification.*, claims, evidence_items, attestations, known_limitations). Lines 507-527: Missing field check - classification_rationale gets WARN (CLS-004), everything else is BLOCK. Lines 535-547: Version pinning: aiv_version and packet_schema_version must be exactly '1.0.0'. Lines 549-591: SHA binding validation - head_sha must be 40/64 char hex, must match PR head SHA. base_sha same check against PR base SHA. pr_id must match PR number. pr_url must contain /pull/{number}. Lines 593-599: risk_tier must be R0-R3. PREDICTION COMPARISON: I predicted fenced code block parser and field validation - CONFIRMED. I predicted SHA binding - CONFIRMED. I did NOT predict the 40-or-64 char SHA regex (supports SHA-256). OBSERVATION: The validation is extremely sequential with early returns. If head_sha fails, none of the subsequent checks (SoD, attestations, evidence classes) run. This means a single error prevents comprehensive reporting - you fix one error, run again, find the next. The Python refactor in canonical.py does NOT share this early-return behavior for most checks.",
+      "state_transitions": [],
+      "edge_case_tested": "Canonical JSON with head_sha that is valid 40-char hex but does not match the PR head SHA",
+      "predicted_output": "core.setFailed with 'head_sha mismatch' at line 587-591, all subsequent validation skipped",
+      "confidence": "high",
+      "uncertainty_notes": null,
+      "created_at": "2026-02-07T03:55:31.716808Z"
+    },
+    {
+      "id": "67cf0504-858c-4063-99eb-4fb39e409730",
+      "pr_number": 2,
+      "repository": "ImmortalDemonGod/aiv-protocol",
+      "verifier_id": "cascade-ai-first-pass",
+      "function_path": ".github/workflows/aiv-guard.yml::validate-step-critical-surfaces",
+      "trace_notes": "Traced critical surface detection for Claim 6. Lines 627-635: Path-based patterns - 7 regex patterns matching directory/filename segments for: Authentication (auth/login/session/token/oauth/sso), Authorization (authz/rbac/acl/permission/policy), Secrets Management (secret/vault/apikey/credential/.env), Cryptography (crypto/encrypt/cipher/signature/hash), Privilege Boundaries (sandbox/privilege/capability/setuid/docker), Audit/Logging (audit/audit_log/security_log/event_log/ledger), PII Handling (pii/privacy/gdpr/redact/sanitiz). Lines 637-660: Semantic content patterns - regex applied to actual file content (fetched via API) for things like timingSafeEqual, verify_token, process.env.*SECRET, etc. Lines 604-606: shouldFetchContentAtHead only fetches code files (.ts/.js/.py/.sh/.yml/.json/.toml/.ini/.env) - markdown files are NOT semantically analyzed. Lines 608-625: getFileContentAtHead uses repos.getContent API with base64 decoding. PREDICTION COMPARISON: I predicted regex on file paths - CONFIRMED. I did NOT predict the semantic content analysis (reading actual file content). OBSERVATION: The content fetch (shouldFetchContentAtHead) includes .json and .toml but NOT .py files. Python files containing auth logic would NOT be caught by semantic patterns, only by path patterns. This is a significant gap since this repo is primarily Python.",
+      "state_transitions": [],
+      "edge_case_tested": "Python file at src/utils/helpers.py containing verify_token function",
+      "predicted_output": "Path pattern does not match (no auth/crypto keywords in path). Content NOT fetched because .py is not in shouldFetchContentAtHead extensions. Critical surface missed entirely.",
+      "confidence": "high",
+      "uncertainty_notes": null,
+      "created_at": "2026-02-07T03:55:49.848208Z"
+    },
+    {
+      "id": "082002fa-0069-480b-b1a4-6614a326d3be",
+      "pr_number": 2,
+      "repository": "ImmortalDemonGod/aiv-protocol",
+      "verifier_id": "cascade-ai-first-pass",
+      "function_path": ".github/workflows/aiv-guard.yml::validate-step-artifact-inspection",
+      "trace_notes": "Traced artifact inspection for Claim 7. Lines 1833-1839: Reads inspect step results from env vars: INSPECT_RAN, INSPECT_OUTCOME, INSPECT_PASSED, INSPECT_SEMANTIC_PASSED, INSPECT_DURABLE_PASSED, INSPECT_FILES_PRESENT, INSPECT_MANIFEST_VALID. Lines 1895-1923: For R2+, if inspect ran but outcome!=success, BLOCK with CT-003. If files not present, also CT-003. If not R2+, SKIP. Lines 1925-1939: If manifest invalid (inspectManifestValid=false), BLOCK with A-003. Lines 1979-1987: Reads class_a_execution.json from disk (the downloaded artifact). Parses executed_checks array, checks for static analysis IDs (lint, type_check, astro_check). Lines 1994-1999: If no static analysis checks found and no known_limitation justifying it, WARN. PREDICTION COMPARISON: I predicted artifact download via GitHub Actions API - PARTIALLY CORRECT. The actual inspection happens in a separate workflow step that downloads the artifact and sets env vars. The finalize step reads those env vars. I did NOT predict the env-var-based inter-step communication pattern. OBSERVATION: The artifact inspection is decoupled from the main validation step. It runs in a separate step with continue-on-error:true, then the finalize step reads the results. This means artifact inspection failures don't crash the workflow - they produce SKIP or BLOCK findings gracefully. However, shouldFetchContentAtHead on line 604-606 does NOT include .py files, meaning Python auth code would not be semantically analyzed for critical surfaces.",
+      "state_transitions": [],
+      "edge_case_tested": "CI artifact exists but class_a_execution.json is malformed JSON",
+      "predicted_output": "JSON.parse fails silently (try/catch on line 1982-1986), classA=null, executed_checks becomes empty array, and static analysis check produces WARN finding",
+      "confidence": "high",
+      "uncertainty_notes": null,
+      "created_at": "2026-02-07T03:56:14.428003Z"
+    }
+  ],
+  "probe": {
+    "id": "ba2d7023-c397-42b4-a422-b2935843cd74",
+    "pr_number": 2,
+    "repository": "ImmortalDemonGod/aiv-protocol",
+    "verifier_id": "cascade-ai-first-pass",
+    "happy_path_bias_checked": true,
+    "context_amnesia_checked": true,
+    "fragile_assertions_checked": true,
+    "findings": [
+      {
+        "finding_type": "magic_numbers",
+        "file_path": ".github/workflows/aiv-guard.yml",
+        "line_number": null,
+        "description": "shouldFetchContentAtHead excludes .py files from semantic critical surface analysis - Python auth/crypto code is invisible to content-based detection",
+        "severity": "high",
+        "is_confirmed_bug": false
+      },
+      {
+        "finding_type": "magic_numbers",
+        "file_path": ".github/workflows/aiv-guard.yml",
+        "line_number": null,
+        "description": "Mutable branch list (main/master/develop/dev/staging) is hardcoded and differs from Python ArtifactLink which also checks trunk and HEAD",
+        "severity": "medium",
+        "is_confirmed_bug": false
+      },
+      {
+        "finding_type": "magic_numbers",
+        "file_path": ".github/workflows/aiv-guard.yml",
+        "line_number": null,
+        "description": "Section detection uses substring includes() not heading-level matching - '## Summary' in a claim description would falsely satisfy the required section check",
+        "severity": "medium",
+        "is_confirmed_bug": false
+      }
+    ],
+    "why_questions": [
+      {
+        "question": "Why does shouldFetchContentAtHead exclude .py files when this is a Python repository?",
+        "context": "Critical surface semantic analysis cannot detect Python auth/crypto code because .py is not in the extension list",
+        "answer_found": false,
+        "answer": null
+      }
+    ],
+    "falsification_scenarios": [
+      {
+        "claim_id": "C-001",
+        "scenario": "If the workflow does not trigger on pull_request opened/edited/synchronize to main, claim 1 is falsified",
+        "checked": false,
+        "result": "confirmed"
+      },
+      {
+        "claim_id": "C-002",
+        "scenario": "If a packet missing the '## Claim(s)' section passes markdown validation without error, claim 2 is falsified",
+        "checked": false,
+        "result": "confirmed"
+      },
+      {
+        "claim_id": "C-003",
+        "scenario": "If a Class E section containing /blob/main/ passes without core.setFailed, claim 3 is falsified",
+        "checked": false,
+        "result": "confirmed"
+      },
+      {
+        "claim_id": "C-004",
+        "scenario": "If a docs-only PR (.md files) with missing sections triggers core.setFailed instead of fast-track bypass, claim 4 is falsified",
+        "checked": false,
+        "result": "confirmed"
+      },
+      {
+        "claim_id": "C-005",
+        "scenario": "If a canonical JSON block with head_sha not matching the PR head passes without CT-005 error, claim 5 is falsified",
+        "checked": false,
+        "result": "confirmed"
+      },
+      {
+        "claim_id": "C-006",
+        "scenario": "If a file at path src/auth/login.py does not trigger critical surface detection, claim 6 is falsified",
+        "checked": false,
+        "result": "confirmed"
+      },
+      {
+        "claim_id": "C-007",
+        "scenario": "If the inspect step downloads an artifact but class_a_execution.json is missing and no CT-003 or A-003 error is produced, claim 7 is falsified",
+        "checked": false,
+        "result": "confirmed"
+      },
+      {
+        "claim_id": "C-008",
+        "scenario": "If the workflow completes without writing aiv_validation_result.json to disk, claim 8 is falsified",
+        "checked": false,
+        "result": "confirmed"
+      }
+    ],
+    "overall_assessment": "FINDINGS: (1) shouldFetchContentAtHead on line 604-606 does NOT include .py files - only .ts/.js/.sh/.yml/.yaml/.json/.toml/.ini/.env. Python files containing auth logic (verify_token, rbac checks) are invisible to semantic critical surface detection. This is a significant gap for a Python-first repo. (2) Mutable branch list is hardcoded to main/master/develop/dev/staging but the Python ArtifactLink.from_url also includes trunk and HEAD - consistency gap between JS and Python. (3) Section detection uses packetContent.includes(header) which is substring matching, not heading-level matching. A claim description containing '## Summary' would falsely satisfy the check. (4) Canonical validation is extremely sequential with early returns - you fix one error, re-run, find the next. No comprehensive error reporting. (5) The buildRuleResults implyFail function creates rule result dependencies that are not documented anywhere. No AI tells detected in the core validation logic.",
+    "created_at": "2026-02-07T03:56:41.069264Z"
+  },
+  "ownership_commit": null,
+  "started_at": "2026-02-07T03:54:04.387686Z",
+  "completed_at": null,
+  "aiv_guard_passed": true,
+  "aiv_guard_passed_at": null
+}

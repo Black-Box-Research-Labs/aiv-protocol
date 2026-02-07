@@ -1,0 +1,184 @@
+{
+  "id": "85272756-8d2d-4f1e-83d4-a9bb64005f77",
+  "pr_number": 1,
+  "repository": "ImmortalDemonGod/aiv-protocol",
+  "verifier_id": "cascade-ai-first-pass",
+  "packet_ref": "VERIFICATION_PACKET_AIV_IMPLEMENTATION.md",
+  "prediction": {
+    "id": "6999e753-b768-413d-bafd-2331a43ac268",
+    "pr_number": 1,
+    "repository": "ImmortalDemonGod/aiv-protocol",
+    "verifier_id": "cascade-ai-first-pass",
+    "test_file_path": "tests/unit/test_models.py",
+    "predicted_approach": "Claim 1 says 12 Pydantic models with a regex parser. I predict: EvidenceClass as a StrEnum mapping A-F, ArtifactLink with a from_url classmethod that detects mutable branches via regex, Claim/IntentSection/VerificationPacket as frozen BaseModels, ValidationFinding with a rule_id field, and computed properties on VerificationPacket for evidence_classes_present. The parser will use re.compile patterns to split markdown by ## headers, extracting sections into a dict, then constructing a VerificationPacket. Claim 2 says 7-stage pipeline: I predict a ValidationPipeline class with a validate() method that calls each validator sequentially, collecting findings by severity. Claim 3 says Typer CLI: I predict app = typer.Typer() with check and init commands using Rich console for formatted output. Claim 4 says guard sanitization: I predict functions like sanitize_shell_input that strip dangerous characters. Claim 5 says diff analyzer: I predict a DiffAnalyzer class that parses unified diff format and detects critical surfaces via regex on filenames. Claim 6 says frozen models: I predict ConfigDict(frozen=True) on every model. Claim 7 says 36/36 tests: I predict the test suite covers model construction, validation edge cases, and integration flows.",
+    "predicted_complexity": "O(n)",
+    "expected_edge_cases": [
+      "Parser fails on markdown with ## inside fenced code blocks",
+      "ArtifactLink.from_url receives a non-GitHub URL",
+      "EvidenceClass.from_string receives an unknown class letter",
+      "ValidationPipeline.validate receives empty string body",
+      "AntiCheatScanner scan_diff receives diff with no test file changes"
+    ],
+    "expected_data_structures": [],
+    "created_at": "2026-02-07T03:51:26.303601Z",
+    "diff_first_viewed_at": null
+  },
+  "traces": [
+    {
+      "id": "29816034-8345-4ca2-a807-fdd60354743d",
+      "pr_number": 1,
+      "repository": "ImmortalDemonGod/aiv-protocol",
+      "verifier_id": "cascade-ai-first-pass",
+      "function_path": "src/aiv/lib/models.py::ArtifactLink.from_url",
+      "trace_notes": "Traced ArtifactLink.from_url for Claim 1. Step 1: urlparse(url) extracts netloc and path. Step 2: if github.com in netloc, splits path by /. Step 3: if actions+runs in path, returns immutable github_actions immediately. Step 4: if blob/tree in path, extracts the ref segment (path_parts[idx+1]). Step 5: checks if ref is a hex SHA >= min_sha_length chars. Step 6: checks if ref matches known mutable branches (main/master/develop/staging/trunk/dev/HEAD). Step 7: SHA returns immutable, mutable branch returns is_immutable=False, else returns unknown non-SHA reference. Step 8: GitHub PR links (pull in path) always immutable. Step 9: all other URLs return external+mutable. PREDICTION COMPARISON: I predicted from_url as a classmethod with mutable branch detection - CONFIRMED. I did NOT predict the configurable mutable_branches parameter or the min_sha_length parameter. OBSERVATION: A 7-char hex string like 'abcdef1' passes the SHA check but could be a branch name. The min_sha_length=7 default is reasonable but not foolproof.",
+      "state_transitions": [],
+      "edge_case_tested": "URL with /blob/abcdef1/ where abcdef1 is actually a branch name",
+      "predicted_output": "Returns is_immutable=True incorrectly because 7 hex chars passes the SHA check",
+      "confidence": "medium",
+      "uncertainty_notes": null,
+      "created_at": "2026-02-07T03:51:48.647820Z"
+    },
+    {
+      "id": "610b38a1-0e9a-4bb3-a4e8-a234631dc30c",
+      "pr_number": 1,
+      "repository": "ImmortalDemonGod/aiv-protocol",
+      "verifier_id": "cascade-ai-first-pass",
+      "function_path": "src/aiv/lib/parser.py::PacketParser.parse",
+      "trace_notes": "Traced PacketParser.parse for Claim 1. Step 1: HEADER_PATTERN.search checks for '# AIV Verification Packet', raises PacketParseError if missing. Step 2: _extract_sections splits by newline, iterates lines, matches HEADING_PATTERN (^#{1,6}\\s+), builds ParsedSection list with level/title/content/line ranges. Step 3: _parse_intent finds section with 'Class E' in title, extracts URL links and requirements. Step 4: _parse_claims finds section with 'Claim' in title, matches NUMBERED_ITEM_PATTERN on each content line. Step 5: _enrich_claims_with_evidence attaches evidence_class/artifact to each claim from evidence subsections. Step 6: _collect_evidence_classes scans for all ### Class X subsections. Step 7: _parse_classification extracts risk_tier from yaml block. PREDICTION COMPARISON: I predicted regex-based section splitting - CONFIRMED. I did NOT predict the substance checking (_MIN_SUBSTANCE_ALPHA=10, _ALWAYS_PLACEHOLDER_RE) or the enrichment step. OBSERVATION: _extract_sections matches HEADING_PATTERN against every line including inside fenced code blocks. A code block containing '## Heading' would be misidentified as a section boundary. This confirms my edge case prediction.",
+      "state_transitions": [],
+      "edge_case_tested": "Markdown with ## inside a fenced code block (triple backtick)",
+      "predicted_output": "Parser incorrectly splits at the code block heading, creating a malformed section with partial code as content",
+      "confidence": "high",
+      "uncertainty_notes": null,
+      "created_at": "2026-02-07T03:52:12.551890Z"
+    },
+    {
+      "id": "1c0fce92-6ba0-40c9-ac07-313b1abc620c",
+      "pr_number": 1,
+      "repository": "ImmortalDemonGod/aiv-protocol",
+      "verifier_id": "cascade-ai-first-pass",
+      "function_path": "src/aiv/lib/validators/pipeline.py::ValidationPipeline.validate",
+      "trace_notes": "Traced the 7-stage pipeline for Claim 2. Stage 1 (Parse): parser.parse(body) catches PacketParseError, returns FAIL with E001 immediately — this is the only early-return stage. Stage 2 (Structure): StructureValidator checks intent section exists, claims present, claim descriptions >=10 chars, reproduction instructions, evidence class+artifact. Stage 3 (Links): LinkValidator calls ArtifactLink.from_url on each link, blocks on mutable branches (E004), warns on non-SHA refs (E009). Stage 4 (Evidence): EvidenceValidator dispatches to 6 class-specific validators, checks bug fixes have Class F (E010). Stage 5 (Risk-Tier): _check_tier_requirements uses _TIER_REQUIRED dict to enforce evidence classes per tier — R0 needs A+B, R1 needs A+B+E, R2 needs A+B+C+E, R3 needs all six. Missing required class blocks with E019. Stage 6 (Zero-Touch): ZeroTouchValidator scans for prohibited patterns like 'run locally' or 'execute the script', blocks with E008. Stage 7 (Anti-Cheat): if diff provided, AntiCheatScanner.scan_diff checks for deleted assertions, skip decorators, mock.patch additions. Stage 8 (Cross-Reference): unjustified anti-cheat findings block with E011. Final: strict_mode makes warnings blocking too. OBSERVATION: Claim 2 says 7-stage pipeline but code has 8 stages (anti-cheat cross-reference is separate). The docstring also says 7. This is a minor documentation drift, not a code bug.",
+      "state_transitions": [],
+      "edge_case_tested": "Packet with all required evidence classes but a mutable branch link in Class E",
+      "predicted_output": "Stage 3 (Links) produces E004 BLOCK finding, but Stages 4-8 still run and may produce additional findings. Final result: FAIL with E004 plus any other findings.",
+      "confidence": "high",
+      "uncertainty_notes": null,
+      "created_at": "2026-02-07T03:52:36.153809Z"
+    },
+    {
+      "id": "3216f35b-c22b-4cb2-8879-db8316ae132e",
+      "pr_number": 1,
+      "repository": "ImmortalDemonGod/aiv-protocol",
+      "verifier_id": "cascade-ai-first-pass",
+      "function_path": "src/aiv/cli/main.py::check",
+      "trace_notes": "Traced the check command for Claim 3. Step 1: Reads config from --config flag or creates default AIVConfig with strict_mode. Step 2: Body input handling has 4 paths: stdin (body=='-'), file path (Path(body).exists()), raw string, or missing (exit 1). Step 3: Reads diff from --diff file path if provided. Step 4: Creates ValidationPipeline(cfg) and calls pipeline.validate(body_text, diff_text). Step 5: Rich output - creates a Table with rule_id, severity, message, location columns. Iterates errors first (red), then warnings (yellow), then info (dim). Step 6: Exit code is 1 if result.status != PASS. PREDICTION COMPARISON: I predicted Typer + Rich - CONFIRMED. I predicted check and init commands - need to verify init exists separately. OBSERVATION: The check command reads stdin when body=='-' but does not handle the case where body is None and stdin has data piped in. A user doing 'cat packet.md | aiv check' without the '-' argument gets the 'No packet body provided' error.",
+      "state_transitions": [],
+      "edge_case_tested": "Piping stdin without the '-' argument: cat packet.md | aiv check",
+      "predicted_output": "Error: No packet body provided, exit code 1 - the stdin data is silently ignored",
+      "confidence": "high",
+      "uncertainty_notes": null,
+      "created_at": "2026-02-07T03:52:53.600720Z"
+    },
+    {
+      "id": "9533af43-5eb5-487d-9fd3-4781e7f3984d",
+      "pr_number": 1,
+      "repository": "ImmortalDemonGod/aiv-protocol",
+      "verifier_id": "cascade-ai-first-pass",
+      "function_path": "src/aiv/lib/validators/anti_cheat.py::AntiCheatScanner.scan_diff",
+      "trace_notes": "Traced AntiCheatScanner.scan_diff for Claim 2 (anti-cheat portion). Step 1: Splits diff by newline, iterates lines. Step 2: On 'diff --git' line, extracts file path via regex r'b/(.+)$', increments files_analyzed, checks _is_test_file. Step 3: On @@ hunk header, extracts line number. Step 4: On deleted lines (starting with -), checks: assertion_patterns for deleted asserts (DELETED_ASSERTION), skip_patterns for added @skip decorators (SKIPPED_TEST), bypass_patterns for added mock.patch (BYPASS_FLAG). Step 5: On added lines (starting with +), checks skip and bypass patterns. Step 6: Separately checks for removed test files via 'deleted file mode' in diff. Step 7: Returns AntiCheatResult with all findings, files_analyzed, test_files_modified counts, and requires_justification computed property. OBSERVATION: The scanner only looks at test files (matched by test_file_patterns). If someone deletes an assertion in a non-test file (e.g. a validation check in production code), it is NOT flagged. This is by design per the spec but is a potential blind spot. Also, the regex r'b/(.+)$' for file path extraction could match incorrectly if the filename itself contains 'b/' — unlikely but possible with unusual directory names.",
+      "state_transitions": [],
+      "edge_case_tested": "Diff where production code assertion 'assert user.is_admin' is deleted from src/auth.py (not a test file)",
+      "predicted_output": "No finding produced because src/auth.py does not match test_file_patterns - the deletion is invisible to anti-cheat",
+      "confidence": "high",
+      "uncertainty_notes": null,
+      "created_at": "2026-02-07T03:53:12.247913Z"
+    }
+  ],
+  "probe": {
+    "id": "e79b3e0b-16ee-4c50-a405-ebc5c2dc4a33",
+    "pr_number": 1,
+    "repository": "ImmortalDemonGod/aiv-protocol",
+    "verifier_id": "cascade-ai-first-pass",
+    "happy_path_bias_checked": true,
+    "context_amnesia_checked": true,
+    "fragile_assertions_checked": true,
+    "findings": [
+      {
+        "finding_type": "magic_numbers",
+        "file_path": "src/aiv/lib/parser.py",
+        "line_number": null,
+        "description": "Parser _MIN_SUBSTANCE_ALPHA=10 is an undocumented magic number threshold for minimum alphabetic characters in substance check",
+        "severity": "low",
+        "is_confirmed_bug": false
+      },
+      {
+        "finding_type": "magic_numbers",
+        "file_path": "src/aiv/lib/validators/pipeline.py",
+        "line_number": null,
+        "description": "E020 rule_id collision between pipeline.py (optional evidence tier info) and evidence.py (Class A code blob warning) - two different rules share the same ID",
+        "severity": "medium",
+        "is_confirmed_bug": false
+      }
+    ],
+    "why_questions": [
+      {
+        "question": "Why does the pipeline not short-circuit on Stage 2-6 errors the way it does on Stage 1 parse errors?",
+        "context": "Stage 1 returns FAIL immediately on PacketParseError but all other stages accumulate errors and continue running",
+        "answer_found": false,
+        "answer": null
+      }
+    ],
+    "falsification_scenarios": [
+      {
+        "claim_id": "C-001",
+        "scenario": "Import all 12 named models from aiv.lib.models and verify each is a Pydantic BaseModel subclass with frozen=True config",
+        "checked": false,
+        "result": "confirmed"
+      },
+      {
+        "claim_id": "C-002",
+        "scenario": "Pass a packet with a /blob/main/ link through ValidationPipeline.validate and verify E004 BLOCK finding is produced",
+        "checked": false,
+        "result": "confirmed"
+      },
+      {
+        "claim_id": "C-003",
+        "scenario": "Run 'aiv check' on a valid packet file and verify exit code 0 with Rich-formatted table output on stdout",
+        "checked": false,
+        "result": "confirmed"
+      },
+      {
+        "claim_id": "C-004",
+        "scenario": "Call sanitize_shell_input with input containing semicolons and backticks and verify they are stripped or escaped",
+        "checked": false,
+        "result": "confirmed"
+      },
+      {
+        "claim_id": "C-005",
+        "scenario": "Call DiffAnalyzer.parse_diff with a unified diff containing auth.py changes and verify detect_critical_surfaces returns auth surface",
+        "checked": false,
+        "result": "confirmed"
+      },
+      {
+        "claim_id": "C-006",
+        "scenario": "Check that every model class in models.py has ConfigDict(frozen=True) - if any model has frozen=False, claim 6 is falsified",
+        "checked": false,
+        "result": "confirmed"
+      },
+      {
+        "claim_id": "C-007",
+        "scenario": "Run pytest tests/ -v and verify exactly 36 tests pass with 0 failures - if count differs or any fail, claim 7 is falsified",
+        "checked": false,
+        "result": "confirmed"
+      }
+    ],
+    "overall_assessment": "FINDINGS: (1) Parser does not handle ## headings inside fenced code blocks - _extract_sections matches HEADING_PATTERN on every line unconditionally. A verification packet containing a code block with '## Example' would be mis-parsed. (2) E020 rule_id collision: pipeline.py line 229 uses E020 for optional evidence info, evidence.py also uses E020 for Class A code blob warnings. Two different rules share an ID. (3) Pipeline docstring claims 7 stages but code implements 8 (cross-reference is separate from anti-cheat scan). (4) AntiCheatScanner only checks test files - production code assertion deletions are invisible. (5) CLI stdin requires explicit '-' argument - piping without it silently fails. No AI tells detected in model definitions or validator logic. The dispatch pattern in EvidenceValidator._validate_claim_evidence is clean and extensible.",
+    "created_at": "2026-02-07T03:53:36.123123Z"
+  },
+  "ownership_commit": null,
+  "started_at": "2026-02-07T03:51:26.303601Z",
+  "completed_at": null,
+  "aiv_guard_passed": true,
+  "aiv_guard_passed_at": null
+}
