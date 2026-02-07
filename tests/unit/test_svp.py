@@ -648,3 +648,167 @@ class TestSessionType:
         )
         data = s.model_dump()
         assert data["session_type"] == "ai_adversarial_triage"
+
+
+# ------------------------------------------------------------------ #
+# Rating engine tests
+# ------------------------------------------------------------------ #
+
+from aiv.svp.lib.rating import score_session, calculate_rating
+
+
+class TestScoreSession:
+    """Tests for the automated rating engine."""
+
+    def test_no_probe_no_events(self):
+        s = SVPSession(
+            pr_number=1, repository="o/r", verifier_id="v",
+            aiv_guard_passed=True, prediction=_make_prediction(),
+        )
+        events = score_session(s)
+        assert events == []
+
+    def test_confirmed_bug_generates_event(self):
+        probe = _make_probe(findings=[
+            ProbeFinding(
+                finding_type=AITellType.HAPPY_PATH_BIAS,
+                file_path="src/foo.py",
+                description="Missing null check on auth token",
+                severity=BugSeverity.HIGH,
+                is_confirmed_bug=True,
+            ),
+        ])
+        s = _make_complete_session(probe=probe)
+        events = score_session(s)
+        bug_events = [e for e in events if e.event_type == "bug_caught_high"]
+        assert len(bug_events) == 1
+        assert bug_events[0].points == 30
+
+    def test_unconfirmed_finding_no_event(self):
+        probe = _make_probe(findings=[
+            ProbeFinding(
+                finding_type=AITellType.CONTEXT_AMNESIA,
+                file_path="src/bar.py",
+                description="Possible context leak in session handler",
+                severity=BugSeverity.MEDIUM,
+                is_confirmed_bug=False,
+            ),
+        ])
+        s = _make_complete_session(probe=probe)
+        events = score_session(s)
+        assert not any(e.event_type.startswith("bug_caught") for e in events)
+
+    def test_falsified_scenario_generates_event(self):
+        probe = _make_probe(falsification_scenarios=[
+            FalsificationScenario(
+                claim_id="C-001",
+                scenario="If test_auth accepts expired tokens, C-001 is false.",
+                checked=True,
+                result="falsified",
+            ),
+        ])
+        s = _make_complete_session(probe=probe)
+        events = score_session(s)
+        falsified_events = [
+            e for e in events
+            if "Falsified" in e.description
+        ]
+        assert len(falsified_events) == 1
+        assert falsified_events[0].points == 15
+
+    def test_unchecked_scenario_no_event(self):
+        probe = _make_probe(falsification_scenarios=[
+            FalsificationScenario(
+                claim_id="C-001",
+                scenario="If test_auth accepts expired tokens, C-001 is false.",
+                checked=False,
+            ),
+        ])
+        s = _make_complete_session(probe=probe)
+        events = score_session(s)
+        assert not any("Falsified" in e.description for e in events)
+
+    def test_complete_session_gets_bonus(self):
+        s = _make_complete_session()
+        events = score_session(s)
+        completed = [e for e in events if e.event_type == "svp_completed"]
+        assert len(completed) == 1
+        assert completed[0].points == 5
+
+    def test_incomplete_session_no_bonus(self):
+        s = SVPSession(
+            pr_number=1, repository="o/r", verifier_id="v",
+            aiv_guard_passed=True, prediction=_make_prediction(),
+            traces=[_make_trace()],
+        )
+        events = score_session(s)
+        assert not any(e.event_type == "svp_completed" for e in events)
+
+    def test_multiple_bugs_accumulate(self):
+        probe = _make_probe(findings=[
+            ProbeFinding(
+                finding_type=AITellType.HAPPY_PATH_BIAS,
+                file_path="src/a.py",
+                description="Critical auth bypass in login handler",
+                severity=BugSeverity.CRITICAL,
+                is_confirmed_bug=True,
+            ),
+            ProbeFinding(
+                finding_type=AITellType.CONTEXT_AMNESIA,
+                file_path="src/b.py",
+                description="Missing error handling on API response",
+                severity=BugSeverity.MEDIUM,
+                is_confirmed_bug=True,
+            ),
+        ])
+        s = _make_complete_session(probe=probe)
+        events = score_session(s)
+        bug_events = [e for e in events if e.event_type.startswith("bug_caught")]
+        assert len(bug_events) == 2
+        total_points = sum(e.points for e in bug_events)
+        assert total_points == 50 + 15  # critical + medium
+
+
+class TestCalculateRating:
+    """Tests for calculate_rating aggregation."""
+
+    def test_single_session(self):
+        probe = _make_probe(findings=[
+            ProbeFinding(
+                finding_type=AITellType.HAPPY_PATH_BIAS,
+                file_path="src/foo.py",
+                description="Critical security bypass found in auth module",
+                severity=BugSeverity.CRITICAL,
+                is_confirmed_bug=True,
+            ),
+        ])
+        s = _make_complete_session(probe=probe)
+        rating, events = calculate_rating("verifier", [s])
+        assert rating.elo_rating == 500 + 50 + 5  # critical + completed
+        assert rating.bugs_caught == 1
+        assert rating.total_reviews == 1
+        assert rating.tier.value == "competent"
+
+    def test_multiple_sessions_accumulate(self):
+        s1 = _make_complete_session()
+        s2 = _make_complete_session()
+        rating, events = calculate_rating("verifier", [s1, s2])
+        assert rating.total_reviews == 2
+        completed_events = [e for e in events if e.event_type == "svp_completed"]
+        assert len(completed_events) == 2
+
+    def test_filters_by_verifier_id(self):
+        s1 = _make_complete_session()
+        s2 = SVPSession(
+            pr_number=2, repository="o/r", verifier_id="other-person",
+            aiv_guard_passed=True, prediction=_make_prediction(),
+            traces=[_make_trace()], probe=_make_probe(),
+            ownership_commit=_make_ownership(),
+        )
+        rating, events = calculate_rating("verifier", [s1, s2])
+        assert rating.total_reviews == 1
+
+    def test_starts_at_500(self):
+        rating, _ = calculate_rating("new-user", [])
+        assert rating.elo_rating == 500
+        assert rating.tier == VerifierTier.NOVICE
