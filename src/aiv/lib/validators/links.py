@@ -6,12 +6,12 @@ URL validation and immutability checking (Addendum 2.2).
 
 from __future__ import annotations
 
+from ..config import MutableBranchConfig
 from ..models import (
     ArtifactLink,
     ValidationFinding,
     VerificationPacket,
 )
-from ..config import MutableBranchConfig
 from .base import BaseValidator
 
 
@@ -27,10 +27,7 @@ class LinkValidator(BaseValidator):
         """Validate all links in a packet."""
         return self.validate_packet_links(packet)
 
-    def validate_packet_links(
-        self,
-        packet: VerificationPacket
-    ) -> list[ValidationFinding]:
+    def validate_packet_links(self, packet: VerificationPacket) -> list[ValidationFinding]:
         """
         Validate all links in a packet.
 
@@ -45,29 +42,30 @@ class LinkValidator(BaseValidator):
         intent_link = packet.intent.evidence_link
         if isinstance(intent_link, ArtifactLink):
             if not intent_link.is_immutable:
-                errors.append(self._make_finding(
+                errors.append(
+                    self._make_finding(
+                        rule_id="E004",
+                        severity="block",
+                        message=(f"Class E Evidence must be immutable. Reason: {intent_link.immutability_reason}"),
+                        location="Section 0 (Intent Alignment)",
+                        suggestion=(
+                            "Link to a specific commit SHA, not a branch. "
+                            "Example: /blob/a1b2c3d/docs/spec.md instead of /blob/main/..."
+                        ),
+                    )
+                )
+        elif isinstance(intent_link, str):
+            errors.append(
+                self._make_finding(
                     rule_id="E004",
-                    severity="block",
+                    severity="info",
                     message=(
-                        f"Class E Evidence must be immutable. "
-                        f"Reason: {intent_link.immutability_reason}"
+                        "Class E Evidence is a plain text reference, not a URL. "
+                        "Consider using a SHA-pinned permalink for immutability."
                     ),
                     location="Section 0 (Intent Alignment)",
-                    suggestion=(
-                        "Link to a specific commit SHA, not a branch. "
-                        "Example: /blob/a1b2c3d/docs/spec.md instead of /blob/main/..."
-                    ),
-                ))
-        elif isinstance(intent_link, str):
-            errors.append(self._make_finding(
-                rule_id="E004",
-                severity="info",
-                message=(
-                    "Class E Evidence is a plain text reference, not a URL. "
-                    "Consider using a SHA-pinned permalink for immutability."
-                ),
-                location="Section 0 (Intent Alignment)",
-            ))
+                )
+            )
 
         # Validate claim artifacts using configured mutable branch set
         for claim in packet.claims:
@@ -82,18 +80,16 @@ class LinkValidator(BaseValidator):
                         min_sha_length=self.config.min_sha_length,
                     )
                     if not recheck.is_immutable:
-                        errors.append(self._make_finding(
-                            rule_id="E009",
-                            severity="block",
-                            message=(
-                                f"Evidence artifact link is mutable. "
-                                f"Reason: {recheck.immutability_reason}"
-                            ),
-                            location=f"Section {claim.section_number}",
-                            suggestion=(
-                                "Use a SHA-pinned link. Copy the link from the "
-                                "'Copy permalink' option in GitHub."
-                            ),
-                        ))
+                        errors.append(
+                            self._make_finding(
+                                rule_id="E009",
+                                severity="block",
+                                message=(f"Evidence artifact link is mutable. Reason: {recheck.immutability_reason}"),
+                                location=f"Section {claim.section_number}",
+                                suggestion=(
+                                    "Use a SHA-pinned link. Copy the link from the 'Copy permalink' option in GitHub."
+                                ),
+                            )
+                        )
 
         return errors
