@@ -205,6 +205,7 @@ def generate(
         Path(".github/aiv-packets"), "--output", "-o", help="Directory to write the packet file"
     ),
     rationale: str = typer.Option("", "--rationale", "-r", help="Classification rationale"),
+    skip_checks: bool = typer.Option(False, "--skip-checks", help="Skip running local checks (pytest/ruff/mypy)"),
 ) -> None:
     """
     Generate a verification packet scaffold.
@@ -240,11 +241,46 @@ def generate(
     # Detect changed files via git (best-effort)
     scope_lines = _detect_git_scope()
 
-    # Build evidence sections based on tier
-    evidence_sections = _build_evidence_sections(tier_upper, scope_lines)
+    # Detect git context for auto-population
+    git_ctx: dict[str, str] = {}
+    local_results = ""
+
+    if not skip_checks:
+        git_ctx = _detect_git_context()
+        console.print("[dim]Auto-detecting git context...[/dim]")
+        if git_ctx.get("owner") and git_ctx.get("repo"):
+            console.print(f"  Repo: [bold]{git_ctx['owner']}/{git_ctx['repo']}[/bold]")
+        if git_ctx.get("branch"):
+            console.print(f"  Branch: [bold]{git_ctx['branch']}[/bold]")
+        if git_ctx.get("issue_number"):
+            console.print(f"  Issue: [bold]#{git_ctx['issue_number']}[/bold]")
+
+        # Run local checks to auto-populate Class A
+        console.print("[dim]Running local checks (pytest, ruff, mypy)...[/dim]")
+        local_results = _run_local_checks()
+        console.print("  Done.")
+
+    # Build evidence sections based on tier + auto-populated context
+    evidence_sections = _build_evidence_sections(tier_upper, scope_lines, git_ctx, local_results)
 
     # SoD mode
     sod = "S0" if tier_upper in ("R0", "R1") else "S1"
+
+    # Auto-detect classified_by from git config
+    classified_by = "TODO"
+    try:
+        import subprocess
+
+        r = subprocess.run(
+            ["git", "config", "user.name"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if r.returncode == 0 and r.stdout.strip():
+            classified_by = r.stdout.strip()
+    except Exception:
+        pass
 
     packet = f"""# AIV Verification Packet (v2.1)
 
@@ -262,7 +298,7 @@ classification:
   critical_surfaces: []
   blast_radius: TODO
   classification_rationale: "{rationale or "TODO: Describe why this tier was chosen"}"
-  classified_by: "TODO"
+  classified_by: "{classified_by}"
   classified_at: "{now}"
 ```
 
@@ -343,30 +379,250 @@ def _detect_git_scope() -> str:
     return "  - TODO: list modified files"
 
 
-def _build_evidence_sections(tier: str, scope_lines: str) -> str:
-    """Build evidence section markdown based on risk tier."""
+def _detect_git_context() -> dict[str, str]:
+    """Best-effort detection of git context for auto-populating evidence."""
+    import os
+    import re
+    import subprocess
+
+    ctx: dict[str, str] = {}
+
+    try:
+        # Current branch
+        branch = subprocess.run(
+            ["git", "branch", "--show-current"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if branch.returncode == 0 and branch.stdout.strip():
+            ctx["branch"] = branch.stdout.strip()
+
+        # Remote URL → owner/repo
+        remote = subprocess.run(
+            ["git", "remote", "get-url", "origin"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if remote.returncode == 0 and remote.stdout.strip():
+            url = remote.stdout.strip()
+            # Parse owner/repo from HTTPS or SSH URL
+            m = re.search(r"[:/]([^/]+)/([^/.]+?)(?:\.git)?$", url)
+            if m:
+                ctx["owner"] = m.group(1)
+                ctx["repo"] = m.group(2)
+
+        # Current HEAD SHA
+        head = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if head.returncode == 0 and head.stdout.strip():
+            ctx["head_sha"] = head.stdout.strip()
+
+        # Try to parse issue number from branch name (e.g., fix/42-bug, feat-123)
+        if "branch" in ctx:
+            issue_match = re.search(r"(?:^|[/\-_])(\d+)", ctx["branch"])
+            if issue_match:
+                ctx["issue_number"] = issue_match.group(1)
+
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass
+
+    # Check for GITHUB_TOKEN
+    token = os.environ.get("GITHUB_TOKEN", "")
+    if token:
+        ctx["has_token"] = "true"
+
+    return ctx
+
+
+def _fetch_latest_ci_url(owner: str, repo: str) -> str:
+    """Fetch the latest successful CI run URL from GitHub API (best-effort)."""
+    import json
+    import os
+    from urllib.request import Request, urlopen
+
+    token = os.environ.get("GITHUB_TOKEN", "")
+    if not token:
+        return ""
+
+    try:
+        url = f"https://api.github.com/repos/{owner}/{repo}/actions/runs?status=success&per_page=1"
+        req = Request(
+            url,
+            headers={
+                "Accept": "application/vnd.github+json",
+                "Authorization": f"Bearer {token}",
+            },
+        )
+        with urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read())
+        runs = data.get("workflow_runs", [])
+        if runs:
+            return runs[0].get("html_url", "")
+    except Exception:
+        pass
+
+    return ""
+
+
+def _fetch_issue_title(owner: str, repo: str, issue_number: str) -> str:
+    """Fetch issue title from GitHub API (best-effort)."""
+    import json
+    import os
+    from urllib.request import Request, urlopen
+
+    token = os.environ.get("GITHUB_TOKEN", "")
+    if not token:
+        return ""
+
+    try:
+        url = f"https://api.github.com/repos/{owner}/{repo}/issues/{issue_number}"
+        req = Request(
+            url,
+            headers={
+                "Accept": "application/vnd.github+json",
+                "Authorization": f"Bearer {token}",
+            },
+        )
+        with urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read())
+        return data.get("title", "")
+    except Exception:
+        pass
+
+    return ""
+
+
+def _run_local_checks() -> str:
+    """Run local checks (pytest, ruff, mypy) and return results summary."""
+    import subprocess
+
+    results = []
+
+    # pytest
+    try:
+        r = subprocess.run(
+            ["python", "-m", "pytest", "--tb=no", "-q"],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        last_line = r.stdout.strip().split("\n")[-1] if r.stdout.strip() else ""
+        if last_line:
+            results.append(f"- pytest: {last_line}")
+    except Exception:
+        results.append("- pytest: TODO (run manually)")
+
+    # ruff check
+    try:
+        r = subprocess.run(
+            ["python", "-m", "ruff", "check", "src/", "tests/"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if r.returncode == 0:
+            results.append("- ruff check: All checks passed")
+        else:
+            count = r.stdout.strip().count("\n") + 1 if r.stdout.strip() else 0
+            results.append(f"- ruff check: {count} error(s)")
+    except Exception:
+        results.append("- ruff check: TODO (run manually)")
+
+    # mypy
+    try:
+        r = subprocess.run(
+            ["python", "-m", "mypy", "src/aiv/"],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        last_line = r.stdout.strip().split("\n")[-1] if r.stdout.strip() else ""
+        if last_line:
+            results.append(f"- mypy: {last_line}")
+    except Exception:
+        results.append("- mypy: TODO (run manually)")
+
+    return "\n".join(results) if results else "- TODO: Test results"
+
+
+def _build_evidence_sections(
+    tier: str,
+    scope_lines: str,
+    git_ctx: dict[str, str] | None = None,
+    local_results: str = "",
+) -> str:
+    """Build evidence section markdown based on risk tier + auto-populated context."""
     sections = []
+    ctx = git_ctx or {}
+    owner = ctx.get("owner", "")
+    repo = ctx.get("repo", "")
+    head_sha = ctx.get("head_sha", "")
+    issue_number = ctx.get("issue_number", "")
+
+    # Auto-fetch CI URL and issue info if GitHub token available
+    ci_url = ""
+    issue_link = ""
+    if owner and repo:
+        ci_url = _fetch_latest_ci_url(owner, repo)
+        if issue_number:
+            issue_title = _fetch_issue_title(owner, repo, issue_number)
+            if issue_title:
+                issue_link = (
+                    f"[#{issue_number}: {issue_title}](https://github.com/{owner}/{repo}/issues/{issue_number})"
+                )
+            else:
+                issue_link = f"https://github.com/{owner}/{repo}/issues/{issue_number}"
 
     # Class E — required by parser for all tiers (structurally mandatory)
-    sections.append("""### Class E (Intent Alignment)
+    if issue_link:
+        class_e_link = issue_link
+    else:
+        class_e_link = "TODO: SHA-pinned link to spec/issue/directive"
 
-- **Link:** TODO: SHA-pinned link to spec/issue/directive
+    sections.append(f"""### Class E (Intent Alignment)
+
+- **Link:** {class_e_link}
 - **Requirements Verified:**
   1. TODO: Requirement 1
   2. TODO: Requirement 2""")
 
     # Class B — always required
+    # Auto-generate SHA-pinned links if we have owner/repo/sha
+    if owner and repo and head_sha:
+        scope_header = (
+            f"**Scope Inventory** (SHA: [`{head_sha[:7]}`](https://github.com/{owner}/{repo}/tree/{head_sha}))"
+        )
+    else:
+        scope_header = "**Scope Inventory (required)**"
+
     sections.append(f"""### Class B (Referential Evidence)
 
-**Scope Inventory (required)**
+{scope_header}
 
 - Modified:
 {scope_lines}""")
 
     # Class A — always required
-    sections.append("""### Class A (Execution Evidence)
+    if ci_url:
+        class_a_ci = f"- **CI Run:** [{ci_url.split('/')[-1]}]({ci_url})"
+    else:
+        class_a_ci = "- CI Run: TODO (set GITHUB_TOKEN to auto-populate)"
 
-- TODO: Test results (e.g., "84/84 pytest tests pass")""")
+    if local_results:
+        class_a_local = f"- **Local results:**\n{local_results}"
+    else:
+        class_a_local = '- TODO: Test results (e.g., "422/422 pytest tests pass")'
+
+    sections.append(f"""### Class A (Execution Evidence)
+
+{class_a_ci}
+{class_a_local}""")
 
     # Class C — required for R2+
     if tier in ("R2", "R3"):
