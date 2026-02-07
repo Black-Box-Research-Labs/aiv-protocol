@@ -11,6 +11,8 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings
 
+from .errors import ConfigurationError
+
 
 class ZeroTouchConfig(BaseModel):
     """Configuration for Zero-Touch validation."""
@@ -145,7 +147,15 @@ class AIVConfig(BaseSettings):
         if not path.exists():
             return cls()
 
-        with open(path) as f:
-            data = yaml.safe_load(f) or {}
+        try:
+            with open(path) as f:
+                data = yaml.safe_load(f) or {}
+        except yaml.YAMLError as e:
+            raise ConfigurationError(f"Failed to parse {path}: {e}") from e
 
-        return cls(**data)
+        try:
+            return cls(**data)
+        except Exception as e:
+            raise ConfigurationError(
+                f"Invalid configuration in {path}: {e}"
+            ) from e
