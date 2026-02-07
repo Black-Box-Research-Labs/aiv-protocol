@@ -9,11 +9,11 @@
 
 ```yaml
 classification:
-  risk_tier: R1
+  risk_tier: R2
   sod_mode: S0
   critical_surfaces: []
-  blast_radius: module
-  classification_rationale: "Add FalsificationScenario model and S014 rule to SVP Adversarial Probe phase"
+  blast_radius: component
+  classification_rationale: "Adds S014 validation rule to SVP session validator — changes what SVP accepts/rejects (blocks sessions without falsification scenarios). Upgraded from R1 to R2: modifying enforcement logic."
   classified_by: "cascade"
   classified_at: "2026-02-07T03:22:00Z"
 ```
@@ -49,6 +49,12 @@ classification:
 ### Class A (Execution Evidence)
 
 - 347/347 pytest tests pass (338 existing + 5 new SVP + 4 new E2E)
+
+### Class C (Negative Evidence)
+
+- 347 tests pass (338 pre-existing + 5 new SVP + 4 new E2E), 0 failures, 0 regressions.
+- Sessions that already had falsification scenarios continue to validate without S014 errors.
+- All pre-existing SVP model and validator tests pass unchanged.
 
 ### Class F (Provenance Evidence)
 
