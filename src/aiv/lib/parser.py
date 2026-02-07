@@ -40,6 +40,13 @@ class ParsedSection:
     raw_end: int = 0
 
 
+@dataclass
+class ParseResult:
+    """Result of parsing a verification packet."""
+    packet: VerificationPacket | None
+    errors: list[ValidationFinding] = field(default_factory=list)
+
+
 class PacketParser:
     """
     Parser for AIV Verification Packets.
@@ -74,7 +81,12 @@ class PacketParser:
     )
 
     def __init__(self) -> None:
-        self.errors: list[ValidationFinding] = []
+        self._last_errors: list[ValidationFinding] = []
+
+    @property
+    def errors(self) -> list[ValidationFinding]:
+        """Errors from the most recent parse() call (backward-compat)."""
+        return self._last_errors
 
     def parse(self, markdown_text: str) -> VerificationPacket | None:
         """
@@ -89,7 +101,7 @@ class PacketParser:
         Raises:
             PacketParseError: If packet is missing or fundamentally malformed
         """
-        self.errors = []
+        errors: list[ValidationFinding] = []
 
         # Check for packet header
         header_match = self.HEADER_PATTERN.search(markdown_text)
@@ -111,7 +123,7 @@ class PacketParser:
             )
 
         # Parse claims from ## Claim(s) section
-        claims = self._parse_claims(sections)
+        claims = self._parse_claims(sections, errors)
         if not claims:
             raise PacketParseError(
                 "No valid claims found. At least one numbered claim is required."
@@ -129,7 +141,10 @@ class PacketParser:
             evidence_classes_present.add(claim.evidence_class)
 
         # Parse classification (optional — may not be present in older packets)
-        risk_tier = self._parse_classification(sections)
+        risk_tier = self._parse_classification(sections, errors)
+
+        # Store errors for backward-compat property access
+        self._last_errors = errors
 
         return VerificationPacket(
             version=version,
@@ -190,7 +205,9 @@ class PacketParser:
                     return section
         return None
 
-    def _parse_classification(self, sections: list[ParsedSection]) -> RiskTier | None:
+    def _parse_classification(
+        self, sections: list[ParsedSection], errors: list[ValidationFinding]
+    ) -> RiskTier | None:
         """
         Parse risk_tier from ## Classification (required) YAML code block.
 
@@ -220,7 +237,7 @@ class PacketParser:
         try:
             return RiskTier.from_string(tier_match.group(1))
         except ValueError:
-            self.errors.append(ValidationFinding(
+            errors.append(ValidationFinding(
                 rule_id="E001",
                 severity=Severity.WARN,
                 message=f"Invalid risk_tier value: {tier_match.group(1)!r}",
@@ -244,20 +261,11 @@ class PacketParser:
     def _parse_intent(self, sections: list[ParsedSection]) -> IntentSection | None:
         """
         Parse intent from ### Class E (Intent Alignment) under ## Evidence.
-
-        Also handles legacy format where intent is ## 0. Intent Alignment.
         """
         # Strategy 1: Look for ### Class E subsection under ## Evidence
         class_e = self._find_section(sections, "class e", level=3)
         if class_e:
             return self._build_intent_from_class_e(class_e)
-
-        # Strategy 2: Legacy format — ## section with "Intent" or "0."
-        for section in sections:
-            if section.level == 2:
-                title_lower = section.title.lower()
-                if "intent" in title_lower or section.title.startswith("0"):
-                    return self._build_intent_from_legacy(section)
 
         return None
 
@@ -305,43 +313,9 @@ class PacketParser:
             verifier_check=verifier_check[:500],  # Truncate if very long
         )
 
-    def _build_intent_from_legacy(self, section: ParsedSection) -> IntentSection | None:
-        """Build IntentSection from legacy ## 0. Intent Alignment format."""
-        content = "\n".join(section.content)
-
-        # Look for **Class E Evidence:** field
-        class_e_match = re.search(
-            r"\*\*Class\s+E\s+Evidence:\*\*\s*(.+?)(?=\n\*\*|\n##|\Z)",
-            content, re.DOTALL | re.IGNORECASE
-        )
-
-        evidence_link: ArtifactLink | str
-        if class_e_match:
-            link_text = class_e_match.group(1).strip()
-            url = self._extract_url(link_text)
-            if url:
-                evidence_link = ArtifactLink.from_url(url)
-            else:
-                evidence_link = link_text
-        else:
-            evidence_link = "See intent section"
-
-        # Extract **Verifier Check:** field
-        verifier_match = re.search(
-            r"\*\*Verifier\s+Check:\*\*\s*(.+?)(?=\n\*\*|\n##|\Z)",
-            content, re.DOTALL | re.IGNORECASE
-        )
-        verifier_check = verifier_match.group(1).strip() if verifier_match else ""
-
-        if len(verifier_check) < 10:
-            verifier_check = verifier_check or "See linked specification"
-
-        return IntentSection(
-            evidence_link=evidence_link,
-            verifier_check=verifier_check,
-        )
-
-    def _parse_claims(self, sections: list[ParsedSection]) -> list[Claim]:
+    def _parse_claims(
+        self, sections: list[ParsedSection], errors: list[ValidationFinding]
+    ) -> list[Claim]:
         """
         Parse claims from ## Claim(s) section.
 
@@ -364,7 +338,7 @@ class PacketParser:
 
                 # Skip if description is too short
                 if len(description) < 10:
-                    self.errors.append(ValidationFinding(
+                    errors.append(ValidationFinding(
                         rule_id="E005",
                         severity=Severity.WARN,
                         message=f"Claim {number} description is too brief",
