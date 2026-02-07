@@ -1,0 +1,43 @@
+name: AIV Packet Validation (Python)
+
+on:
+  pull_request:
+    branches: [ main ]
+    types: [ opened, edited, synchronize ]
+
+jobs:
+  validate-packet:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+      contents: read
+      actions: read
+
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install aiv-protocol
+        run: pip install -e .
+
+      - name: Run AIV Guard
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python -m aiv.guard
+
+      - name: Upload validator output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aiv-validator-output
+          if-no-files-found: warn
+          path: aiv_validation_result.json
