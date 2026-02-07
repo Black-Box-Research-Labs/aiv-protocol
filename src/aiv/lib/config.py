@@ -11,6 +11,13 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings
 
+try:
+    import yaml
+except ImportError as _yaml_err:
+    raise ImportError(
+        "PyYAML is required for AIV configuration. Install it with: pip install PyYAML"
+    ) from _yaml_err
+
 from .errors import ConfigurationError
 
 if TYPE_CHECKING:
@@ -159,8 +166,6 @@ class AIVConfig(BaseSettings):
     @classmethod
     def from_file(cls, path: Path) -> AIVConfig:
         """Load configuration from YAML file."""
-        import yaml
-
         if not path.exists():
             return cls()
 
