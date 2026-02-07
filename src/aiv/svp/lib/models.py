@@ -287,6 +287,10 @@ class FalsificationScenario(BaseModel):
     )
     checked: bool = False
     result: Literal["confirmed", "falsified", "inconclusive"] = "confirmed"
+    false_positive: bool = Field(
+        default=False,
+        description="True if the scenario itself was wrong (hallucinated, wrong count, untestable). Penalized in rating.",
+    )
 
 
 class ProbeRecord(BaseModel):
