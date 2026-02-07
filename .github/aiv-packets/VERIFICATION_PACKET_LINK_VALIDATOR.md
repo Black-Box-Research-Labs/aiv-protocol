@@ -30,7 +30,7 @@ classification:
 
 ### Class E (Intent Alignment)
 
-- **Link:** AIV Protocol design decision — `IntentSection.evidence_link` accepts `ArtifactLink | str`. Plain text references are a valid format per model definition, so the validator should not treat them as warnings that block strict mode.
+- **Link:** [AIV Protocol design decision](https://github.com/ImmortalDemonGod/aiv-protocol/blob/9a41695/SPECIFICATION.md) — `IntentSection.evidence_link` accepts `ArtifactLink | str`. Plain text references are a valid format per model definition, so the validator should not treat them as warnings that block strict mode.
 - **Requirements Verified:**
   1. ✅ Plain text intent links produce INFO not WARN
   2. ✅ Mutable URL intent links still produce BLOCK severity
