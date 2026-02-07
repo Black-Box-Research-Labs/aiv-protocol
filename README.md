@@ -243,9 +243,9 @@ aiv-protocol/
 │       └── test_svp_full_workflow.py # SVP integration tests
 ├── .github/
 │   ├── workflows/
-│   │   ├── aiv-guard.yml            # PR validation — JS (live)
 │   │   ├── aiv-guard-python.yml     # PR validation — Python (live)
-│   │   └── verify-architecture.yml  # Evidence generation (live)
+│   │   ├── ci.yml                   # CI: lint, format, type-check, test
+│   │   └── verify-architecture.yml  # Evidence generation (disabled)
 │   └── aiv-packets/                 # 51 verification packets
 ├── docs/specs/
 │   ├── AIV-SUITE-SPEC-V1.0-CANONICAL_2025-12-19.md
@@ -279,12 +279,11 @@ aiv-protocol/
 
 ## Enforcement (Live)
 
-Four enforcement layers, all active:
+Three enforcement layers, all active:
 
-1. **Pre-commit hook** — Blocks commits without atomic unit pattern (1 functional file + 1 verification packet)
+1. **Pre-commit hook** — Blocks commits without atomic unit pattern (1 functional file + 1 verification packet); runs both `aiv check` and `aiv audit` on staged packets
 2. **`aiv check` CLI** — Local validation with 8-stage pipeline, strict mode, anti-cheat scanning
-3. **AIV Guard CI (JS)** — PR-level validation: structure, immutable links, evidence requirements, critical surface detection, SoD checks
-4. **AIV Guard CI (Python)** — Refactored guard as a Python module (`src/aiv/guard/`) with canonical packet validation, manifest verification, and GitHub API integration
+3. **AIV Guard CI (Python)** — PR-level validation as a Python module (`src/aiv/guard/`): canonical packet validation, manifest verification, critical surface detection, SoD checks, and GitHub API integration
 
 ## Configuration
 
