@@ -25,6 +25,9 @@ aiv check --strict .github/aiv-packets/VERIFICATION_PACKET_AIV_IMPLEMENTATION.md
 # Validate with anti-cheat diff scanning
 aiv check packet.md --diff changes.patch
 
+# Audit all packets for quality issues
+aiv audit
+
 # Scaffold a new verification packet
 aiv generate my-feature --tier R1
 
@@ -65,6 +68,26 @@ $ aiv check .github/aiv-packets/VERIFICATION_PACKET_GITIGNORE.md
 ### `aiv init`
 
 Creates a `.aiv.yml` configuration file in the target directory.
+
+### `aiv audit`
+
+Audits all verification packets for quality issues the validation pipeline does not catch:
+
+- Commit SHA traceability (`COMMIT_PENDING`)
+- Class E link immutability
+- TODO remnants
+- Missing Class F for bug-fix claims
+
+```bash
+# Audit all packets
+aiv audit
+
+# Audit with auto-fix
+aiv audit --fix
+
+# Audit a specific directory
+aiv audit .github/aiv-packets --fix
+```
 
 ### `aiv generate`
 
@@ -143,8 +166,10 @@ aiv-protocol/
 │   │   ├── parser.py                # Markdown → VerificationPacket
 │   │   ├── config.py                # .aiv.yml configuration
 │   │   ├── errors.py                # Exception hierarchy
+│   │   ├── auditor.py               # Packet quality auditor
 │   │   └── validators/
 │   │       ├── pipeline.py          # 8-stage validation orchestrator
+│   │       ├── base.py              # Base validator class
 │   │       ├── structure.py         # Packet completeness
 │   │       ├── evidence.py          # Class-specific rules (E015–E018)
 │   │       ├── links.py             # SHA-pinned immutability
@@ -164,22 +189,25 @@ aiv-protocol/
 │   │       └── validators/
 │   │           └── session.py       # Session rules S001–S013
 │   └── __main__.py                  # python -m aiv support
-├── tests/                           # 188 tests (unit + integration)
+├── tests/                           # 371 tests (unit + integration)
 │   ├── unit/
 │   │   ├── test_models.py
 │   │   ├── test_parser.py
 │   │   ├── test_validators.py
-│   │   ├── test_guard.py            # Guard module tests (36)
-│   │   ├── test_svp.py              # SVP module tests (43)
+│   │   ├── test_guard.py            # Guard module tests
+│   │   ├── test_svp.py              # SVP module tests
+│   │   ├── test_auditor.py          # Auditor module tests
 │   │   └── test_coverage.py         # Coverage gap tests
 │   └── integration/
-│       └── test_full_workflow.py
+│       ├── test_full_workflow.py
+│       ├── test_e2e_compliance.py   # E2E compliance tests
+│       └── test_svp_full_workflow.py # SVP integration tests
 ├── .github/
 │   ├── workflows/
 │   │   ├── aiv-guard.yml            # PR validation — JS (live)
 │   │   ├── aiv-guard-python.yml     # PR validation — Python (live)
 │   │   └── verify-architecture.yml  # Evidence generation (live)
-│   └── aiv-packets/                 # 30 verification packets
+│   └── aiv-packets/                 # 51 verification packets
 ├── docs/specs/
 │   ├── AIV-SUITE-SPEC-V1.0-CANONICAL_2025-12-19.md
 │   ├── SVP-SUITE-SPEC-V1.0-CANONICAL-2025-12-20.md
