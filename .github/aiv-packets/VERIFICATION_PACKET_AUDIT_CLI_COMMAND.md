@@ -1,6 +1,6 @@
 # AIV Verification Packet (v2.1)
 
-**Commit:** `pending`  
+**Commit:** `bc3982e`  
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
 ---
@@ -46,6 +46,12 @@ classification:
 ### Class A (Execution Evidence)
 
 - 316/316 pytest tests pass (297 existing + 19 new auditor tests)
+
+### Class F (Provenance Evidence)
+
+**Claim 3: No tests weakened**
+- No existing tests were modified, deleted, or skipped during this change.
+- All pre-existing tests pass unchanged alongside the CLI integration.
 
 ---
 
