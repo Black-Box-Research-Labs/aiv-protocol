@@ -140,8 +140,10 @@ class AntiCheatScanner:
 
         # Check for removed test files
         # In unified diffs, 'diff --git a/X b/X' comes BEFORE 'deleted file mode'.
+        # The optional intermediate line handles cases where 'index' or 'old mode'
+        # appears between the diff header and 'deleted file mode'.
         removed_files = re.findall(
-            r"diff --git a/([^\s]+) b/[^\s]+\n(?:old|new|deleted|index|similarity|rename|copy)[^\n]*\ndeleted file mode \d+",
+            r"diff --git a/([^\s]+) b/[^\s]+\n(?:(?:old|new|index|similarity|rename|copy)[^\n]*\n)?deleted file mode \d+",
             diff_text,
         )
         for removed in removed_files:
