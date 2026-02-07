@@ -248,3 +248,111 @@ Test.
 """
         packet = parser.parse(packet_text)
         assert packet.claims[0].reproduction == "N/A"
+
+
+class TestFencedCodeBlockHeadingInjection:
+    """Regression test: headings inside fenced code blocks must not be parsed as sections."""
+
+    @pytest.fixture
+    def parser(self):
+        return PacketParser()
+
+    def test_heading_inside_backtick_fence_ignored(self, parser):
+        """## inside ```...``` must not create a new section."""
+        packet_text = """\
+# AIV Verification Packet (v2.1)
+
+## Claim(s)
+
+1. Parser handles fenced code blocks correctly and does not split on internal headings.
+
+## Evidence
+
+### Class E (Intent Alignment)
+
+- **Link:** [Spec](https://github.com/o/r/blob/abc1234567890abc1234567890abc1234567890a/docs/spec.md)
+- **Requirements Verified:**
+  1. Headings inside code blocks are not treated as sections.
+
+### Class B (Referential Evidence)
+
+**Scope Inventory**
+- Modified: src/parser.py
+
+```python
+## This heading should NOT be parsed as a section
+def foo():
+    pass
+```
+
+## Summary
+
+Parser correctly ignores headings inside code blocks.
+"""
+        sections = parser._extract_sections(packet_text)
+        titles = [s.title for s in sections]
+        assert "This heading should NOT be parsed as a section" not in titles
+        # Should have: header, Claim(s), Evidence, Class E, Class B, Summary = 6
+        heading_titles = {s.title for s in sections}
+        assert "Claim(s)" in heading_titles
+        assert "Summary" in heading_titles
+
+    def test_heading_inside_tilde_fence_ignored(self, parser):
+        """## inside ~~~...~~~ must not create a new section."""
+        packet_text = """\
+# AIV Verification Packet (v2.1)
+
+## Claim(s)
+
+1. Parser handles tilde fenced code blocks correctly without splitting on headings.
+
+## Evidence
+
+### Class E (Intent Alignment)
+
+- **Link:** [Spec](https://github.com/o/r/blob/abc1234567890abc1234567890abc1234567890a/docs/spec.md)
+- **Requirements Verified:**
+  1. Headings inside tilde fences are not treated as sections.
+
+~~~
+## Injected heading inside tilde fence
+~~~
+
+## Summary
+
+Done.
+"""
+        sections = parser._extract_sections(packet_text)
+        titles = [s.title for s in sections]
+        assert "Injected heading inside tilde fence" not in titles
+
+    def test_nested_fence_markers_handled(self, parser):
+        """````...```` (4-backtick fence) should not be broken by ``` inside."""
+        packet_text = """\
+# AIV Verification Packet (v2.1)
+
+## Claim(s)
+
+1. Nested fences handled correctly without spurious sections being created by inner markers.
+
+## Evidence
+
+### Class E (Intent Alignment)
+
+- **Link:** [Spec](https://github.com/o/r/blob/abc1234567890abc1234567890abc1234567890a/docs/spec.md)
+- **Requirements Verified:**
+  1. Nested fences work.
+
+````markdown
+```python
+## This is deeply nested and must not be a section
+```
+````
+
+## Summary
+
+Done.
+"""
+        sections = parser._extract_sections(packet_text)
+        titles = [s.title for s in sections]
+        assert "This is deeply nested and must not be a section" not in titles
