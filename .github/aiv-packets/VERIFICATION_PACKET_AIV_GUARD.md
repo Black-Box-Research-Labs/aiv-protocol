@@ -35,7 +35,7 @@ classification:
 
 ### Class E (Intent Alignment)
 
-- **Link:** AIV Protocol §9 (Gating Rules), §14 (Conformance Testing), §6 (Evidence Requirements) — the guard implements automated merge-gate enforcement.
+- **Link:** [AIV Protocol §9 (Gating Rules), §14 (Conformance Testing), §6 (Evidence Requirements)](https://github.com/ImmortalDemonGod/aiv-protocol/blob/9a41695/SPECIFICATION.md) — the guard implements automated merge-gate enforcement.
 - **Requirements Verified:**
   1. ✅ Merge gate enforcement (§9.1 G-001 through G-006)
   2. ✅ Evidence class validation by tier (§6.1)
