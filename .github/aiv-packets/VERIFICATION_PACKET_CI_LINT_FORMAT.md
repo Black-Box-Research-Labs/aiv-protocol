@@ -46,7 +46,7 @@ classification:
 
 Files modified in this atomic commit series:
 
-<!-- CURRENT_FILE: src/aiv/guard/__init__.py (4/37) -->
+<!-- CURRENT_FILE: src/aiv/guard/canonical.py (5/37) -->
 
 ---
 

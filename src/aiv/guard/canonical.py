@@ -11,15 +11,12 @@ import re
 from typing import Any
 
 from .models import (
+    GITHUB_BLOB_FULL_SHA,
+    HEX_SHA_40_OR_64,
+    LINE_ANCHOR,
+    MUTABLE_BRANCH_PATTERN,
     GuardContext,
     GuardResult,
-    GuardSeverity,
-    HEX_SHA_40_OR_64,
-    GITHUB_BLOB_FULL_SHA,
-    GITHUB_ACTIONS_RUN,
-    MUTABLE_BRANCH_PATTERN,
-    GITHUB_BLOB_OR_TREE,
-    LINE_ANCHOR,
 )
 
 # Evidence class requirements per risk tier
@@ -104,7 +101,8 @@ def validate_canonical(
         return False
 
     if packet.get("packet_schema_version") != "1.0.0":
-        result.add_block("CT-001", f'packet_schema_version must be "1.0.0" (got: {packet.get("packet_schema_version")})')
+        got = packet.get("packet_schema_version")
+        result.add_block("CT-001", f'packet_schema_version must be "1.0.0" (got: {got})')
         return False
 
     ident = packet["identification"]
@@ -168,7 +166,7 @@ def validate_canonical(
         result.add_block("CT-010", "known_limitations must be a non-empty array.")
         return False
 
-    if not all(isinstance(l, str) and l.strip() for l in kl):
+    if not all(isinstance(item, str) and item.strip() for item in kl):
         result.add_block("CT-010", "known_limitations entries must be non-empty strings.")
         return False
 
@@ -221,9 +219,9 @@ def validate_canonical(
 
         # Each claim must have Class B evidence
         has_b = any(
-            isinstance(evidence_items[j], dict) and evidence_items[j].get("id") == ref and evidence_items[j].get("class") == "B"
+            isinstance(ei, dict) and ei.get("id") == ref and ei.get("class") == "B"
             for ref in erefs
-            for j in range(len(evidence_items))
+            for ei in evidence_items
         )
         if not has_b:
             result.add_block("B-004", f"Claim {claim['id']} must have Class B evidence.")
@@ -282,9 +280,7 @@ def validate_canonical(
     return True
 
 
-def _validate_attestation(
-    att: Any, packet: dict[str, Any], risk_tier: str, result: GuardResult
-) -> bool:
+def _validate_attestation(att: Any, packet: dict[str, Any], risk_tier: str, result: GuardResult) -> bool:
     """Validate the first attestation entry. Returns False on fatal error."""
     if not isinstance(att, dict):
         result.add_block("ATT-002", "Attestation must be an object.")
@@ -358,7 +354,8 @@ def _validate_conditional_decision(att: dict[str, Any], result: GuardResult) -> 
         return False
 
     warn_findings = [
-        f for f in findings
+        f
+        for f in findings
         if isinstance(f, dict) and f.get("severity") == "WARN" and isinstance(f.get("id"), str) and f["id"].strip()
     ]
     if len(warn_findings) == 0:
@@ -424,9 +421,7 @@ def _validate_scope_inventory(
     return True
 
 
-def _read_scope_inventory(
-    evidence_items: list[dict[str, Any]], result: GuardResult
-) -> list[str] | None:
+def _read_scope_inventory(evidence_items: list[dict[str, Any]], result: GuardResult) -> list[str] | None:
     """Extract scope inventory from Class B evidence items."""
     import base64
 
@@ -442,7 +437,7 @@ def _read_scope_inventory(
 
             if ref.startswith("inline-b64-json:"):
                 try:
-                    payload = ref[len("inline-b64-json:"):]
+                    payload = ref[len("inline-b64-json:") :]
                     decoded = base64.b64decode(payload).decode("utf-8")
                     parsed = __import__("json").loads(decoded)
                     return parsed if isinstance(parsed, list) else None
@@ -452,7 +447,7 @@ def _read_scope_inventory(
 
             if ref.startswith("inline-json:"):
                 try:
-                    payload = ref[len("inline-json:"):]
+                    payload = ref[len("inline-json:") :]
                     parsed = __import__("json").loads(payload)
                     return parsed if isinstance(parsed, list) else None
                 except Exception:
@@ -460,15 +455,13 @@ def _read_scope_inventory(
                     return None
 
             if ref.startswith("inline-lines:"):
-                payload = ref[len("inline-lines:"):]
+                payload = ref[len("inline-lines:") :]
                 return [p.strip() for p in payload.split("\n") if p.strip()]
 
     return None
 
 
-def _validate_class_e(
-    evidence_items: list[dict[str, Any]], risk_tier: str, result: GuardResult
-) -> None:
+def _validate_class_e(evidence_items: list[dict[str, Any]], risk_tier: str, result: GuardResult) -> None:
     """Validate Class E evidence items (requirement references, checklists)."""
     class_e = [e for e in evidence_items if isinstance(e, dict) and e.get("class") == "E"]
 
@@ -510,8 +503,7 @@ def _validate_class_c(evidence_items: list[dict[str, Any]], result: GuardResult)
 
     # validation_method must be non-empty
     if class_c and not all(
-        isinstance(e.get("validation_method"), str) and e["validation_method"].strip()
-        for e in class_c
+        isinstance(e.get("validation_method"), str) and e["validation_method"].strip() for e in class_c
     ):
         result.add_block("C-002", "Class C validation_method MUST be documented and non-empty.")
         return
@@ -519,8 +511,7 @@ def _validate_class_c(evidence_items: list[dict[str, Any]], result: GuardResult)
     # At least one must indicate semantic analysis
     semantic_re = re.compile(r"\b(ast|coverage|collect|junit|json)\b", re.IGNORECASE)
     if not any(
-        isinstance(e.get("validation_method"), str) and semantic_re.search(e["validation_method"])
-        for e in class_c
+        isinstance(e.get("validation_method"), str) and semantic_re.search(e["validation_method"]) for e in class_c
     ):
         result.add_block("C-004", "MUST include at least one Class C semantic analysis method.")
 
@@ -537,7 +528,8 @@ def _validate_claim_test_refs(
     """
     # Build set of Class A evidence IDs
     class_a_ids = {
-        e["id"] for e in evidence_items
+        e["id"]
+        for e in evidence_items
         if isinstance(e, dict) and e.get("class") == "A" and isinstance(e.get("id"), str)
     }
 
