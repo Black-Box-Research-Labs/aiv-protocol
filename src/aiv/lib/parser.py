@@ -387,10 +387,14 @@ class PacketParser:
                 if artifact_text:
                     unlinked_evidence.append((ev_class, artifact_text))
 
-        # Reproduction defaults to "N/A" (zero-touch compliant).
-        # The ## Verification Methodology section is informational context
-        # for the packet as a whole, not a per-claim reproduction instruction.
-        reproduction = "N/A"
+        # Extract reproduction from ## Verification Methodology section.
+        # If absent, default to "N/A" (zero-touch compliant).
+        methodology = self._find_section(sections, "verification methodology", level=2)
+        if methodology:
+            methodology_text = "\n".join(methodology.content).strip()
+            reproduction = methodology_text if methodology_text else "N/A"
+        else:
+            reproduction = "N/A"
 
         # Rebuild claims with enriched evidence
         enriched: list[Claim] = []

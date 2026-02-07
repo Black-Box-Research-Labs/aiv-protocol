@@ -22,7 +22,7 @@ classification:
 
 1. Bug-fix heuristic now uses word-boundary regex patterns instead of substring matching, preventing false positives on words like "prefix" or "tissue" that contain "fix" or "issue" as substrings.
 2. Rule ID E007 replaced with unique IDs: E015 (Class B non-blob link), E016 (Class B missing file ref), E017 (Class C missing negative framing), E018 (Class D manual DB queries).
-3. No existing test behavior is modified — 39/39 tests continue to pass.
+3. No existing test behavior is modified or deleted — 39/39 tests continue to pass.
 
 ---
 
@@ -53,6 +53,11 @@ classification:
 
 - 39/39 pytest tests pass (no regressions)
 - New rule IDs E015-E018 validated against ValidationFinding regex pattern `^E\d{3}$`
+
+### Class F (Conservation Evidence)
+
+**Claim 3: No regressions**
+- No test files modified or deleted. Full test suite passes.
 
 ---
 

@@ -21,7 +21,8 @@ classification:
 ## Claim(s)
 
 1. Removed 7 unused imports from cli/main.py: PacketParser, StructureValidator, EvidenceValidator, LinkValidator, ZeroTouchValidator, AntiCheatScanner, Severity (audit finding D06).
-2. Fixed init command docstring that falsely claimed it creates a "Verification packet template" when it only creates .aiv.yml.
+2. Corrected init command docstring that falsely claimed it creates a "Verification packet template" when it only creates .aiv.yml.
+3. No existing tests were modified or deleted during this change.
 
 ---
 
@@ -44,6 +45,11 @@ classification:
 ### Class A (Execution Evidence)
 
 - 39/39 pytest tests pass (no regressions)
+
+### Class F (Conservation Evidence)
+
+**Claim 3: No regressions**
+- No test files modified or deleted. Full test suite passes.
 
 ---
 

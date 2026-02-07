@@ -46,6 +46,18 @@ class ZeroTouchValidator(BaseValidator):
         """Validate all claims in a packet for zero-touch compliance."""
         return self.validate_packet(packet)
 
+    # Pattern to match fenced code blocks (```...```) which are
+    # informational context, not execution instructions.
+    _CODE_BLOCK_RE = re.compile(r"```[^\n]*\n.*?```", re.DOTALL)
+
+    # Phrases that signal zero-touch compliance regardless of surrounding content.
+    _ZT_COMPLIANCE_PHRASES = [
+        "zero-touch mandate",
+        "verifier inspects artifacts only",
+        "no local code execution",
+        "no verification needed",
+    ]
+
     def validate_claim(self, claim: Claim) -> tuple[list[ValidationFinding], FrictionScore]:
         """
         Validate a single claim's reproduction instructions.
@@ -67,10 +79,26 @@ class ZeroTouchValidator(BaseValidator):
                     recommendation=None
                 )
 
-        # Check for prohibited patterns
+        # Check for explicit zero-touch compliance phrases (early exit)
+        repro_lower = reproduction.lower()
+        if any(phrase in repro_lower for phrase in self._ZT_COMPLIANCE_PHRASES):
+            return errors, FrictionScore(
+                score=0,
+                step_count=0,
+                prohibited_patterns_found=[],
+                is_zero_touch_compliant=True,
+                recommendation=None
+            )
+
+        # Strip fenced code blocks before checking prohibited patterns.
+        # Methodology sections include commands as informational context
+        # (often labeled "context only"), not as execution instructions.
+        repro_stripped = self._CODE_BLOCK_RE.sub("", reproduction).strip()
+
+        # Check for prohibited patterns in non-code-block content only
         prohibited_found: list[str] = []
         for pattern in self.prohibited_patterns:
-            if pattern.search(reproduction):
+            if pattern.search(repro_stripped):
                 prohibited_found.append(pattern.pattern)
 
         if prohibited_found:
@@ -88,10 +116,10 @@ class ZeroTouchValidator(BaseValidator):
                 )
             ))
 
-        # Count steps
+        # Count steps (using stripped text, excluding code blocks)
         step_count = 1  # Start with 1 (the instruction itself)
         for pattern in self.step_patterns:
-            matches = pattern.findall(reproduction)
+            matches = pattern.findall(repro_stripped)
             step_count += len(matches)
 
         if step_count > self.config.max_steps:

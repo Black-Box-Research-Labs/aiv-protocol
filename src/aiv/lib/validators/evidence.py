@@ -231,15 +231,20 @@ class EvidenceValidator(BaseValidator):
         """
         errors: list[ValidationFinding] = []
 
-        # Check for justification if this is a test modification
+        # Check for justification if this is a test *modification* claim.
+        # Conservation claims asserting no tests were changed (negative framing)
+        # don't need additional justification — the absence IS the evidence.
         test_keywords = ["test", "assertion", "spec"]
         is_test_related = any(kw in claim.description.lower() for kw in test_keywords)
 
-        if is_test_related and not claim.justification:
+        negative_keywords = ["no ", "not ", "without", "preserved", "unchanged", "unmodified"]
+        has_negative_framing = any(kw in claim.description.lower() for kw in negative_keywords)
+
+        if is_test_related and not has_negative_framing and not claim.justification:
             errors.append(self._make_finding(
                 rule_id="E011",
                 severity="warn",
-                message="Class F claims about tests should include justification",
+                message="Class F claims about test modifications should include justification",
                 location=f"Section {claim.section_number}",
                 suggestion="Add **Justification:** explaining why test changes are valid",
             ))

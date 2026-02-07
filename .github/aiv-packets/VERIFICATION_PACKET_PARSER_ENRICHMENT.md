@@ -23,6 +23,7 @@ classification:
 1. Evidence sections without explicit "Claim N:" references now enrich all unenriched claims with their content, fixing the root cause of false E007 warnings on real packets.
 2. Class E evidence sections are now skipped during claim enrichment since intent is handled separately via `_parse_intent()` and `IntentSection`.
 3. `claim_refs` is now materialized as a list to enable checking whether any references were found, enabling the linked/unlinked branching logic.
+4. No existing tests were modified or deleted during this change.
 
 ---
 
@@ -54,6 +55,11 @@ classification:
 - 39/39 pytest tests pass (no regressions)
 - All 6 real packets pass `aiv check` in strict mode
 - Debug verification: `python -c "from aiv.lib.parser import PacketParser; ..."` confirmed GITIGNORE claims now get `evidence_class=B` and scope inventory artifact content instead of `'See Evidence section'`
+
+### Class F (Conservation Evidence)
+
+**Claim 4: No regressions**
+- No test files modified or deleted. Full test suite passes.
 
 ---
 
