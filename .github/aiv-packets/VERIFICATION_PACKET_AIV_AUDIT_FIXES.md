@@ -65,6 +65,7 @@ classification:
   - `src/aiv/guard/github_api.py` — Wire GitHubAPIError into _request/_request_bytes (Rec #10/#25)
   - `src/aiv/guard/runner.py` — Unify fast-track patterns via AIVConfig (D11, Rec #22)
   - `src/aiv/cli/main.py` — Fix frozen model mutation (§2.15), update SVP import path (Rec #24), Provenance label
+  - `pyproject.toml` — Remove unused pyperclip extra (§4.3), update wheel packages for SVP relocation
 - Created:
   - `src/aiv/svp/__init__.py` — SVP package under aiv namespace (Rec #24)
   - `src/aiv/svp/cli/__init__.py` — SVP CLI subpackage (Rec #24)
