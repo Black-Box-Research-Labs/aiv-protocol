@@ -46,7 +46,7 @@ classification:
 
 Files modified in this atomic commit series:
 
-<!-- CURRENT_FILE: tests/unit/test_validators.py (35/37) -->
+<!-- CURRENT_FILE: .github/workflows/ci.yml (36/37) -->
 
 ---
 
