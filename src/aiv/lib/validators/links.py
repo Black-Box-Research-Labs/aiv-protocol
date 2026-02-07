@@ -9,7 +9,6 @@ from __future__ import annotations
 from ..models import (
     ArtifactLink,
     ValidationFinding,
-    Severity,
     VerificationPacket,
 )
 from ..config import MutableBranchConfig

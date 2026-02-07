@@ -7,6 +7,7 @@ Unit tests for core data models.
 import pytest
 from aiv.lib.models import (
     EvidenceClass,
+    RiskTier,
     Severity,
     ValidationStatus,
     ArtifactLink,
@@ -267,3 +268,70 @@ class TestFrictionScore:
         )
         assert score.is_zero_touch_compliant is False
         assert score.score == 30
+
+
+class TestRiskTier:
+    """Tests for RiskTier enum."""
+
+    def test_values(self):
+        assert RiskTier.R0.value == "R0"
+        assert RiskTier.R1.value == "R1"
+        assert RiskTier.R2.value == "R2"
+        assert RiskTier.R3.value == "R3"
+
+    def test_from_string_uppercase(self):
+        assert RiskTier.from_string("R0") == RiskTier.R0
+        assert RiskTier.from_string("R3") == RiskTier.R3
+
+    def test_from_string_lowercase(self):
+        assert RiskTier.from_string("r1") == RiskTier.R1
+        assert RiskTier.from_string("r2") == RiskTier.R2
+
+    def test_from_string_with_whitespace(self):
+        assert RiskTier.from_string("  R1  ") == RiskTier.R1
+
+    def test_from_string_invalid(self):
+        with pytest.raises(ValueError, match="Unknown risk tier"):
+            RiskTier.from_string("R5")
+
+    def test_from_string_empty(self):
+        with pytest.raises(ValueError):
+            RiskTier.from_string("")
+
+
+class TestArtifactLinkConfig:
+    """Tests for ArtifactLink.from_url() with configurable mutable_branches."""
+
+    def test_custom_mutable_branch_detected(self):
+        """A custom branch name should be detected as mutable when configured."""
+        link = ArtifactLink.from_url(
+            "https://github.com/owner/repo/blob/release/src/app.py",
+            mutable_branches={"main", "release"},
+        )
+        assert link.is_immutable is False
+        assert "release" in link.immutability_reason
+
+    def test_default_branch_not_mutable_with_custom_set(self):
+        """'main' should NOT be mutable if excluded from custom set."""
+        link = ArtifactLink.from_url(
+            "https://github.com/owner/repo/blob/main/src/app.py",
+            mutable_branches={"release", "staging"},
+        )
+        # 'main' is not in the custom set, so it falls through to non-SHA check
+        assert link.is_immutable is False  # still non-SHA, so still mutable
+
+    def test_custom_min_sha_length(self):
+        """Short SHA below custom minimum should not be treated as immutable."""
+        link = ArtifactLink.from_url(
+            "https://github.com/owner/repo/blob/abcdef1/src/app.py",
+            min_sha_length=10,
+        )
+        # 7-char hex but min_sha_length=10, so not treated as SHA
+        assert link.is_immutable is False
+
+    def test_default_behavior_preserved(self):
+        """Without config params, default behavior should be unchanged."""
+        link = ArtifactLink.from_url(
+            "https://github.com/owner/repo/blob/a1b2c3d4e5f6/src/app.py"
+        )
+        assert link.is_immutable is True
