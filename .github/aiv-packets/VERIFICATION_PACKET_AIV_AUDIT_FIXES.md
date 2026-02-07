@@ -72,6 +72,7 @@ classification:
   - `tests/unit/test_parser.py` — Update assertions for PROVENANCE enum
   - `tests/unit/test_svp.py` — Update imports from svp→aiv.svp (Rec #24)
   - `tests/unit/test_validators.py` — Rename conservation→provenance in tests (Rec #13)
+  - `AUDIT_REPORT.md` — Update all findings to ✅ FIXED, update scorecard, delta summary, test counts
 - Created:
   - `src/aiv/svp/__init__.py` — SVP package under aiv namespace (Rec #24)
   - `src/aiv/svp/cli/__init__.py` — SVP CLI subpackage (Rec #24)
