@@ -32,6 +32,7 @@ class EvidenceClass(str, Enum):
     - E: Alignment (intent)
     - F: Provenance (integrity)
     """
+
     EXECUTION = "A"
     REFERENTIAL = "B"
     NEGATIVE = "C"
@@ -58,13 +59,15 @@ class EvidenceClass(str, Enum):
 
 class Severity(str, Enum):
     """Validation result severity levels."""
-    BLOCK = "block"      # PR cannot be merged
-    WARN = "warn"        # Flagged but not blocking
-    INFO = "info"        # Informational only
+
+    BLOCK = "block"  # PR cannot be merged
+    WARN = "warn"  # Flagged but not blocking
+    INFO = "info"  # Informational only
 
 
 class ValidationStatus(str, Enum):
     """Overall validation status."""
+
     PASS = "pass"
     FAIL = "fail"
     WARN = "warn"
@@ -76,14 +79,12 @@ class ArtifactLink(BaseModel):
 
     Performs structural validation and immutability detection.
     """
+
     model_config = ConfigDict(frozen=True)
 
     url: HttpUrl
     is_immutable: bool = Field(description="Whether the link is SHA-pinned")
-    immutability_reason: str | None = Field(
-        default=None,
-        description="Why the link is/isn't immutable"
-    )
+    immutability_reason: str | None = Field(default=None, description="Why the link is/isn't immutable")
     link_type: Literal["github_blob", "github_actions", "github_pr", "external"] = Field(
         description="Categorized link type"
     )
@@ -112,77 +113,68 @@ class ArtifactLink(BaseModel):
             # Check for actions run
             if "actions" in path_parts and "runs" in path_parts:
                 return cls(
-                    url=url,
+                    url=url,  # type: ignore[arg-type]
                     is_immutable=True,
                     immutability_reason="GitHub Actions run IDs are permanent",
-                    link_type="github_actions"
+                    link_type="github_actions",
                 )
 
             # Check for blob/tree references
             if "blob" in path_parts or "tree" in path_parts:
                 # Find the ref (comes after blob/tree)
                 try:
-                    idx = (
-                        path_parts.index("blob")
-                        if "blob" in path_parts
-                        else path_parts.index("tree")
-                    )
+                    idx = path_parts.index("blob") if "blob" in path_parts else path_parts.index("tree")
                     ref = path_parts[idx + 1] if idx + 1 < len(path_parts) else None
                 except (ValueError, IndexError):
                     ref = None
 
                 if ref:
                     # Check if ref is a SHA (40 hex chars) or short SHA
-                    is_sha = (
-                        len(ref) >= min_sha_length
-                        and all(c in "0123456789abcdef" for c in ref.lower())
-                    )
+                    is_sha = len(ref) >= min_sha_length and all(c in "0123456789abcdef" for c in ref.lower())
 
                     # Check for known mutable refs (configurable)
-                    _default_mutable = {
-                        "main", "master", "develop", "staging", "trunk", "dev", "HEAD"
-                    }
+                    _default_mutable = {"main", "master", "develop", "staging", "trunk", "dev", "HEAD"}
                     mutable_refs = mutable_branches if mutable_branches is not None else _default_mutable
                     is_mutable_branch = ref.lower() in {r.lower() for r in mutable_refs}
 
                     if is_sha:
                         return cls(
-                            url=url,
+                            url=url,  # type: ignore[arg-type]
                             is_immutable=True,
                             immutability_reason=f"SHA-pinned reference: {ref[:7]}...",
-                            link_type="github_blob"
+                            link_type="github_blob",
                         )
                     elif is_mutable_branch:
                         return cls(
-                            url=url,
+                            url=url,  # type: ignore[arg-type]
                             is_immutable=False,
                             immutability_reason=f"Mutable branch reference: {ref}",
-                            link_type="github_blob"
+                            link_type="github_blob",
                         )
                     else:
                         # Could be a tag or custom branch - warn but don't block
                         return cls(
-                            url=url,
+                            url=url,  # type: ignore[arg-type]
                             is_immutable=False,
                             immutability_reason=f"Non-SHA reference: {ref} (may be tag or branch)",
-                            link_type="github_blob"
+                            link_type="github_blob",
                         )
 
             # GitHub PR
             if "pull" in path_parts:
                 return cls(
-                    url=url,
+                    url=url,  # type: ignore[arg-type]
                     is_immutable=True,
                     immutability_reason="PR numbers are permanent",
-                    link_type="github_pr"
+                    link_type="github_pr",
                 )
 
         # External URL - assume mutable
         return cls(
-            url=url,
+            url=url,  # type: ignore[arg-type]
             is_immutable=False,
             immutability_reason="External URL (immutability unknown)",
-            link_type="external"
+            link_type="external",
         )
 
 
@@ -193,29 +185,23 @@ class Claim(BaseModel):
     Each claim asserts something about the change and provides
     evidence to support that assertion.
     """
+
     model_config = ConfigDict(frozen=True)
 
     section_number: int = Field(ge=1, description="Section number in packet")
     description: str = Field(min_length=10, description="The claim statement")
     evidence_class: EvidenceClass
-    artifact: ArtifactLink | str = Field(
-        description="Evidence artifact (URL or description)"
-    )
+    artifact: ArtifactLink | str = Field(description="Evidence artifact (URL or description)")
     reproduction: str = Field(description="How to reproduce/verify the evidence")
 
     # Optional fields for specific evidence classes
-    fallback_artifact: str | None = Field(
-        default=None,
-        description="Fallback if primary artifact unavailable"
-    )
-    justification: str | None = Field(
-        default=None,
-        description="Required for Class F when tests are modified"
-    )
+    fallback_artifact: str | None = Field(default=None, description="Fallback if primary artifact unavailable")
+    justification: str | None = Field(default=None, description="Required for Class F when tests are modified")
 
 
 class RiskTier(str, Enum):
     """Risk classification tiers per §5.1 of the AIV specification."""
+
     R0 = "R0"  # Trivial: docs, comments, formatting only
     R1 = "R1"  # Low: isolated logic, no critical surfaces
     R2 = "R2"  # Medium: broad refactors, API changes, migrations
@@ -227,8 +213,8 @@ class RiskTier(str, Enum):
         upper = value.strip().upper()
         try:
             return cls(upper)
-        except ValueError:
-            raise ValueError(f"Unknown risk tier: {value!r}. Expected R0, R1, R2, or R3.")
+        except ValueError as err:
+            raise ValueError(f"Unknown risk tier: {value!r}. Expected R0, R1, R2, or R3.") from err
 
 
 class IntentSection(BaseModel):
@@ -239,13 +225,11 @@ class IntentSection(BaseModel):
     The link can be a validated ArtifactLink (URL) or a plain text
     reference (e.g. "AIV Protocol Addendum 2.5 — description").
     """
+
     model_config = ConfigDict(frozen=True)
 
     evidence_link: ArtifactLink | str
-    verifier_check: str = Field(
-        min_length=10,
-        description="Description of what the verifier should confirm"
-    )
+    verifier_check: str = Field(min_length=10, description="Description of what the verifier should confirm")
 
 
 class VerificationPacket(BaseModel):
@@ -255,16 +239,16 @@ class VerificationPacket(BaseModel):
     This is the structured representation of the markdown packet
     attached to a Pull Request.
     """
+
     model_config = ConfigDict(frozen=True)
 
     version: str = Field(default="2.1", pattern=r"^\d+\.\d+$")
     risk_tier: RiskTier | None = Field(
-        default=None,
-        description="Risk classification from ## Classification YAML block"
+        default=None, description="Risk classification from ## Classification YAML block"
     )
     evidence_classes_present: set[EvidenceClass] = Field(
         default_factory=set,
-        description="All evidence classes found in evidence sections, regardless of claim assignment"
+        description="All evidence classes found in evidence sections, regardless of claim assignment",
     )
     intent: IntentSection
     claims: list[Claim] = Field(min_length=1)
@@ -289,30 +273,23 @@ class VerificationPacket(BaseModel):
 
 class ValidationFinding(BaseModel):
     """A single validation error or warning."""
+
     model_config = ConfigDict(frozen=True)
 
     rule_id: str = Field(pattern=r"^E\d{3}$", description="Rule identifier")
     severity: Severity
     message: str
-    location: str | None = Field(
-        default=None,
-        description="Where in the packet the error occurred"
-    )
-    suggestion: str | None = Field(
-        default=None,
-        description="How to fix the issue"
-    )
+    location: str | None = Field(default=None, description="Where in the packet the error occurred")
+    suggestion: str | None = Field(default=None, description="How to fix the issue")
 
 
 class ValidationResult(BaseModel):
     """Complete validation result for a packet."""
+
     model_config = ConfigDict(frozen=True)
 
     status: ValidationStatus
-    packet: VerificationPacket | None = Field(
-        default=None,
-        description="Parsed packet if parsing succeeded"
-    )
+    packet: VerificationPacket | None = Field(default=None, description="Parsed packet if parsing succeeded")
     errors: list[ValidationFinding] = Field(default_factory=list)
     warnings: list[ValidationFinding] = Field(default_factory=list)
     info: list[ValidationFinding] = Field(default_factory=list)
@@ -334,15 +311,10 @@ class ValidationResult(BaseModel):
 
 class AntiCheatFinding(BaseModel):
     """A potential anti-cheat violation detected in the diff."""
+
     model_config = ConfigDict(frozen=True)
 
-    finding_type: Literal[
-        "deleted_assertion",
-        "skipped_test",
-        "mock_bypass",
-        "relaxed_condition",
-        "removed_test_file"
-    ]
+    finding_type: Literal["deleted_assertion", "skipped_test", "mock_bypass", "relaxed_condition", "removed_test_file"]
     file_path: str
     line_number: int | None = None
     original_content: str | None = None
@@ -352,6 +324,7 @@ class AntiCheatFinding(BaseModel):
 
 class AntiCheatResult(BaseModel):
     """Results of anti-cheat analysis on a diff."""
+
     model_config = ConfigDict(frozen=True)
 
     findings: list[AntiCheatFinding] = Field(default_factory=list)
@@ -371,6 +344,7 @@ class AntiCheatResult(BaseModel):
 
 class FrictionScore(BaseModel):
     """Quantified measure of reproduction instruction complexity."""
+
     model_config = ConfigDict(frozen=True)
 
     score: int = Field(ge=0, description="Higher = more friction")
