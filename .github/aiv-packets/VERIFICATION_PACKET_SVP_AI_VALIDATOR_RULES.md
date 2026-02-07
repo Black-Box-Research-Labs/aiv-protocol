@@ -2,9 +2,12 @@
 
 ## Classification
 
-- **Risk Tier:** R2
-- **Blast Radius:** component
-- **SoD Mode:** S1
+```yaml
+classification:
+  risk_tier: R2
+  blast_radius: component
+  sod_mode: S1
+```
 
 ## Claim(s)
 
@@ -28,6 +31,10 @@
 ### Class A (Execution Evidence)
 
 - 384 tests pass. S015 and S016 each tested with AI session blocked + AI session passing + human session unaffected.
+
+### Class C (Negative Evidence)
+
+- Human sessions (SessionType.HUMAN_VERIFICATION) are completely unaffected by S015/S016 — verified by 2 dedicated tests showing no S015/S016 errors for human sessions.
 
 ## Summary
 
