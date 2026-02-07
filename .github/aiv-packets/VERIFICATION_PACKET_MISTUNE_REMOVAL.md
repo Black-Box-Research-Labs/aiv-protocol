@@ -1,6 +1,6 @@
 # AIV Verification Packet (v2.1)
 
-**Commit:** `pending`  
+**Commit:** `42c7869`  
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
 ---
@@ -28,7 +28,7 @@ classification:
 
 ### Class E (Intent Alignment)
 
-- **Link:** AUDIT_REPORT.md — §4.3: "mistune is a DEAD dependency — listed in pyproject.toml but never imported anywhere. Parser uses regex."
+- **Link:** [AUDIT_REPORT.md — §4.3: "mistune is a DEAD dependency — listed in pyproject.toml but never imported anywhere. Parser uses regex."](https://github.com/ImmortalDemonGod/aiv-protocol/blob/42c7869/AUDIT_REPORT.md)
 - **Requirements Verified:**
   1. ✅ Grep for `import mistune` and `from mistune` across src/ returns zero matches
   2. ✅ Dependency removed
