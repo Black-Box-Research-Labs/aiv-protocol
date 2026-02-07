@@ -1,10 +1,11 @@
-name: V4 Architecture Guard
+name: V4 Architecture Guard (DISABLED — cannibalized into ci.yml)
 
+# DISABLED: This workflow was built for an Astro/Node.js architecture that no longer exists.
+# The useful patterns (Class A/C manifests, semantic integrity, OCI export) have been
+# ported to the Python-native ci.yml evidence job.
+# Preserved for reference only. To re-enable, restore push/pull_request triggers.
 on:
-  push:
-    branches: [ main, feat/v4-architecture-pivot ]
-  pull_request:
-    branches: [ main ]
+  workflow_dispatch: {}
 
 permissions:
   contents: read

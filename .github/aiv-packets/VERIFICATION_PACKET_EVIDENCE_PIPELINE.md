@@ -1,6 +1,6 @@
 # AIV Verification Packet (v2.1) — Evidence Pipeline Cannibalization
 
-**Commit:** `pending` (ci.yml evidence job)
+**Commit:** `pending` (disable verify-architecture.yml)
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
 ---
