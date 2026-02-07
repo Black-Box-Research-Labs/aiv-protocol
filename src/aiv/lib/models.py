@@ -89,7 +89,12 @@ class ArtifactLink(BaseModel):
     )
 
     @classmethod
-    def from_url(cls, url: str) -> ArtifactLink:
+    def from_url(
+        cls,
+        url: str,
+        mutable_branches: set[str] | None = None,
+        min_sha_length: int = 7,
+    ) -> ArtifactLink:
         """
         Parse and validate a URL, detecting immutability.
 
@@ -127,16 +132,17 @@ class ArtifactLink(BaseModel):
                     ref = None
 
                 if ref:
-                    # Check if ref is a SHA (40 hex chars) or short SHA (7+ hex chars)
+                    # Check if ref is a SHA (40 hex chars) or short SHA
                     is_sha = (
-                        len(ref) >= 7
+                        len(ref) >= min_sha_length
                         and all(c in "0123456789abcdef" for c in ref.lower())
                     )
 
-                    # Check for known mutable refs
-                    mutable_refs = {
+                    # Check for known mutable refs (configurable)
+                    _default_mutable = {
                         "main", "master", "develop", "staging", "trunk", "dev", "HEAD"
                     }
+                    mutable_refs = mutable_branches if mutable_branches is not None else _default_mutable
                     is_mutable_branch = ref.lower() in {r.lower() for r in mutable_refs}
 
                     if is_sha:

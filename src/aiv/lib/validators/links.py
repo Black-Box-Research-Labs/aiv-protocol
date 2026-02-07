@@ -70,25 +70,31 @@ class LinkValidator(BaseValidator):
                 location="Section 0 (Intent Alignment)",
             ))
 
-        # Validate claim artifacts
+        # Validate claim artifacts using configured mutable branch set
         for claim in packet.claims:
             if isinstance(claim.artifact, ArtifactLink):
                 link = claim.artifact
 
-                # GitHub blob/tree links should be immutable
-                if link.link_type == "github_blob" and not link.is_immutable:
-                    errors.append(self._make_finding(
-                        rule_id="E009",
-                        severity="block",
-                        message=(
-                            f"Evidence artifact link is mutable. "
-                            f"Reason: {link.immutability_reason}"
-                        ),
-                        location=f"Section {claim.section_number}",
-                        suggestion=(
-                            "Use a SHA-pinned link. Copy the link from the "
-                            "'Copy permalink' option in GitHub."
-                        ),
-                    ))
+                # Re-check blob/tree links with configured mutable branches
+                if link.link_type == "github_blob":
+                    recheck = ArtifactLink.from_url(
+                        str(link.url),
+                        mutable_branches=self.config.mutable_branches,
+                        min_sha_length=self.config.min_sha_length,
+                    )
+                    if not recheck.is_immutable:
+                        errors.append(self._make_finding(
+                            rule_id="E009",
+                            severity="block",
+                            message=(
+                                f"Evidence artifact link is mutable. "
+                                f"Reason: {recheck.immutability_reason}"
+                            ),
+                            location=f"Section {claim.section_number}",
+                            suggestion=(
+                                "Use a SHA-pinned link. Copy the link from the "
+                                "'Copy permalink' option in GitHub."
+                            ),
+                        ))
 
         return errors
