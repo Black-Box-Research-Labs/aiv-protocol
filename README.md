@@ -124,6 +124,45 @@ AI-assisted development increases code throughput beyond what humans can reliabl
 - **Verification Theater** — Green CI badges provide false assurance without semantic comprehension
 - **Cognitive Debt** — Accumulated unverified changes compound into systemic fragility
 
+## Empirically Validated: The AI First-Pass Proof
+
+We gave an AI 3 PRs to verify using the SVP protocol, then audited every claim it produced. The results define the core value proposition.
+
+### The Scorecard
+
+| SVP Phase | Accuracy | Takeaway |
+| --- | --- | --- |
+| **Adversarial Probe** (bug hunting) | **100%** (11/11) | Found 8 real bugs that 371 unit tests missed |
+| **Trace** (execution-verified) | 100% (10/10) | Accurate when forced to execute |
+| **Trace** (code-read only) | 87% (13/15) | Misread complex conditionals without execution |
+| **Prediction** (architecture) | 74% (22/31) | Hallucinated functions that don't exist |
+| **Falsification** (claim validation) | **40%** (8/20) | Parroted wrong numbers; verified theater, not logic |
+
+### The Core Discovery: Hunter vs. Validator
+
+The AI is a **superb Hunter** but a **dangerous Validator**.
+
+- **As Hunter** (Probe phase — 100%): Reading code adversarially, the AI found logic collisions, missing regex patterns, hardcoded assumptions, and a header injection vulnerability. Every finding was real.
+- **As Validator** (Falsification phase — 40%): Attempting to "prove" claims true, the AI defaulted to pattern matching — repeating "12 models" from its own prediction even though the code had 13.
+
+### AIV Is a Hallucination Firewall
+
+An AI can hallucinate a function, but it cannot hallucinate a **Class A artifact** (a URL to a passing CI run) or a **Class B permalink** to a file that doesn't exist. The evidence class taxonomy forces every claim to be grounded in artifacts that exist in reality, making phantom approvals structurally impossible.
+
+The audit also revealed the **Hallucination Cascade** — a recursive failure loop where an AI predicts a nonexistent function, "mentally traces" it, writes a falsification scenario testing it, and produces a perfectly valid JSON session describing a reality that doesn't exist. Artifact-based evidence classes break this loop at step one.
+
+### The Honest AI Protocol
+
+These findings produced three protocol rules that harden SVP against AI yes-men:
+
+| Rule | Enforcement |
+| --- | --- |
+| **S015** — Execution Trace | AI sessions must include `verified_output` from actual execution; mental simulation is banned |
+| **S016** — Falsification-as-Code | AI falsification scenarios must be executable pytest snippets, not prose |
+| **Adversarial Primacy** | The AI's primary deliverable is the Adversarial Report (probe findings), not approval |
+
+Full details: [`.svp/AUDIT_AI_FIRST_PASS.md`](.svp/AUDIT_AI_FIRST_PASS.md)
+
 ## Evidence Classes (A–F)
 
 | Class | Name         | Proves                                         | R0 | R1 | R2 | R3 |
@@ -212,6 +251,10 @@ aiv-protocol/
 │   ├── AIV-SUITE-SPEC-V1.0-CANONICAL_2025-12-19.md
 │   ├── SVP-SUITE-SPEC-V1.0-CANONICAL-2025-12-20.md
 │   └── E2E_COMPLIANCE_TEST_SUITE_SPEC.md
+├── .svp/                            # SVP session data & audit reports
+│   ├── AUDIT_AI_FIRST_PASS.md       # AI First-Pass empirical audit
+│   ├── session-pr*.json             # SVP verification sessions
+│   └── ratings.json                 # Verifier ELO ratings
 ├── .husky/pre-commit                # Atomic commit enforcement
 ├── SPECIFICATION.md                 # Canonical AIV standard (v1.0.0)
 ├── AUDIT_REPORT.md                  # Comprehensive codebase audit
@@ -227,6 +270,7 @@ aiv-protocol/
 | [`docs/specs/AIV-SUITE-SPEC-V1.0-CANONICAL_2025-12-19.md`](docs/specs/AIV-SUITE-SPEC-V1.0-CANONICAL_2025-12-19.md) | AIV automation suite implementation spec |
 | [`docs/specs/SVP-SUITE-SPEC-V1.0-CANONICAL-2025-12-20.md`](docs/specs/SVP-SUITE-SPEC-V1.0-CANONICAL-2025-12-20.md) | SVP cognitive verification suite implementation spec |
 | [`docs/specs/E2E_COMPLIANCE_TEST_SUITE_SPEC.md`](docs/specs/E2E_COMPLIANCE_TEST_SUITE_SPEC.md) | End-to-end compliance test suite specification |
+| [`.svp/AUDIT_AI_FIRST_PASS.md`](.svp/AUDIT_AI_FIRST_PASS.md) | AI First-Pass audit — empirical proof of Hunter vs. Validator dichotomy |
 
 ## Enforcement (Live)
 
