@@ -601,26 +601,30 @@ The `aiv generate` command now exists (cli/main.py lines 144-258, 366 total line
 
 **External claim:** The Python `src/aiv/lib` and the JavaScript in `aiv-guard.yml` are duplicate implementations. The fix is a Python-based GitHub Action (`action.yml` + `Dockerfile`).
 
-**Audit verdict: STRONGLY AGREE — this is the single most important architectural issue.**
+**Previous audit verdict: STRONGLY AGREE — the single most important architectural issue.**
 
-This audit independently identified this as finding §4.4.1: "Two parallel enforcement systems with zero integration." The numbers confirm the scale:
+**Re-Audit verdict: ✅ SUBSTANTIALLY ADDRESSED.**
+
+The Python guard module (`src/aiv/guard/`, 6 files, ~1,571 lines) now provides a full Python replacement:
 
 | System | Language | Lines | Rule IDs | Shared Code |
 |--------|----------|-------|----------|-------------|
-| `src/aiv/lib/` | Python | ~2,318 | E001–E014 | None |
-| `aiv-guard.yml` | JavaScript (inline) | 2,243 | Different set | None |
+| `src/aiv/lib/` | Python | ~2,100 | E001–E018 | Core pipeline |
+| `src/aiv/guard/` | Python | ~1,571 | CT-*, CLS-*, A-*, B-*, E-*, ATT-*, G-* | **Uses aiv-lib pipeline** |
+| `aiv-guard.yml` | JavaScript (inline) | 2,243 | Different set | None (preserved) |
+| `aiv-guard-python.yml` | Python workflow | 45 | Uses guard module | **Uses Python guard** |
 
-No `action.yml` or `Dockerfile` exists in the repo (confirmed by search). The only way to run the Python validator in CI today would be to add a workflow step that installs the package and runs `aiv check`.
+Key improvements:
+- **GitHub API client built:** `guard/github_api.py` (196 lines) — fetches PR files, workflow runs, CI artifacts via `urllib` (no external deps).
+- **CI artifact inspection:** `runner.py:296-367` verifies Class A CI run URLs, checks head_sha match, inspects aiv-evidence artifacts.
+- **Packet Source resolution:** `runner.py:181-209` reads `Packet Source:` pointers from PR bodies.
+- **Canonical JSON validation:** `canonical.py` (522 lines) validates the structured `aiv-canonical-json` block.
+- **Python guard shares aiv-lib:** `runner.py:215` calls `ValidationPipeline` for markdown validation.
 
-**Where this audit goes further:** The external analysis frames this as "maintenance risk" (logic drift). This audit adds a more specific finding: **the two systems don't even use the same rule IDs.** A packet that produces `E004` in the Python validator may trigger a completely different check (or no check) in the JS guard. This isn't just drift risk — the two systems are architecturally decoupled from inception.
-
-**Where I add nuance:** The external analysis's proposed fix ("delete the 2000-line JS script and replace with `pip install aiv-protocol && aiv check`") is correct in direction but understates the work. The JS guard does things the Python package cannot:
-- Fetches PR body from GitHub API (Python has no GitHub API client — finding §D04 in errors.py, `GitHubAPIError` defined but never used)
-- Inspects CI artifacts (Python has no artifact fetching)
-- Posts PR comments with validation results
-- Reads `Packet Source:` pointers from PR bodies to locate packet files
-
-A full replacement requires building a GitHub API client and artifact inspector into the Python package first.
+**What remains:**
+- JS workflow is preserved unchanged (safe fallback during transition)
+- Python guard doesn't yet post PR comments (would need GitHub API write operations)
+- No `action.yml` or `Dockerfile` yet — runs as `python -m aiv.guard` within the workflow
 
 ---
 
