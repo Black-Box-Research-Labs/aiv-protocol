@@ -67,6 +67,7 @@ classification:
   - `src/aiv/cli/main.py` — Fix frozen model mutation (§2.15), update SVP import path (Rec #24), Provenance label
 - Created:
   - `src/aiv/svp/__init__.py` — SVP package under aiv namespace (Rec #24)
+  - `src/aiv/svp/cli/__init__.py` — SVP CLI subpackage (Rec #24)
 - Deleted:
   - `src/aiv/lib/analyzers/__init__.py` — Empty package removed (D12)
 
