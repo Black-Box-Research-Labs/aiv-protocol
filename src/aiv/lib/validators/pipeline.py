@@ -55,13 +55,13 @@ class ValidationPipeline:
     7. Cross-Reference - Ensure anti-cheat findings are justified
     """
 
-    def __init__(self, config: AIVConfig | None = None):
+    def __init__(self, config: AIVConfig | None = None, *, audit_links: bool = False):
         self.config = config or AIVConfig()
 
         # Initialize validators
         self.parser = PacketParser()
         self.structure_validator = StructureValidator()
-        self.link_validator = LinkValidator(self.config.mutable_branches)
+        self.link_validator = LinkValidator(self.config.mutable_branches, audit_links=audit_links)
         self.evidence_validator = EvidenceValidator()
         self.zero_touch_validator = ZeroTouchValidator(self.config.zero_touch)
         self.anti_cheat_scanner = AntiCheatScanner(self.config.anti_cheat)
