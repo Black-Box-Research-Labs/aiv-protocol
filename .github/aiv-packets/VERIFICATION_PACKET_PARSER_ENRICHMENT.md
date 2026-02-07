@@ -31,7 +31,7 @@ classification:
 
 ### Class E (Intent Alignment)
 
-- **Link:** Real packets in `.github/aiv-packets/` use Class B Scope Inventory format without "Claim N:" references. The parser must distribute this evidence to all claims rather than leaving them with a default placeholder that triggers downstream validator warnings.
+- **Link:** [Real packets in `.github/aiv-packets/`](https://github.com/ImmortalDemonGod/aiv-protocol/tree/2158886/.github/aiv-packets) use Class B Scope Inventory format without "Claim N:" references. The parser must distribute this evidence to all claims rather than leaving them with a default placeholder that triggers downstream validator warnings.
 - **Requirements Verified:**
   1. ✅ GITIGNORE packet claims now get Class B evidence_class and scope inventory artifact
   2. ✅ Packets with explicit "Claim N:" references still work correctly
