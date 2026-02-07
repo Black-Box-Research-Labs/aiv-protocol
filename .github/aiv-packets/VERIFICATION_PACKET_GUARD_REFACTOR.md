@@ -1,6 +1,6 @@
 # AIV Verification Packet (v2.1)
 
-**Commit:** `pending`  
+**Commit:** `779b9d2`  
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
 ---
@@ -32,7 +32,7 @@ classification:
 
 ### Class E (Intent Alignment)
 
-- **Link:** AUDIT_REPORT.md — §7.5 P2: "Guard refactor (JS → Python)"
+- **Link:** [AUDIT_REPORT.md — §7.5 P2: "Guard refactor (JS → Python)"](https://github.com/ImmortalDemonGod/aiv-protocol/blob/779b9d2/AUDIT_REPORT.md)
 - **Requirements Verified:**
   1. ✅ All JS validation logic ported to Python
   2. ✅ Uses aiv-lib pipeline for markdown validation
