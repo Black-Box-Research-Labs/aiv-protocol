@@ -97,10 +97,23 @@ _LOCAL_FILE_PATHS: dict[str, str] = {
     "SPECIFICATION.md": "SPECIFICATION.md",
 }
 
-_FIX_KEYWORDS_RE = re.compile(
-    r"\b(fix(?:ed|es|ing)?|bug(?:s|fix)?|resolve[ds]?|hotfix|patch(?:ed)?)\b",
-    re.IGNORECASE,
-)
+def _is_bug_fix_claim(text: str) -> bool:
+    """Heuristic: does claim text describe a bug fix (not a feature named 'fix')?
+
+    Excludes:
+    - ``auto-fix`` / ``auto fix`` (feature name)
+    - ``--fix`` (CLI flag)
+    - ```--fix```` (inline code CLI flag)
+    """
+    # Strip CLI flags and feature names before checking
+    cleaned = re.sub(r"auto[- ]fix", "", text, flags=re.IGNORECASE)
+    cleaned = re.sub(r"`?--fix`?", "", cleaned)
+    cleaned = re.sub(r"bug[- ]fix\s+claim", "", cleaned, flags=re.IGNORECASE)
+    return bool(re.search(
+        r"\b(fix(?:ed|es|ing)?|bug(?:s|fix)?|resolve[ds]?|hotfix|patch(?:ed)?)\b",
+        cleaned,
+        re.IGNORECASE,
+    ))
 
 # Words in descriptions that *mention* the TODO system rather than *being* TODOs
 _TODO_META_KEYWORDS = [
@@ -108,6 +121,10 @@ _TODO_META_KEYWORDS = [
     "_PLACEHOLDER", "ALWAYS_PLACEHOLDER", "reject TODO", "strips TODO",
     "correctly rejected", "TODO/TBD", "TODO (always", "TODO from N/A",
     "scaffold", "substance check", "substance patch",
+    "TODO remnant", "COMMIT_PENDING", "CLAIM_TODO", "SUMMARY_TODO",
+    "CLASSIFIED_BY_TODO", "BLAST_RADIUS_TODO", "CLASS_A_TODO",
+    "TODO_PRESENT", "finding type", "quality issue",
+    "detects", "detection", "auto-fix", "auto-remediation",
 ]
 
 
@@ -274,7 +291,7 @@ class PacketAuditor:
         # 8. Fix claims without Class F
         if "### Class F" not in body and claims_match:
             claims_text = claims_match.group(1)
-            if _FIX_KEYWORDS_RE.search(claims_text):
+            if _is_bug_fix_claim(claims_text):
                 findings.append(AuditFinding(
                     packet_name=name,
                     finding_type="FIX_NO_CLASS_F",
