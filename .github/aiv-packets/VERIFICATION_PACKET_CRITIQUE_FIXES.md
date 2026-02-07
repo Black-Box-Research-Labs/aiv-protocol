@@ -1,6 +1,6 @@
 # AIV Verification Packet (v2.1) — Re-Audit Critique Remediation
 
-**Commit:** `pending` (test fix)
+**Commit:** `9955e75` (FILE_PACKET_MAP Class E)
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
 ---
