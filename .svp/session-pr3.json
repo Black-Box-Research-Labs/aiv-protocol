@@ -271,7 +271,8 @@
         "claim_id": "C-001",
         "scenario": "AUDIT CORRECTED: Original said exactly 5 Python files but actual is 7 (also has __init__.py and __main__.py). The packet claim listed 5 named files which do exist, but omitted the 2 standard Python package files. Corrected test: verify all 5 named files (models.py, github_api.py, canonical.py, manifest.py, runner.py) exist in src/aiv/guard/.",
         "checked": true,
-        "result": "confirmed"
+        "result": "confirmed",
+        "false_positive": true
       },
       {
         "claim_id": "C-002",
