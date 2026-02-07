@@ -628,26 +628,26 @@ The `aiv generate` command now exists (cli/main.py lines 200-646, 665 total line
 
 **Previous audit verdict: STRONGLY AGREE — the single most important architectural issue.**
 
-**Re-Audit verdict: ✅ SUBSTANTIALLY ADDRESSED.**
+**Re-Audit verdict: ✅ FULLY RESOLVED.**
 
-The Python guard module (`src/aiv/guard/`, 6 files, ~1,571 lines) now provides a full Python replacement:
+The Python guard module (`src/aiv/guard/`, 6 files, ~1,401 lines) is now the **sole** CI enforcement layer. The legacy JS guard has been deleted:
 
 | System | Language | Lines | Rule IDs | Shared Code |
 |--------|----------|-------|----------|-------------|
-| `src/aiv/lib/` | Python | ~2,100 | E001–E018 | Core pipeline |
-| `src/aiv/guard/` | Python | ~1,571 | CT-*, CLS-*, A-*, B-*, E-*, ATT-*, G-* | **Uses aiv-lib pipeline** |
-| `aiv-guard.yml` | JavaScript (inline) | 2,243 | Different set | None (preserved) |
-| `aiv-guard-python.yml` | Python workflow | 45 | Uses guard module | **Uses Python guard** |
+| `src/aiv/lib/` | Python | ~2,400 | E001–E022 | Core pipeline |
+| `src/aiv/guard/` | Python | ~1,401 | CT-*, CLS-*, A-*, B-*, E-*, ATT-*, G-* | **Uses aiv-lib pipeline** |
+| `aiv-guard-python.yml` | Python workflow | 44 | Uses guard module | **Uses Python guard** |
+| ~~`aiv-guard.yml`~~ | ~~JavaScript~~ | ~~2,244~~ | — | **DELETED** (commit `59167a1`) |
 
 Key improvements:
-- **GitHub API client built:** `guard/github_api.py` (196 lines) — fetches PR files, workflow runs, CI artifacts via `urllib` (no external deps).
-- **CI artifact inspection:** `runner.py:296-367` verifies Class A CI run URLs, checks head_sha match, inspects aiv-evidence artifacts.
-- **Packet Source resolution:** `runner.py:181-209` reads `Packet Source:` pointers from PR bodies.
-- **Canonical JSON validation:** `canonical.py` (522 lines) validates the structured `aiv-canonical-json` block.
-- **Python guard shares aiv-lib:** `runner.py:215` calls `ValidationPipeline` for markdown validation.
+- **GitHub API client built:** `guard/github_api.py` (164 lines) — fetches PR files, workflow runs, CI artifacts via `urllib` (no external deps).
+- **CI artifact inspection:** `runner.py:289-358` verifies Class A CI run URLs, checks head_sha match, inspects aiv-evidence artifacts.
+- **Packet Source resolution:** `runner.py:179-205` reads `Packet Source:` pointers from PR bodies.
+- **Canonical JSON validation:** `canonical.py` (467 lines) validates the structured `aiv-canonical-json` block.
+- **Python guard shares aiv-lib:** `runner.py:211` calls `ValidationPipeline` for markdown validation.
+- **JS guard deleted:** No more split-brain between two enforcement systems.
 
 **What remains:**
-- JS workflow is preserved unchanged (safe fallback during transition)
 - Python guard doesn't yet post PR comments (would need GitHub API write operations)
 - No `action.yml` or `Dockerfile` yet — runs as `python -m aiv.guard` within the workflow
 
@@ -659,10 +659,10 @@ Key improvements:
 
 **Previous audit verdict: PARTIALLY AGREE — naming conflict identified.**
 
-**Re-Audit verdict: ⚠️ PARTIALLY ADDRESSED.**
+**Re-Audit verdict: ⚠️ PARTIALLY ADDRESSED (improved).**
 
 Code verification update:
-- **Class D validators still trivial.** `evidence.py:_validate_differential()` (renamed from `_validate_state`) still only checks for database CLI keywords. No actual state diff validation.
+- **Class D validators significantly expanded.** `evidence.py:_validate_differential()` (renamed from `_validate_state`) checks for database CLI keywords (E018). 🆕 `_validate_differential_triggers()` (lines 230-327) now detects file-type triggers — `.sql`/migration files (E021 schema), `pyproject.toml`/`requirements.txt` (E021 dependency), `.proto`/`openapi.yaml` (E021 API), `Dockerfile`/`k8s/` (E021 infra). E022 checks that existing Class D evidence mentions the relevant keyword. This is a major improvement from "trivial" to "file-type-aware".
 - **Class F (Provenance) validators improved.** `evidence.py:_validate_provenance()` (renamed from `_validate_conservation`) now has **negative framing detection** — claims with "no tests modified" or "preserved" phrasing are recognized as valid without additional justification. Test modification claims without negative framing produce E011 warnings. Tested with 4 unit tests in `test_validators.py::TestProvenanceNegativeFraming`.
 - ✅ FIXED: **`classified_by` and `risk_tier` are now parsed.** The parser extracts `risk_tier` from the Classification YAML block. The pipeline enforces evidence requirements per tier.
 
