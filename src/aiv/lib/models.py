@@ -214,6 +214,23 @@ class Claim(BaseModel):
     )
 
 
+class RiskTier(str, Enum):
+    """Risk classification tiers per §5.1 of the AIV specification."""
+    R0 = "R0"  # Trivial: docs, comments, formatting only
+    R1 = "R1"  # Low: isolated logic, no critical surfaces
+    R2 = "R2"  # Medium: broad refactors, API changes, migrations
+    R3 = "R3"  # High: critical surfaces (auth, crypto, PII)
+
+    @classmethod
+    def from_string(cls, value: str) -> RiskTier:
+        """Parse risk tier from string like 'R0', 'R2', etc."""
+        upper = value.strip().upper()
+        try:
+            return cls(upper)
+        except ValueError:
+            raise ValueError(f"Unknown risk tier: {value!r}. Expected R0, R1, R2, or R3.")
+
+
 class IntentSection(BaseModel):
     """
     Section 0: Intent Alignment (Mandatory).
@@ -241,6 +258,14 @@ class VerificationPacket(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     version: str = Field(default="2.1", pattern=r"^\d+\.\d+$")
+    risk_tier: RiskTier | None = Field(
+        default=None,
+        description="Risk classification from ## Classification YAML block"
+    )
+    evidence_classes_present: set[EvidenceClass] = Field(
+        default_factory=set,
+        description="All evidence classes found in evidence sections, regardless of claim assignment"
+    )
     intent: IntentSection
     claims: list[Claim] = Field(min_length=1)
     raw_markdown: str = Field(description="Original markdown for reference")

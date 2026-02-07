@@ -22,6 +22,7 @@ from .models import (
     Claim,
     EvidenceClass,
     IntentSection,
+    RiskTier,
     VerificationPacket,
     ValidationFinding,
     Severity,
@@ -119,8 +120,21 @@ class PacketParser:
         # Enrich claims with evidence from ## Evidence subsections
         claims = self._enrich_claims_with_evidence(claims, sections)
 
+        # Collect all evidence classes present in evidence sections
+        evidence_classes_present = self._collect_evidence_classes(sections)
+        # Intent (Class E) is always present if we got here
+        evidence_classes_present.add(EvidenceClass.INTENT)
+        # Also include evidence classes from enriched claims
+        for claim in claims:
+            evidence_classes_present.add(claim.evidence_class)
+
+        # Parse classification (optional — may not be present in older packets)
+        risk_tier = self._parse_classification(sections)
+
         return VerificationPacket(
             version=version,
+            risk_tier=risk_tier,
+            evidence_classes_present=evidence_classes_present,
             intent=intent,
             claims=claims,
             raw_markdown=markdown_text,
@@ -175,6 +189,57 @@ class PacketParser:
                 if level is None or section.level == level:
                     return section
         return None
+
+    def _parse_classification(self, sections: list[ParsedSection]) -> RiskTier | None:
+        """
+        Parse risk_tier from ## Classification (required) YAML code block.
+
+        Expected format in packet:
+            ## Classification (required)
+            ```yaml
+            classification:
+              risk_tier: R2
+              ...
+            ```
+
+        Returns None if section or risk_tier not found (graceful degradation
+        for older packets without classification).
+        """
+        section = self._find_section(sections, "classification", level=2)
+        if not section:
+            return None
+
+        content = "\n".join(section.content)
+
+        # Extract risk_tier from YAML-like content (simple regex, avoids
+        # requiring PyYAML just for one field extraction).
+        tier_match = re.search(r"risk_tier:\s*(R[0-3])\b", content, re.IGNORECASE)
+        if not tier_match:
+            return None
+
+        try:
+            return RiskTier.from_string(tier_match.group(1))
+        except ValueError:
+            self.errors.append(ValidationFinding(
+                rule_id="E001",
+                severity=Severity.WARN,
+                message=f"Invalid risk_tier value: {tier_match.group(1)!r}",
+                location="## Classification",
+            ))
+            return None
+
+    def _collect_evidence_classes(self, sections: list[ParsedSection]) -> set[EvidenceClass]:
+        """Scan all ### Class X evidence sections and return the set of classes found."""
+        found: set[EvidenceClass] = set()
+        for s in sections:
+            if s.level == 3:
+                match = self.EVIDENCE_CLASS_PATTERN.search(s.title)
+                if match:
+                    try:
+                        found.add(EvidenceClass.from_string(match.group(1)))
+                    except ValueError:
+                        pass
+        return found
 
     def _parse_intent(self, sections: list[ParsedSection]) -> IntentSection | None:
         """

@@ -10,6 +10,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from ..models import (
+    EvidenceClass,
+    RiskTier,
     ValidationResult,
     ValidationStatus,
     ValidationFinding,
@@ -117,15 +119,19 @@ class ValidationPipeline:
         evidence_findings = self.evidence_validator.validate(ctx.packet)
         self._distribute_findings(evidence_findings, all_errors, all_warnings, all_info)
 
-        # Stage 5: Zero-Touch
+        # Stage 5: Risk-Tier Evidence Requirements
+        tier_findings = self._check_tier_requirements(ctx.packet)
+        self._distribute_findings(tier_findings, all_errors, all_warnings, all_info)
+
+        # Stage 6: Zero-Touch
         zero_touch_findings = self.zero_touch_validator.validate(ctx.packet)
         self._distribute_findings(zero_touch_findings, all_errors, all_warnings, all_info)
 
-        # Stage 6: Anti-Cheat (if diff provided)
+        # Stage 7: Anti-Cheat (if diff provided)
         if diff:
             ctx.anti_cheat_result = self.anti_cheat_scanner.scan_diff(diff)
 
-            # Stage 7: Cross-Reference
+            # Stage 8: Cross-Reference
             if ctx.anti_cheat_result.requires_justification:
                 unjustified = self.anti_cheat_scanner.check_justification(
                     ctx.anti_cheat_result,
@@ -162,6 +168,71 @@ class ValidationPipeline:
             warnings=all_warnings,
             info=all_info,
         )
+
+    # Evidence class requirements per risk tier (§6.1 of the specification).
+    # ✓ = required, ○ = optional (info if missing), blank = not applicable.
+    _TIER_REQUIRED: dict[RiskTier, set[EvidenceClass]] = {
+        RiskTier.R0: {EvidenceClass.EXECUTION, EvidenceClass.REFERENTIAL},
+        RiskTier.R1: {EvidenceClass.EXECUTION, EvidenceClass.REFERENTIAL, EvidenceClass.INTENT},
+        RiskTier.R2: {EvidenceClass.EXECUTION, EvidenceClass.REFERENTIAL, EvidenceClass.INTENT, EvidenceClass.NEGATIVE},
+        RiskTier.R3: {EvidenceClass.EXECUTION, EvidenceClass.REFERENTIAL, EvidenceClass.INTENT, EvidenceClass.NEGATIVE, EvidenceClass.STATE, EvidenceClass.CONSERVATION},
+    }
+    _TIER_OPTIONAL: dict[RiskTier, set[EvidenceClass]] = {
+        RiskTier.R0: set(),
+        RiskTier.R1: {EvidenceClass.NEGATIVE},
+        RiskTier.R2: {EvidenceClass.STATE, EvidenceClass.CONSERVATION},
+        RiskTier.R3: set(),
+    }
+
+    def _check_tier_requirements(
+        self, packet: VerificationPacket
+    ) -> list[ValidationFinding]:
+        """Enforce evidence class requirements based on risk tier."""
+        findings: list[ValidationFinding] = []
+
+        if packet.risk_tier is None:
+            # No classification section — warn but don't block
+            findings.append(ValidationFinding(
+                rule_id="E014",
+                severity=Severity.WARN,
+                message="Missing ## Classification section. Cannot enforce risk-tier evidence requirements.",
+                location="Packet-wide",
+                suggestion="Add a ## Classification (required) section with a risk_tier field.",
+            ))
+            return findings
+
+        tier = packet.risk_tier
+        present_classes = packet.evidence_classes_present
+
+        required = self._TIER_REQUIRED.get(tier, set())
+        optional = self._TIER_OPTIONAL.get(tier, set())
+
+        for ev_class in required:
+            if ev_class not in present_classes:
+                findings.append(ValidationFinding(
+                    rule_id="E014",
+                    severity=Severity.BLOCK,
+                    message=(
+                        f"Risk tier {tier.value} requires Class {ev_class.value} "
+                        f"({ev_class.name.title()}) evidence, but none was found."
+                    ),
+                    location="Packet-wide",
+                    suggestion=f"Add a claim or evidence section with Class {ev_class.value} evidence.",
+                ))
+
+        for ev_class in optional:
+            if ev_class not in present_classes:
+                findings.append(ValidationFinding(
+                    rule_id="E014",
+                    severity=Severity.INFO,
+                    message=(
+                        f"Risk tier {tier.value}: Class {ev_class.value} "
+                        f"({ev_class.name.title()}) evidence is recommended but not required."
+                    ),
+                    location="Packet-wide",
+                ))
+
+        return findings
 
     @staticmethod
     def _distribute_findings(

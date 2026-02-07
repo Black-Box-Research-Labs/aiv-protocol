@@ -9,7 +9,7 @@
 
 ```yaml
 classification:
-  risk_tier: R2
+  risk_tier: R1
   sod_mode: S0
   critical_surfaces: []
   blast_radius: component
