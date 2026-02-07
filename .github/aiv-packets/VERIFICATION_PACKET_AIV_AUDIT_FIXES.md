@@ -72,6 +72,7 @@ classification:
   - `src/aiv/svp/lib/__init__.py` — SVP lib subpackage (Rec #24)
   - `src/aiv/svp/lib/models.py` — SVP models relocated (Rec #24)
   - `src/aiv/svp/lib/validators/__init__.py` — SVP validators subpackage (Rec #24)
+  - `src/aiv/svp/lib/validators/session.py` — SVP session validator relocated (Rec #24)
 - Deleted:
   - `src/aiv/lib/analyzers/__init__.py` — Empty package removed (D12)
 
