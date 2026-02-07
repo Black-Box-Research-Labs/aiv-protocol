@@ -28,7 +28,6 @@ classifiers = [
 dependencies = [
     "pydantic>=2.0,<3.0",
     "pydantic-settings>=2.0,<3.0",
-    "mistune>=3.0,<4.0",
     "typer>=0.9,<1.0",
     "rich>=13.0,<14.0",
     "PyYAML>=6.0,<7.0",
