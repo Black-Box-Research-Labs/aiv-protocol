@@ -1,6 +1,6 @@
 # AIV Verification Packet (v2.1)
 
-**Commit:** `pending`  
+**Commit:** `7f1ec1c`  
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
 ---
@@ -28,7 +28,7 @@ classification:
 
 ### Class E (Intent Alignment)
 
-- **Link:** AUDIT_REPORT.md — §2.13: "typing.Pattern is deprecated since Python 3.9 in favor of re.Pattern."
+- **Link:** [AUDIT_REPORT.md — §2.13: "typing.Pattern is deprecated since Python 3.9 in favor of re.Pattern."](https://github.com/ImmortalDemonGod/aiv-protocol/blob/7f1ec1c/AUDIT_REPORT.md)
 - **Requirements Verified:**
   1. ✅ Deprecated import replaced
 
