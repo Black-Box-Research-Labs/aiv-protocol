@@ -6,9 +6,6 @@ URL validation and immutability checking (Addendum 2.2).
 
 from __future__ import annotations
 
-import re
-from urllib.parse import urlparse
-
 from ..models import (
     ArtifactLink,
     ValidationFinding,
@@ -93,45 +90,5 @@ class LinkValidator(BaseValidator):
                             "'Copy permalink' option in GitHub."
                         ),
                     ))
-
-        return errors
-
-    def validate_link_format(self, url: str) -> list[ValidationFinding]:
-        """
-        Validate a single URL format without network access.
-        """
-        errors: list[ValidationFinding] = []
-
-        try:
-            parsed = urlparse(url)
-
-            if not parsed.scheme:
-                errors.append(self._make_finding(
-                    rule_id="E009",
-                    severity="block",
-                    message="URL missing scheme (http/https)",
-                    suggestion="Ensure URL starts with https://",
-                ))
-
-            if parsed.scheme not in ("http", "https"):
-                errors.append(self._make_finding(
-                    rule_id="E009",
-                    severity="warn",
-                    message=f"Unusual URL scheme: {parsed.scheme}",
-                ))
-
-            if not parsed.netloc:
-                errors.append(self._make_finding(
-                    rule_id="E009",
-                    severity="block",
-                    message="URL missing domain",
-                ))
-
-        except Exception as e:
-            errors.append(self._make_finding(
-                rule_id="E009",
-                severity="block",
-                message=f"Invalid URL format: {e}",
-            ))
 
         return errors
