@@ -7,6 +7,7 @@ and GitHub Action support (aiv-guard) for enforcing the AIV Verification Protoco
 
 __version__ = "1.0.0"
 
+from aiv.lib.config import AIVConfig
 from aiv.lib.models import (
     ArtifactLink,
     Claim,
@@ -20,7 +21,6 @@ from aiv.lib.models import (
     VerificationPacket,
 )
 from aiv.lib.parser import PacketParser
-from aiv.lib.config import AIVConfig
 from aiv.lib.validators.pipeline import ValidationPipeline
 
 __all__ = [
