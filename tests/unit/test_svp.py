@@ -10,7 +10,7 @@ import pytest
 from datetime import datetime, timezone, timedelta
 from uuid import uuid4
 
-from svp.lib.models import (
+from aiv.svp.lib.models import (
     Complexity,
     Confidence,
     SVPPhase,
@@ -37,7 +37,7 @@ from svp.lib.models import (
     SVPValidationResult,
     RATING_POINTS,
 )
-from svp.lib.validators.session import validate_session
+from aiv.svp.lib.validators.session import validate_session
 
 
 # ------------------------------------------------------------------ #
