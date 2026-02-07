@@ -367,7 +367,3 @@ strict_mode: true
 | SLSA v1.0              | Build provenance, artifact integrity         |
 | ISO 27001 (A.14.2)     | Secure development, change control           |
 | NIST SSDF (PW.7, PW.8) | Code review, security testing               |
-
-## License
-
-[MIT](LICENSE)
