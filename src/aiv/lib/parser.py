@@ -172,6 +172,8 @@ class PacketParser:
             raw_markdown=markdown_text,
         )
 
+    _FENCE_PATTERN = re.compile(r"^(`{3,}|~{3,})")
+
     def _extract_sections(self, markdown_text: str) -> list[ParsedSection]:
         """Extract sections from markdown using heading detection."""
         sections: list[ParsedSection] = []
@@ -179,8 +181,31 @@ class PacketParser:
 
         current_section: ParsedSection | None = None
         current_content: list[str] = []
+        in_fence = False
+        fence_char = ""
+        fence_len = 0
 
         for i, line in enumerate(lines):
+            fence_match = self._FENCE_PATTERN.match(line)
+            if fence_match:
+                matched = fence_match.group(1)
+                if not in_fence:
+                    in_fence = True
+                    fence_char = matched[0]
+                    fence_len = len(matched)
+                else:
+                    stripped = line.strip()
+                    if stripped[0] == fence_char and len(stripped) >= fence_len and stripped == fence_char * len(stripped):
+                        in_fence = False
+                        fence_char = ""
+                        fence_len = 0
+                current_content.append(line)
+                continue
+
+            if in_fence:
+                current_content.append(line)
+                continue
+
             heading_match = self.HEADING_PATTERN.match(line)
             if heading_match:
                 # Save previous section
