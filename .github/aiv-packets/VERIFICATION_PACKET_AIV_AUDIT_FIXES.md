@@ -69,6 +69,7 @@ classification:
   - `src/aiv/svp/__init__.py` — SVP package under aiv namespace (Rec #24)
   - `src/aiv/svp/cli/__init__.py` — SVP CLI subpackage (Rec #24)
   - `src/aiv/svp/cli/main.py` — SVP CLI commands relocated (Rec #24)
+  - `src/aiv/svp/lib/__init__.py` — SVP lib subpackage (Rec #24)
 - Deleted:
   - `src/aiv/lib/analyzers/__init__.py` — Empty package removed (D12)
 
