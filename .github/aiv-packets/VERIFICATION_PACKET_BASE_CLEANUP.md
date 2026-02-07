@@ -1,6 +1,6 @@
 # AIV Verification Packet (v2.1)
 
-**Commit:** `pending`  
+**Commit:** `08ecfe4`  
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
 ---
@@ -28,7 +28,7 @@ classification:
 
 ### Class E (Intent Alignment)
 
-- **Link:** AUDIT_REPORT.md — Finding D10: "Protocol is unused — never checked with isinstance() anywhere."
+- **Link:** [AUDIT_REPORT.md — Finding D10: "Protocol is unused — never checked with isinstance() anywhere."](https://github.com/ImmortalDemonGod/aiv-protocol/blob/08ecfe4/AUDIT_REPORT.md)
 - **Requirements Verified:**
   1. ✅ Validator Protocol removed
   2. ✅ All concrete validators still inherit BaseValidator correctly
