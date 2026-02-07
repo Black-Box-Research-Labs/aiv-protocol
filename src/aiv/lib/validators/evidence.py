@@ -13,7 +13,6 @@ from ..models import (
     Claim,
     EvidenceClass,
     ValidationFinding,
-    Severity,
     VerificationPacket,
 )
 from .base import BaseValidator
@@ -37,16 +36,18 @@ class EvidenceValidator(BaseValidator):
 
         # Check for required Class F on bug fixes
         if self._is_bug_fix(packet) and not packet.has_provenance_evidence:
-            errors.append(self._make_finding(
-                rule_id="E010",
-                severity="block",
-                message="Bug fixes require Class F (Provenance) evidence",
-                location="Packet-wide",
-                suggestion=(
-                    "Add a claim showing that existing tests were preserved. "
-                    "Include a link to the test file diff and CI run."
-                ),
-            ))
+            errors.append(
+                self._make_finding(
+                    rule_id="E010",
+                    severity="block",
+                    message="Bug fixes require Class F (Provenance) evidence",
+                    location="Packet-wide",
+                    suggestion=(
+                        "Add a claim showing that existing tests were preserved. "
+                        "Include a link to the test file diff and CI run."
+                    ),
+                )
+            )
 
         return errors
 
@@ -87,41 +88,40 @@ class EvidenceValidator(BaseValidator):
             if claim.artifact.link_type not in ("github_actions", "external"):
                 # Not a CI link - warn but allow
                 if "performance" in claim.description.lower():
-                    errors.append(self._make_finding(
-                        rule_id="E013",
-                        severity="block",
-                        message="Performance claims require CI-based differential benchmarks",
-                        location=f"Section {claim.section_number}",
-                        suggestion=(
-                            "Link to a CI job that runs benchmarks on both "
-                            "main and feature branches"
-                        ),
-                    ))
+                    errors.append(
+                        self._make_finding(
+                            rule_id="E013",
+                            severity="block",
+                            message="Performance claims require CI-based differential benchmarks",
+                            location=f"Section {claim.section_number}",
+                            suggestion=("Link to a CI job that runs benchmarks on both main and feature branches"),
+                        )
+                    )
                 elif "ui" in claim.description.lower() or "visual" in claim.description.lower():
-                    errors.append(self._make_finding(
-                        rule_id="E012",
-                        severity="warn",
-                        message=(
-                            "UI evidence should show state transition "
-                            "(GIF/video preferred)"
-                        ),
-                        location=f"Section {claim.section_number}",
-                    ))
+                    errors.append(
+                        self._make_finding(
+                            rule_id="E012",
+                            severity="warn",
+                            message=("UI evidence should show state transition (GIF/video preferred)"),
+                            location=f"Section {claim.section_number}",
+                        )
+                    )
                 elif claim.artifact.link_type == "github_blob":
-                    errors.append(self._make_finding(
-                        rule_id="E020",
-                        severity="warn",
-                        message=(
-                            "Class A (Execution) evidence links to a code file, "
-                            "not a CI run. Execution evidence should prove "
-                            "the code was *run*, not just that it *exists*."
-                        ),
-                        location=f"Section {claim.section_number}",
-                        suggestion=(
-                            "Link to a GitHub Actions run "
-                            "(e.g. /actions/runs/12345) or external CI artifact."
-                        ),
-                    ))
+                    errors.append(
+                        self._make_finding(
+                            rule_id="E020",
+                            severity="warn",
+                            message=(
+                                "Class A (Execution) evidence links to a code file, "
+                                "not a CI run. Execution evidence should prove "
+                                "the code was *run*, not just that it *exists*."
+                            ),
+                            location=f"Section {claim.section_number}",
+                            suggestion=(
+                                "Link to a GitHub Actions run (e.g. /actions/runs/12345) or external CI artifact."
+                            ),
+                        )
+                    )
 
         return errors
 
@@ -137,25 +137,38 @@ class EvidenceValidator(BaseValidator):
 
         if isinstance(claim.artifact, ArtifactLink):
             if claim.artifact.link_type != "github_blob":
-                errors.append(self._make_finding(
-                    rule_id="E015",
-                    severity="warn",
-                    message="Class B evidence should link directly to code (GitHub blob)",
-                    location=f"Section {claim.section_number}",
-                ))
+                errors.append(
+                    self._make_finding(
+                        rule_id="E015",
+                        severity="warn",
+                        message="Class B evidence should link directly to code (GitHub blob)",
+                        location=f"Section {claim.section_number}",
+                    )
+                )
         elif isinstance(claim.artifact, str):
             # Check if it looks like a file reference or scope inventory
             file_ref_keywords = [
-                "line", "file", "path", "created", "modified", "deleted",
-                "scope", "inventory", "added", "removed", "changed",
+                "line",
+                "file",
+                "path",
+                "created",
+                "modified",
+                "deleted",
+                "scope",
+                "inventory",
+                "added",
+                "removed",
+                "changed",
             ]
             if not any(x in claim.artifact.lower() for x in file_ref_keywords):
-                errors.append(self._make_finding(
-                    rule_id="E016",
-                    severity="warn",
-                    message="Class B evidence should reference specific file locations",
-                    location=f"Section {claim.section_number}",
-                ))
+                errors.append(
+                    self._make_finding(
+                        rule_id="E016",
+                        severity="warn",
+                        message="Class B evidence should reference specific file locations",
+                        location=f"Section {claim.section_number}",
+                    )
+                )
 
         return errors
 
@@ -174,13 +187,15 @@ class EvidenceValidator(BaseValidator):
         has_negative_framing = any(kw in claim.description.lower() for kw in negative_keywords)
 
         if not has_negative_framing:
-            errors.append(self._make_finding(
-                rule_id="E017",
-                severity="warn",
-                message="Class C evidence should clearly state what is NOT present",
-                location=f"Section {claim.section_number}",
-                suggestion="Frame claim as 'Does not contain X' or 'Absence of Y'",
-            ))
+            errors.append(
+                self._make_finding(
+                    rule_id="E017",
+                    severity="warn",
+                    message="Class C evidence should clearly state what is NOT present",
+                    location=f"Section {claim.section_number}",
+                    suggestion="Frame claim as 'Does not contain X' or 'Absence of Y'",
+                )
+            )
 
         return errors
 
@@ -200,16 +215,18 @@ class EvidenceValidator(BaseValidator):
         repro_lower = claim.reproduction.lower()
 
         if any(kw in repro_lower for kw in manual_state_keywords):
-            errors.append(self._make_finding(
-                rule_id="E018",
-                severity="block",
-                message="Class D evidence must not require manual database queries",
-                location=f"Section {claim.section_number}",
-                suggestion=(
-                    "Generate state evidence as a CI artifact. "
-                    "Example: Script that dumps relevant state to JSON file."
-                ),
-            ))
+            errors.append(
+                self._make_finding(
+                    rule_id="E018",
+                    severity="block",
+                    message="Class D evidence must not require manual database queries",
+                    location=f"Section {claim.section_number}",
+                    suggestion=(
+                        "Generate state evidence as a CI artifact. "
+                        "Example: Script that dumps relevant state to JSON file."
+                    ),
+                )
+            )
 
         return errors
 
@@ -227,12 +244,14 @@ class EvidenceValidator(BaseValidator):
         # This handles additional Class E claims if any
         if isinstance(claim.artifact, ArtifactLink):
             if not claim.artifact.is_immutable:
-                errors.append(self._make_finding(
-                    rule_id="E004",
-                    severity="block",
-                    message="Class E links must be SHA-pinned (immutable)",
-                    location=f"Section {claim.section_number}",
-                ))
+                errors.append(
+                    self._make_finding(
+                        rule_id="E004",
+                        severity="block",
+                        message="Class E links must be SHA-pinned (immutable)",
+                        location=f"Section {claim.section_number}",
+                    )
+                )
 
         return errors
 
@@ -257,13 +276,15 @@ class EvidenceValidator(BaseValidator):
         has_negative_framing = any(kw in claim.description.lower() for kw in negative_keywords)
 
         if is_test_related and not has_negative_framing and not claim.justification:
-            errors.append(self._make_finding(
-                rule_id="E011",
-                severity="warn",
-                message="Class F claims about test modifications should include justification",
-                location=f"Section {claim.section_number}",
-                suggestion="Add **Justification:** explaining why test changes are valid",
-            ))
+            errors.append(
+                self._make_finding(
+                    rule_id="E011",
+                    severity="warn",
+                    message="Class F claims about test modifications should include justification",
+                    location=f"Section {claim.section_number}",
+                    suggestion="Add **Justification:** explaining why test changes are valid",
+                )
+            )
 
         return errors
 
