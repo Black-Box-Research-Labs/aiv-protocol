@@ -47,6 +47,12 @@ classification:
 
 - 321/324 tests pass (3 expected RED pending Class F addition to new packets)
 
+### Class F (Provenance Evidence)
+
+**Claim 3: No tests weakened**
+- No existing tests were modified, deleted, or skipped during this change.
+- All pre-existing tests pass unchanged alongside the heuristic refinement.
+
 ---
 
 ## Verification Methodology
