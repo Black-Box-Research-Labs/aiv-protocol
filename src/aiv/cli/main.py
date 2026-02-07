@@ -15,13 +15,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from aiv.lib.models import ValidationStatus, ValidationFinding, Severity
-from aiv.lib.parser import PacketParser
-from aiv.lib.validators.structure import StructureValidator
-from aiv.lib.validators.evidence import EvidenceValidator
-from aiv.lib.validators.links import LinkValidator
-from aiv.lib.validators.zero_touch import ZeroTouchValidator
-from aiv.lib.validators.anti_cheat import AntiCheatScanner
+from aiv.lib.models import ValidationStatus, ValidationFinding
 from aiv.lib.validators.pipeline import ValidationPipeline
 from aiv.lib.config import AIVConfig
 
@@ -127,7 +121,6 @@ def init(
 
     Creates:
     - .aiv.yml configuration file
-    - Verification packet template
     """
     aiv_yml = path / ".aiv.yml"
     if aiv_yml.exists():
