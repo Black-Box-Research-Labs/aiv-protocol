@@ -17,62 +17,68 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from ..lib.validators.pipeline import ValidationPipeline
 from ..lib.config import AIVConfig
+from ..lib.validators.pipeline import ValidationPipeline
+from .canonical import REQUIRED_CLASSES, validate_canonical
+from .github_api import ChangedFile, GitHubAPI
 from .models import (
+    GITHUB_ACTIONS_RUN,
+    EvidenceClassResult,
     GuardContext,
     GuardResult,
     GuardSeverity,
-    EvidenceClassResult,
     OverallResult,
-    GITHUB_ACTIONS_RUN,
 )
-from .github_api import GitHubAPI, ChangedFile
-from .canonical import validate_canonical, REQUIRED_CLASSES
-
 
 # ------------------------------------------------------------------ #
 # Critical-surface detection (ported from JS guard)
 # ------------------------------------------------------------------ #
 _CS_PATH: list[tuple[str, re.Pattern[str]]] = [
-    ("Authentication", re.compile(
-        r"(^|/)(auth|authentication|login|session|token|oauth|sso)(/|$)", re.I)),
-    ("Authorization", re.compile(
-        r"(^|/)(authz|authorization|rbac|acl|permission|permissions|policy|policies)(/|$)", re.I)),
-    ("Secrets Management", re.compile(
-        r"(^|/)(secret|secrets|vault|apikey|api_key|credential|credentials|password|\.env)(/|$)", re.I)),
-    ("Cryptography", re.compile(
-        r"(^|/)(crypto|cryptography|encrypt|encryption|cipher|signature|signing|hash)(/|$)", re.I)),
-    ("Privilege Boundaries", re.compile(
-        r"(^|/)(sandbox|privilege|capability|capabilities|setuid|docker|container)(/|$)", re.I)),
-    ("Audit/Logging", re.compile(
-        r"(^|/)(audit|audit[-_]?log|audittrail|security[-_]?log|event[-_]?log|ledger)(/|$)", re.I)),
-    ("PII Handling", re.compile(
-        r"(^|/)(pii|privacy|gdpr|redact|sanitiz)(/|$)", re.I)),
+    ("Authentication", re.compile(r"(^|/)(auth|authentication|login|session|token|oauth|sso)(/|$)", re.I)),
+    (
+        "Authorization",
+        re.compile(r"(^|/)(authz|authorization|rbac|acl|permission|permissions|policy|policies)(/|$)", re.I),
+    ),
+    (
+        "Secrets Management",
+        re.compile(r"(^|/)(secret|secrets|vault|apikey|api_key|credential|credentials|password|\.env)(/|$)", re.I),
+    ),
+    (
+        "Cryptography",
+        re.compile(r"(^|/)(crypto|cryptography|encrypt|encryption|cipher|signature|signing|hash)(/|$)", re.I),
+    ),
+    (
+        "Privilege Boundaries",
+        re.compile(r"(^|/)(sandbox|privilege|capability|capabilities|setuid|docker|container)(/|$)", re.I),
+    ),
+    (
+        "Audit/Logging",
+        re.compile(r"(^|/)(audit|audit[-_]?log|audittrail|security[-_]?log|event[-_]?log|ledger)(/|$)", re.I),
+    ),
+    ("PII Handling", re.compile(r"(^|/)(pii|privacy|gdpr|redact|sanitiz)(/|$)", re.I)),
 ]
 
 _CS_SEMANTIC: list[tuple[str, re.Pattern[str]]] = [
-    ("Authentication", re.compile(
-        r"\b(timingSafeEqual|verify[_-]?token|tokenMatches|HEALTHCHECK_TOKEN|AUDIT_LINK_SECRET)\b", re.I)),
-    ("Authorization", re.compile(
-        r"\b(rbac|acl|permission|permissions|policy|access[_-]?control)\b", re.I)),
-    ("Secrets Management", re.compile(
-        r"\bprocess\.env\.[A-Z0-9_]*(SECRET|TOKEN|KEY)\b", re.I)),
-    ("Cryptography", re.compile(
-        r"\b(createHmac|HMAC[_-]?SHA256|sha256|sha512|crypto\.|gpg|clearsign)\b", re.I)),
-    ("Privilege Boundaries", re.compile(
-        r"\b(no-new-privileges|cap_drop|--security-opt|network_mode\s*:\s*[\"']none[\"'])\b", re.I)),
-    ("Audit/Logging", re.compile(
-        r"\b(audit[_-]?log|analysis_ledger|destruction_ledger|hash[-_ ]chained)\b", re.I)),
-    ("PII Handling", re.compile(
-        r"\b(PII|email|ip address|redact|redaction|sanitize|anonymiz)\b", re.I)),
+    (
+        "Authentication",
+        re.compile(r"\b(timingSafeEqual|verify[_-]?token|tokenMatches|HEALTHCHECK_TOKEN|AUDIT_LINK_SECRET)\b", re.I),
+    ),
+    ("Authorization", re.compile(r"\b(rbac|acl|permission|permissions|policy|access[_-]?control)\b", re.I)),
+    ("Secrets Management", re.compile(r"\bprocess\.env\.[A-Z0-9_]*(SECRET|TOKEN|KEY)\b", re.I)),
+    ("Cryptography", re.compile(r"\b(createHmac|HMAC[_-]?SHA256|sha256|sha512|crypto\.|gpg|clearsign)\b", re.I)),
+    (
+        "Privilege Boundaries",
+        re.compile(r"\b(no-new-privileges|cap_drop|--security-opt|network_mode\s*:\s*[\"']none[\"'])\b", re.I),
+    ),
+    ("Audit/Logging", re.compile(r"\b(audit[_-]?log|analysis_ledger|destruction_ledger|hash[-_ ]chained)\b", re.I)),
+    ("PII Handling", re.compile(r"\b(PII|email|ip address|redact|redaction|sanitize|anonymiz)\b", re.I)),
 ]
-
 
 
 # ------------------------------------------------------------------ #
 # Public entry point
 # ------------------------------------------------------------------ #
+
 
 class GuardRunner:
     """Orchestrates the full AIV Guard validation."""
@@ -87,9 +93,7 @@ class GuardRunner:
         self.api = api or GitHubAPI()
         self.config = config or AIVConfig()
         # Compile fast-track patterns from config (single source of truth)
-        self._fast_track_patterns = [
-            re.compile(p) for p in self.config.fast_track_patterns
-        ]
+        self._fast_track_patterns = [re.compile(p) for p in self.config.fast_track_patterns]
         self.result = GuardResult(
             repository=ctx.full_repo,
             pr_id=ctx.pr_number,
@@ -129,9 +133,7 @@ class GuardRunner:
             return self.result
 
         # 2. Check for canonical JSON block
-        canonical_match = re.search(
-            r"```aiv-canonical-json\s*([\s\S]*?)```", packet_content
-        )
+        canonical_match = re.search(r"```aiv-canonical-json\s*([\s\S]*?)```", packet_content)
         self.result.canonical_enabled = canonical_match is not None
 
         # 3. Markdown-only validation (using aiv-lib pipeline)
@@ -151,16 +153,12 @@ class GuardRunner:
         try:
             canonical_packet = json.loads(canonical_match.group(1))
         except json.JSONDecodeError:
-            self.result.add_block(
-                "CT-001", "Canonical packet block is not valid JSON."
-            )
+            self.result.add_block("CT-001", "Canonical packet block is not valid JSON.")
             self.result.finalize()
             return self.result
 
         # 6. Canonical validation
-        validate_canonical(
-            canonical_packet, self.ctx, self.result, self._changed_paths()
-        )
+        validate_canonical(canonical_packet, self.ctx, self.result, self._changed_paths())
 
         risk_tier = self.result.risk_tier_validated
 
@@ -201,9 +199,7 @@ class GuardRunner:
             if resolved.exists():
                 packet_content = resolved.read_text(encoding="utf-8")
             else:
-                self.result.add_block(
-                    "CT-001", f"Failed to read packet source at {file_path}"
-                )
+                self.result.add_block("CT-001", f"Failed to read packet source at {file_path}")
                 return None
 
         return packet_content
@@ -251,9 +247,7 @@ class GuardRunner:
 
     # -- critical surfaces ----------------------------------------- #
 
-    def _check_critical_surfaces(
-        self, packet: dict[str, Any], risk_tier: str
-    ) -> None:
+    def _check_critical_surfaces(self, packet: dict[str, Any], risk_tier: str) -> None:
         """Detect critical surfaces in changed files."""
         hits: set[str] = set()
 
@@ -270,8 +264,7 @@ class GuardRunner:
         if hits and risk_tier != "R3":
             self.result.add_block(
                 "CLS-002",
-                f"Change touches critical surfaces ({', '.join(sorted(hits))}); "
-                f"risk_tier MUST be R3.",
+                f"Change touches critical surfaces ({', '.join(sorted(hits))}); risk_tier MUST be R3.",
             )
             return
 
@@ -293,9 +286,7 @@ class GuardRunner:
 
     # -- CI artifact inspection ------------------------------------ #
 
-    def _inspect_class_a_run(
-        self, packet: dict[str, Any], risk_tier: str
-    ) -> None:
+    def _inspect_class_a_run(self, packet: dict[str, Any], risk_tier: str) -> None:
         """Verify Class A CI run reference and inspect artifacts."""
         evidence_items = packet.get("evidence_items", [])
         class_a = [e for e in evidence_items if isinstance(e, dict) and e.get("class") == "A"]
@@ -368,19 +359,14 @@ class GuardRunner:
 
     # -- evidence class results ------------------------------------ #
 
-    def _build_evidence_class_results(
-        self, packet: dict[str, Any], risk_tier: str
-    ) -> None:
+    def _build_evidence_class_results(self, packet: dict[str, Any], risk_tier: str) -> None:
         """Build the evidence_class_results array."""
         evidence_items = packet.get("evidence_items", [])
         required = REQUIRED_CLASSES.get(risk_tier, [])
         all_classes = ["A", "B", "C", "D", "E", "F"]
 
         for cls in all_classes:
-            present = any(
-                isinstance(e, dict) and e.get("class") == cls
-                for e in evidence_items
-            )
+            present = any(isinstance(e, dict) and e.get("class") == cls for e in evidence_items)
             is_required = cls in required
             self.result.evidence_class_results.append(
                 EvidenceClassResult(
@@ -395,6 +381,7 @@ class GuardRunner:
 # ------------------------------------------------------------------ #
 # CLI entry point
 # ------------------------------------------------------------------ #
+
 
 def main() -> None:
     """Entry point for ``python -m aiv.guard``."""
