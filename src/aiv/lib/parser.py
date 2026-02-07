@@ -122,7 +122,22 @@ class PacketParser:
         if not header_match:
             raise PacketParseError("Missing packet header. Expected '# AIV Verification Packet'")
 
-        version = header_match.group(1) or "2.1"
+        version = header_match.group(1)
+        if not version:
+            version = "2.1"
+            errors.append(
+                ValidationFinding(
+                    rule_id="E001",
+                    severity=Severity.INFO,
+                    message=(
+                        "Packet header lacks explicit version "
+                        "(e.g. '# AIV Verification Packet (v2.1)'). "
+                        "Defaulting to v2.1."
+                    ),
+                    location="Header",
+                    suggestion="Add the version to the header: # AIV Verification Packet (v2.1)",
+                )
+            )
 
         # Parse into sections
         sections = self._extract_sections(markdown_text)
@@ -386,8 +401,8 @@ class PacketParser:
                 # Strip markdown bold if present
                 description = re.sub(r"\*\*(.+?)\*\*", r"\1", description)
 
-                # Skip if description is too short
-                if len(description) < 10:
+                # Skip if description is too short (unified with structure.py threshold)
+                if len(description) < 15:
                     errors.append(
                         ValidationFinding(
                             rule_id="E005",
@@ -476,10 +491,10 @@ class PacketParser:
 
         # Extract reproduction from ## Verification Methodology section.
         # If absent, default to "N/A" (zero-touch compliant).
+        # If present but empty/whitespace, leave as "" so structure validator can flag it.
         methodology = self._find_section(sections, "verification methodology", level=2)
         if methodology:
-            methodology_text = "\n".join(methodology.content).strip()
-            reproduction = methodology_text if methodology_text else "N/A"
+            reproduction = "\n".join(methodology.content).strip()
         else:
             reproduction = "N/A"
 
