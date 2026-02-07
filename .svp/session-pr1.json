@@ -259,7 +259,8 @@
         "claim_id": "C-001",
         "scenario": "AUDIT CORRECTED: Original said 12 models, actual is 13 (missed FrictionScore). Also 4 of 13 are Enums not BaseModels. Corrected test: import all 13 named classes from aiv.lib.models and verify the 9 BaseModel subclasses have frozen=True",
         "checked": true,
-        "result": "confirmed"
+        "result": "confirmed",
+        "false_positive": true
       },
       {
         "claim_id": "C-002",
@@ -277,13 +278,15 @@
         "claim_id": "C-004",
         "scenario": "AUDIT CORRECTED: Original referenced hallucinated sanitize_shell_input function which does not exist. Claim 4 mentions guard sanitization but no such function exists in the codebase. Scenario cannot be executed as written \u2014 the prediction was wrong.",
         "checked": true,
-        "result": "inconclusive"
+        "result": "inconclusive",
+        "false_positive": true
       },
       {
         "claim_id": "C-005",
         "scenario": "AUDIT CORRECTED: Original referenced hallucinated DiffAnalyzer class which does not exist. Actual implementation is AntiCheatScanner.scan_diff. Corrected test: call AntiCheatScanner.scan_diff with a diff containing auth.py changes and verify findings are produced for test files only.",
         "checked": true,
-        "result": "confirmed"
+        "result": "confirmed",
+        "false_positive": true
       },
       {
         "claim_id": "C-006",
@@ -295,7 +298,8 @@
         "claim_id": "C-007",
         "scenario": "AUDIT CORRECTED: Original said exactly 36 tests but current suite has 371. The claim was about the original commit. Corrected test: run pytest tests/unit/test_models.py tests/unit/test_parser.py tests/unit/test_pipeline.py --collect-only and verify the original test files exist with > 0 tests.",
         "checked": true,
-        "result": "confirmed"
+        "result": "confirmed",
+        "false_positive": true
       }
     ],
     "overall_assessment": "FINDINGS: (1) Parser does not handle ## headings inside fenced code blocks - _extract_sections matches HEADING_PATTERN on every line unconditionally. A verification packet containing a code block with '## Example' would be mis-parsed. (2) E020 rule_id collision: pipeline.py line 229 uses E020 for optional evidence info, evidence.py also uses E020 for Class A code blob warnings. Two different rules share an ID. (3) Pipeline docstring claims 7 stages but code implements 8 (cross-reference is separate from anti-cheat scan). (4) AntiCheatScanner only checks test files - production code assertion deletions are invisible. (5) CLI stdin requires explicit '-' argument - piping without it silently fails. No AI tells detected in model definitions or validator logic. The dispatch pattern in EvidenceValidator._validate_claim_evidence is clean and extensible.",
