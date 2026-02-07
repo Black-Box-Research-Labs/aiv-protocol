@@ -587,11 +587,12 @@ An independent gap analysis was performed comparing the canonical specifications
 **Re-Audit verdict: ✅ NOW IMPLEMENTED.**
 
 The SVP Protocol Suite has been fully implemented, now relocated under `src/aiv/svp/` (Rec #24):
-- `src/aiv/svp/lib/models.py` — All Pydantic models: phases 0-4, `SVPSession`, `VerifierRating`, validation result types.
-- `src/aiv/svp/lib/validators/session.py` — Session validation rules S001-S013.
-- `src/aiv/svp/cli/main.py` — CLI commands: `svp status`, `svp predict`, `svp trace`, `svp probe`, `svp validate`.
+- `src/aiv/svp/lib/models.py` (511 lines) — All Pydantic models: phases 0-4, `SVPSession`, `VerifierRating`, `RatingEvent`, `BugReport`, validation result types. `SessionType` distinguishes human vs AI.
+- `src/aiv/svp/lib/validators/session.py` (327 lines) — Session validation rules S001-S016. AI-specific rules: S015 (verified_output required), S016 (test_code on falsification scenarios).
+- `src/aiv/svp/lib/rating.py` (162 lines) — ELO rating engine with tier transitions and point calculations.
+- `src/aiv/svp/cli/main.py` (413 lines) — CLI commands: `svp status`, `svp predict`, `svp trace`, `svp probe`, `svp ownership`, `svp validate`. Probe supports `--falsify-claim`/`--falsify-scenario` and resume/merge.
 - Integrated into main `aiv` CLI via `from aiv.svp.cli.main import svp_app`.
-- 43 unit tests in `tests/unit/test_svp.py` — all passing.
+- Tests: `test_svp.py` (753 lines), `test_svp_full_workflow.py` (561 lines) — all passing.
 
 **What remains:** SVP is a first implementation per the spec. Advanced features like ELO rating persistence, mastery tracking database, and CI gate integration are not yet built — the models exist but there's no storage/API layer.
 
