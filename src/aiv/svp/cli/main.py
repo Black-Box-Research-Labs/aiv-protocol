@@ -2,7 +2,7 @@
 aiv/svp/cli/main.py
 
 SVP CLI commands integrated into the main ``aiv`` CLI via Typer.
-Provides: svp status, svp predict, svp trace, svp probe.
+Provides: svp status, svp predict, svp trace, svp probe, svp ownership, svp validate.
 """
 
 from __future__ import annotations
@@ -98,7 +98,7 @@ def status(
         ("Phase 4 — Ownership", result.phase_4_complete),
     ]
     for name, done in phases:
-        mark = "✅" if done else "❌"
+        mark = "[PASS]" if done else "[FAIL]"
         typer.echo(f"  {mark} {name}")
 
     if result.errors:
@@ -152,7 +152,7 @@ def predict(
 
     session.prediction = pred
     _save_session(session)
-    typer.echo(f"✅ Prediction recorded for PR #{pr}")
+    typer.echo(f"[OK] Prediction recorded for PR #{pr}")
     typer.echo(f"   Approach: {approach[:80]}...")
     typer.echo(f"   Complexity: {cx.value}")
     typer.echo(f"   Edge cases: {len(edge_cases)}")
@@ -198,7 +198,7 @@ def trace(
 
     session.traces.append(tr)
     _save_session(session)
-    typer.echo(f"✅ Trace recorded for {function}")
+    typer.echo(f"[OK] Trace recorded for {function}")
     typer.echo(f"   Edge case: {edge_case[:60]}")
     typer.echo(f"   Confidence: {conf.value}")
     typer.echo(f"   Total traces: {len(session.traces)}")
@@ -216,10 +216,17 @@ def probe(
     assessment: str = typer.Option(..., help="Overall assessment (≥20 chars)"),
     why_question: str = typer.Option(..., help="A 'Why?' question (≥10 chars)"),
     why_context: str = typer.Option("", help="Context for the Why question"),
-    falsify_claim: str = typer.Option("", help="Claim ID for falsification scenario (e.g. C-001)"),
-    falsify_scenario: str = typer.Option("", help="Evidence that would prove the claim false (≥25 chars)"),
+    falsify_claim: list[str] = typer.Option([], help="Claim ID for falsification scenario (repeatable)"),
+    falsify_scenario: list[str] = typer.Option([], help="Falsification evidence, paired with --falsify-claim (repeatable)"),
 ) -> None:
-    """Submit an Adversarial Probe checklist (Phase 3)."""
+    """Submit an Adversarial Probe checklist (Phase 3).
+
+    Supports multiple falsification scenarios via repeated options:
+        --falsify-claim C-001 --falsify-scenario "If X then false"
+        --falsify-claim C-002 --falsify-scenario "If Y then false"
+
+    If a probe already exists, new scenarios are merged into it.
+    """
     session = _load_session(pr)
     if session is None:
         session = SVPSession(
@@ -229,34 +236,109 @@ def probe(
             aiv_guard_passed=True,
         )
 
-    scenarios: list[FalsificationScenario] = []
-    if falsify_claim and falsify_scenario:
-        scenarios.append(FalsificationScenario(
-            claim_id=falsify_claim,
-            scenario=falsify_scenario,
-        ))
+    # Build new scenarios from paired --falsify-claim / --falsify-scenario
+    new_scenarios: list[FalsificationScenario] = []
+    for claim_id, scenario_text in zip(falsify_claim, falsify_scenario):
+        if claim_id and scenario_text:
+            new_scenarios.append(FalsificationScenario(
+                claim_id=claim_id,
+                scenario=scenario_text,
+            ))
 
-    pr_record = ProbeRecord(
-        pr_number=pr,
-        repository=repo,
-        verifier_id=verifier,
-        happy_path_bias_checked=True,
-        context_amnesia_checked=True,
-        fragile_assertions_checked=True,
-        why_questions=[WhyQuestion(
-            question=why_question,
-            context=why_context or "Prompted by code review",
-        )],
-        falsification_scenarios=scenarios,
-        overall_assessment=assessment,
-    )
+    # Merge into existing probe if one exists (resume support)
+    if session.probe is not None:
+        existing_scenarios = list(session.probe.falsification_scenarios)
+        existing_claim_ids = {s.claim_id for s in existing_scenarios}
+        for s in new_scenarios:
+            if s.claim_id not in existing_claim_ids:
+                existing_scenarios.append(s)
+                existing_claim_ids.add(s.claim_id)
+        pr_record = session.probe.model_copy(update={
+            "falsification_scenarios": existing_scenarios,
+            "overall_assessment": assessment or session.probe.overall_assessment,
+        })
+    else:
+        pr_record = ProbeRecord(
+            pr_number=pr,
+            repository=repo,
+            verifier_id=verifier,
+            happy_path_bias_checked=True,
+            context_amnesia_checked=True,
+            fragile_assertions_checked=True,
+            why_questions=[WhyQuestion(
+                question=why_question,
+                context=why_context or "Prompted by code review",
+            )],
+            falsification_scenarios=new_scenarios,
+            overall_assessment=assessment,
+        )
 
     session.probe = pr_record
     _save_session(session)
-    typer.echo(f"✅ Adversarial probe recorded for PR #{pr}")
+    total = len(pr_record.falsification_scenarios)
+    typer.echo(f"[OK] Adversarial probe recorded for PR #{pr}")
     typer.echo(f"   Checklist: complete")
-    typer.echo(f"   Why questions: 1")
-    typer.echo(f"   Falsification scenarios: {len(scenarios)}")
+    typer.echo(f"   Why questions: {len(pr_record.why_questions)}")
+    typer.echo(f"   Falsification scenarios: {total}")
+
+
+# ------------------------------------------------------------------ #
+# svp ownership
+# ------------------------------------------------------------------ #
+
+@svp_app.command()
+def ownership(
+    pr: int = typer.Argument(..., help="PR number"),
+    repo: str = typer.Option("owner/repo", help="Repository"),
+    verifier: str = typer.Option(..., help="Verifier GitHub ID"),
+    commit_sha: str = typer.Option(..., help="Ownership commit SHA"),
+    message: str = typer.Option(..., help="Commit message (should start with 'ownership:')"),
+    rename_file: str = typer.Option("", help="File path of rename"),
+    rename_from: str = typer.Option("", help="Original name"),
+    rename_to: str = typer.Option("", help="New name"),
+    rename_type: str = typer.Option("function", help="Change type: variable/function/class/parameter"),
+    rename_reason: str = typer.Option("", help="Justification for rename (≥10 chars)"),
+) -> None:
+    """Record an Ownership Lock commit (Phase 4).
+
+    The verifier must push a commit with semantic renames or docstrings
+    to prove cognitive ownership of the code.
+    """
+    session = _load_session(pr)
+    if session is None:
+        session = SVPSession(
+            pr_number=pr,
+            repository=repo,
+            verifier_id=verifier,
+            aiv_guard_passed=True,
+        )
+
+    renames: list[RenameChange] = []
+    if rename_file and rename_from and rename_to and rename_reason:
+        renames.append(RenameChange(
+            file_path=rename_file,
+            original_name=rename_from,
+            new_name=rename_to,
+            change_type=rename_type,
+            justification=rename_reason,
+        ))
+
+    oc = OwnershipCommit(
+        pr_number=pr,
+        repository=repo,
+        commit_sha=commit_sha,
+        author_github_id=verifier,
+        commit_message=message,
+        committed_at=datetime.now(timezone.utc),
+        renames=renames,
+    )
+
+    session.ownership_commit = oc
+    _save_session(session)
+    typer.echo(f"[OK] Ownership commit recorded for PR #{pr}")
+    typer.echo(f"   SHA: {commit_sha[:12]}")
+    typer.echo(f"   Renames: {len(renames)}")
+    typer.echo(f"   Message: {message[:60]}")
 
 
 # ------------------------------------------------------------------ #

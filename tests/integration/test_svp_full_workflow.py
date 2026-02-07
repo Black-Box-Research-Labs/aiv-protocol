@@ -286,27 +286,18 @@ class TestSVPFullWorkflow:
             "--falsify-scenario", "If test_verify_token_expired returns 200 OK instead of 401, the expiry claim is falsified.",
         )
 
-        # Phase 4: Inject ownership commit directly into session JSON
-        session_data = self._load_session()
-        session_data["ownership_commit"] = {
-            "pr_number": 42,
-            "repository": "test-org/test-repo",
-            "commit_sha": "a" * 40,
-            "author_github_id": "alice",
-            "commit_message": "ownership: clarify verify_token naming and add docstring",
-            "committed_at": "2026-02-07T03:30:00Z",
-            "renames": [{
-                "file_path": "src/auth.py",
-                "original_name": "check_tok",
-                "new_name": "verify_token_expiry",
-                "change_type": "function",
-                "justification": "Clarifies that this function specifically checks token expiry",
-            }],
-            "docstrings": [],
-            "verified_at": "2026-02-07T03:30:00Z",
-        }
-        self._session_path().write_text(
-            json.dumps(session_data, indent=2), encoding="utf-8"
+        # Phase 4: Ownership via CLI
+        self._run(
+            "ownership", "42",
+            "--repo", "test-org/test-repo",
+            "--verifier", "alice",
+            "--commit-sha", "a" * 40,
+            "--message", "ownership: clarify verify_token naming and add docstring",
+            "--rename-file", "src/auth.py",
+            "--rename-from", "check_tok",
+            "--rename-to", "verify_token_expiry",
+            "--rename-type", "function",
+            "--rename-reason", "Clarifies that this function specifically checks token expiry",
         )
 
         # Validate: should pass
@@ -322,6 +313,124 @@ class TestSVPFullWorkflow:
             f"Complete session should have 0 errors, got:\n"
             + "\n".join(f"  [{e['rule_id']}] {e['message']}" for e in output["errors"])
         )
+
+    # ------------------------------------------------------------------ #
+    # Ownership command
+    # ------------------------------------------------------------------ #
+
+    def test_ownership_records_commit(self):
+        """SVP-E2E-10: svp ownership records ownership commit with rename."""
+        self._run(
+            "predict", "42",
+            "--repo", "test-org/test-repo",
+            "--verifier", "alice",
+            "--test-file", "tests/test_auth.py",
+            "--approach", "The implementation should validate JWT tokens by checking expiry and signature using the standard library hmac module.",
+            "--edge-cases", "expired token",
+            "--edge-cases", "malformed header",
+        )
+        self._run(
+            "ownership", "42",
+            "--repo", "test-org/test-repo",
+            "--verifier", "alice",
+            "--commit-sha", "b" * 40,
+            "--message", "ownership: rename check_tok to verify_token_expiry",
+            "--rename-file", "src/auth.py",
+            "--rename-from", "check_tok",
+            "--rename-to", "verify_token_expiry",
+            "--rename-type", "function",
+            "--rename-reason", "Clarifies that this function checks token expiry specifically",
+        )
+
+        session = self._load_session()
+        assert session["ownership_commit"] is not None
+        assert session["ownership_commit"]["commit_sha"] == "b" * 40
+        assert session["ownership_commit"]["author_github_id"] == "alice"
+        assert len(session["ownership_commit"]["renames"]) == 1
+        assert session["ownership_commit"]["renames"][0]["new_name"] == "verify_token_expiry"
+
+    # ------------------------------------------------------------------ #
+    # Multi-scenario probe
+    # ------------------------------------------------------------------ #
+
+    def test_probe_multiple_falsification_scenarios(self):
+        """SVP-E2E-11: svp probe accepts multiple --falsify-claim/--falsify-scenario pairs."""
+        self._run(
+            "predict", "42",
+            "--repo", "test-org/test-repo",
+            "--verifier", "alice",
+            "--test-file", "tests/test_auth.py",
+            "--approach", "The implementation should validate JWT tokens by checking expiry and signature using the standard library hmac module.",
+            "--edge-cases", "expired token",
+            "--edge-cases", "malformed header",
+        )
+        self._run(
+            "probe", "42",
+            "--repo", "test-org/test-repo",
+            "--verifier", "alice",
+            "--assessment", "No AI tells detected. Full review complete.",
+            "--why-question", "Why was hmac.compare_digest chosen over == for comparison?",
+            "--falsify-claim", "C-001",
+            "--falsify-scenario", "If test_verify_token_expired returns 200 OK, the expiry claim is falsified.",
+            "--falsify-claim", "C-002",
+            "--falsify-scenario", "If test_verify_signature accepts a tampered token, the signature claim is falsified.",
+        )
+
+        session = self._load_session()
+        scenarios = session["probe"]["falsification_scenarios"]
+        assert len(scenarios) == 2, f"Expected 2 scenarios, got {len(scenarios)}"
+        claim_ids = {s["claim_id"] for s in scenarios}
+        assert claim_ids == {"C-001", "C-002"}
+
+    # ------------------------------------------------------------------ #
+    # Probe resume (merge scenarios)
+    # ------------------------------------------------------------------ #
+
+    def test_probe_resume_merges_scenarios(self):
+        """SVP-E2E-12: Running svp probe twice merges new scenarios into existing probe."""
+        self._run(
+            "predict", "42",
+            "--repo", "test-org/test-repo",
+            "--verifier", "alice",
+            "--test-file", "tests/test_auth.py",
+            "--approach", "The implementation should validate JWT tokens by checking expiry and signature using the standard library hmac module.",
+            "--edge-cases", "expired token",
+            "--edge-cases", "malformed header",
+        )
+
+        # First probe with C-001
+        self._run(
+            "probe", "42",
+            "--repo", "test-org/test-repo",
+            "--verifier", "alice",
+            "--assessment", "No AI tells detected. Full review complete.",
+            "--why-question", "Why was hmac.compare_digest chosen over == for comparison?",
+            "--falsify-claim", "C-001",
+            "--falsify-scenario", "If test_verify_token_expired returns 200 OK, the expiry claim is falsified.",
+        )
+
+        session = self._load_session()
+        assert len(session["probe"]["falsification_scenarios"]) == 1
+
+        # Second probe adds C-002 (should merge, not overwrite)
+        self._run(
+            "probe", "42",
+            "--repo", "test-org/test-repo",
+            "--verifier", "alice",
+            "--assessment", "Updated assessment after second review pass.",
+            "--why-question", "Why no rate limiting on token verification?",
+            "--falsify-claim", "C-002",
+            "--falsify-scenario", "If test_verify_signature accepts a tampered token, signature claim is falsified.",
+        )
+
+        session = self._load_session()
+        scenarios = session["probe"]["falsification_scenarios"]
+        assert len(scenarios) == 2, (
+            f"Expected 2 merged scenarios, got {len(scenarios)}: "
+            + str([s["claim_id"] for s in scenarios])
+        )
+        claim_ids = {s["claim_id"] for s in scenarios}
+        assert claim_ids == {"C-001", "C-002"}, f"Got claim_ids: {claim_ids}"
 
     # ------------------------------------------------------------------ #
     # Status command
