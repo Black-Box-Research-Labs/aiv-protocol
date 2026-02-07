@@ -68,8 +68,6 @@ _CS_SEMANTIC: list[tuple[str, re.Pattern[str]]] = [
         r"\b(PII|email|ip address|redact|redaction|sanitize|anonymiz)\b", re.I)),
 ]
 
-FAST_TRACK_EXT = {".md", ".txt"}
-FAST_TRACK_NAMES = {".gitignore", ".editorconfig"}
 
 
 # ------------------------------------------------------------------ #
@@ -83,9 +81,15 @@ class GuardRunner:
         self,
         ctx: GuardContext,
         api: GitHubAPI | None = None,
+        config: AIVConfig | None = None,
     ) -> None:
         self.ctx = ctx
         self.api = api or GitHubAPI()
+        self.config = config or AIVConfig()
+        # Compile fast-track patterns from config (single source of truth)
+        self._fast_track_patterns = [
+            re.compile(p) for p in self.config.fast_track_patterns
+        ]
         self.result = GuardResult(
             repository=ctx.full_repo,
             pr_id=ctx.pr_number,
@@ -109,12 +113,8 @@ class GuardRunner:
         if not paths:
             return False
         for p in paths:
-            basename = p.rsplit("/", 1)[-1] if "/" in p else p
-            if basename in FAST_TRACK_NAMES:
-                continue
-            if any(p.endswith(ext) for ext in FAST_TRACK_EXT):
-                continue
-            return False
+            if not any(pat.search(p) for pat in self._fast_track_patterns):
+                return False
         return True
 
     # -- main pipeline --------------------------------------------- #
@@ -212,7 +212,7 @@ class GuardRunner:
 
     def _validate_markdown(self, content: str, has_canonical: bool) -> None:
         """Run aiv-lib pipeline for markdown structure validation."""
-        pipeline = ValidationPipeline(AIVConfig(strict_mode=False))
+        pipeline = ValidationPipeline(self.config)
         lib_result = pipeline.validate(content)
 
         # Map aiv-lib findings to guard findings

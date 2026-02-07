@@ -63,6 +63,7 @@ classification:
   - `src/aiv/lib/validators/evidence.py` — Rename _validate_state→_validate_differential, _validate_conservation→_validate_provenance (Rec #13)
   - `src/aiv/lib/validators/anti_cheat.py` — Fix line number tracking for multi-hunk diffs (L11)
   - `src/aiv/guard/github_api.py` — Wire GitHubAPIError into _request/_request_bytes (Rec #10/#25)
+  - `src/aiv/guard/runner.py` — Unify fast-track patterns via AIVConfig (D11, Rec #22)
 - Created: (committed incrementally below)
 - Deleted: (committed incrementally below)
 
