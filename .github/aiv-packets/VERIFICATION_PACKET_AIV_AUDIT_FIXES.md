@@ -77,6 +77,7 @@ classification:
   - `src/aiv/lib/analyzers/__init__.py` — Empty package removed (D12)
   - `src/svp/__init__.py` — Old SVP package removed (Rec #24)
   - `src/svp/cli/__init__.py` — Old SVP CLI removed (Rec #24)
+  - `src/svp/cli/main.py` — Old SVP CLI main removed (Rec #24)
 
 ### Class A (Execution Evidence)
 
