@@ -69,6 +69,7 @@ classification:
   - `tests/conftest.py` — Update fixture markdown for Provenance rename
   - `tests/unit/test_guard.py` — Remove stale FAST_TRACK_EXT/FAST_TRACK_NAMES imports
   - `tests/unit/test_models.py` — Update assertions for DIFFERENTIAL/PROVENANCE enums
+  - `tests/unit/test_parser.py` — Update assertions for PROVENANCE enum
 - Created:
   - `src/aiv/svp/__init__.py` — SVP package under aiv namespace (Rec #24)
   - `src/aiv/svp/cli/__init__.py` — SVP CLI subpackage (Rec #24)

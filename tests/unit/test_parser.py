@@ -131,7 +131,7 @@ class TestEvidenceClassCollection:
 
 - No regressions found
 
-### Class F (Conservation Evidence)
+### Class F (Provenance Evidence)
 
 - No tests modified or deleted
 
@@ -146,7 +146,7 @@ Test.
         assert EvidenceClass.REFERENTIAL in packet.evidence_classes_present
         assert EvidenceClass.NEGATIVE in packet.evidence_classes_present
         assert EvidenceClass.INTENT in packet.evidence_classes_present
-        assert EvidenceClass.CONSERVATION in packet.evidence_classes_present
+        assert EvidenceClass.PROVENANCE in packet.evidence_classes_present
 
     def test_intent_always_present(self, parser):
         """Class E should always be in evidence_classes_present if packet parses."""
