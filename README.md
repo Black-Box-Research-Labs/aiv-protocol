@@ -59,7 +59,7 @@ This is a greenfield project built by one developer + AI. The velocity claim is 
 
 ## Empirically Validated: The AI First-Pass Proof
 
-We gave an AI 3 PRs to verify using the SVP protocol, then audited every claim it produced. The results define the core value proposition.
+We gave an AI 3 verification scopes to verify using the SVP protocol, then audited every claim it produced. The results define the core value proposition.
 
 ### The Scorecard
 
@@ -125,7 +125,7 @@ aiv generate my-feature --tier R1
 # Initialize AIV in a repository
 aiv init
 
-# SVP cognitive verification (per-PR workflow)
+# SVP cognitive verification (per-scope workflow)
 aiv svp predict 42 --verifier alice --test-file tests/test_auth.py --approach "..." --edge-cases "..."
 aiv svp trace 42 --verifier alice --function src/auth.py::login --notes "..." --edge-case "..." --predicted-output "..."
 aiv svp probe 42 --verifier alice --assessment "..." --why-question "..."
