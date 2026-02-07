@@ -75,6 +75,7 @@ classification:
   - `src/aiv/svp/lib/validators/session.py` — SVP session validator relocated (Rec #24)
 - Deleted:
   - `src/aiv/lib/analyzers/__init__.py` — Empty package removed (D12)
+  - `src/svp/__init__.py` — Old SVP package removed (Rec #24)
 
 ### Class A (Execution Evidence)
 
