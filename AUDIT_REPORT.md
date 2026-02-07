@@ -473,16 +473,21 @@ All validators implement `BaseValidator.validate(packet) → list[ValidationFind
    - Tested with 9 unit tests in `test_validators.py::TestRiskTierEnforcement`.
 
 4. ✅ FIXED: **Test coverage for validators:**
-   - `test_validators.py` (382 lines) — Tests for zero-touch code block stripping (5), bug-fix heuristic (7), conservation negative framing (4), risk-tier enforcement (9).
-   - `test_parser.py` (251 lines) — Tests for classification parsing (7), evidence class collection (2), methodology extraction (2).
-   - `test_guard.py` — 36 tests for the guard module.
-   - `test_svp.py` — 43 tests for SVP models and validators.
-   - Total: 163 tests (was 39).
+   - `test_validators.py` (327 lines) — Tests for zero-touch code block stripping, bug-fix heuristic, provenance negative framing, risk-tier enforcement.
+   - `test_parser.py` (241 lines) — Tests for classification parsing, evidence class collection, methodology extraction.
+   - `test_guard.py` (380 lines) — Guard module tests.
+   - `test_svp.py` (753 lines) — SVP models, validators, rating engine, AI session tests.
+   - `test_auditor.py` (305 lines) — PacketAuditor tests.
+   - `test_coverage.py` (324 lines) — Additional coverage: generate command, anti-cheat, config.
+   - `test_e2e_compliance.py` (1026 lines) — E2E compliance tests including canonical JSON, tier escalation, falsifiability.
+   - `test_svp_full_workflow.py` (561 lines) — SVP E2E integration tests.
+   - Total: 428 tests (was 39).
 
-5. ❌ STILL PRESENT: **Pre-commit hook is independent shell:**
-   - The Husky pre-commit hook still enforces atomic commits.
-   - It still does NOT validate packet content — only checks that a packet file exists alongside the functional file.
-   - A commit with an empty or invalid packet will still pass the pre-commit hook.
+5. ✅ FIXED: **Pre-commit hook now validates packet content:**
+   - The Husky pre-commit hook (285 lines) still enforces atomic commits (1 functional file + 1 packet).
+   - 🆕 Now runs `aiv check` on staged packets — blocks on structural validation failures.
+   - 🆕 Now runs `aiv audit` on staged packets — blocks on CLASSIFIED_BY_TODO, COMMIT_PENDING, etc.
+   - A commit with an empty or structurally invalid packet will now be **blocked** by the pre-commit hook.
 
 ### 4.5 Test Coverage Gaps
 
@@ -527,7 +532,7 @@ All validators implement `BaseValidator.validate(packet) → list[ValidationFind
 
 ### 5.3 Architectural Improvements
 
-11. ⚠️ PARTIAL: **Integrate enforcement systems** — Python guard uses `aiv-lib` internally, but JS workflow is preserved alongside new Python workflow. Two CI workflows coexist.
+11. ✅ DONE: **Integrate enforcement systems** — Python guard uses `aiv-lib` internally. JS guard workflow **deleted** (commit `59167a1`). Single CI enforcement layer.
 12. ✅ DONE: **Make zero-touch validation real** — parser extracts methodology content; code blocks stripped before checking.
 13. ✅ DONE: **Spec/implementation naming resolved** — STATE→DIFFERENTIAL, CONSERVATION→PROVENANCE across all files.
 14. ✅ DONE: **Use the config for immutability** — `MutableBranchConfig` wired through to `ArtifactLink.from_url()`.
