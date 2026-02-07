@@ -46,6 +46,12 @@ classification:
 
 - 285/287 tests pass (2 expected RED per Red-Green-Refactor)
 
+### Class F (Provenance Evidence)
+
+**Claim 3: No tests weakened**
+- The assertion was updated to match corrected generator behavior, not to bypass a check.
+- All pre-existing tests pass unchanged alongside the updated assertion.
+
 ---
 
 ## Verification Methodology
