@@ -9,13 +9,13 @@ from __future__ import annotations
 import re
 from re import Pattern
 
+from ..config import AntiCheatConfig
 from ..models import (
     AntiCheatFinding,
     AntiCheatResult,
     Claim,
     Severity,
 )
-from ..config import AntiCheatConfig
 
 
 class AntiCheatScanner:
@@ -34,18 +34,12 @@ class AntiCheatScanner:
         self.config = config or AntiCheatConfig()
 
         # Compile patterns
-        self.test_file_patterns: list[Pattern[str]] = [
-            re.compile(p) for p in self.config.test_file_patterns
-        ]
+        self.test_file_patterns: list[Pattern[str]] = [re.compile(p) for p in self.config.test_file_patterns]
         self.assertion_patterns: list[Pattern[str]] = [
             re.compile(p, re.IGNORECASE) for p in self.config.assertion_patterns
         ]
-        self.skip_patterns: list[Pattern[str]] = [
-            re.compile(p, re.IGNORECASE) for p in self.config.skip_patterns
-        ]
-        self.bypass_patterns: list[Pattern[str]] = [
-            re.compile(p, re.IGNORECASE) for p in self.config.bypass_patterns
-        ]
+        self.skip_patterns: list[Pattern[str]] = [re.compile(p, re.IGNORECASE) for p in self.config.skip_patterns]
+        self.bypass_patterns: list[Pattern[str]] = [re.compile(p, re.IGNORECASE) for p in self.config.bypass_patterns]
 
     def scan_diff(self, diff_text: str) -> AntiCheatResult:
         """
@@ -87,55 +81,64 @@ class AntiCheatScanner:
 
             # Only analyze test files for assertion/skip patterns
             if current_file and self._is_test_file(current_file):
-
                 # Check for deleted assertions (lines starting with -)
                 if line.startswith("-"):
                     for pattern in self.assertion_patterns:
                         if pattern.search(line):
-                            findings.append(AntiCheatFinding(
-                                finding_type="deleted_assertion",
-                                file_path=current_file,
-                                line_number=current_line,
-                                original_content=line[1:].strip(),
-                                severity=Severity.BLOCK,
-                                requires_justification=True,
-                            ))
+                            findings.append(
+                                AntiCheatFinding(
+                                    finding_type="deleted_assertion",
+                                    file_path=current_file,
+                                    line_number=current_line,
+                                    original_content=line[1:].strip(),
+                                    severity=Severity.BLOCK,
+                                    requires_justification=True,
+                                )
+                            )
                             break
 
                 # Check for added skip decorators
                 if line.startswith("+"):
                     for pattern in self.skip_patterns:
                         if pattern.search(line):
-                            findings.append(AntiCheatFinding(
-                                finding_type="skipped_test",
-                                file_path=current_file,
-                                line_number=current_line,
-                                original_content=line[1:].strip(),
-                                severity=Severity.BLOCK,
-                                requires_justification=True,
-                            ))
+                            findings.append(
+                                AntiCheatFinding(
+                                    finding_type="skipped_test",
+                                    file_path=current_file,
+                                    line_number=current_line,
+                                    original_content=line[1:].strip(),
+                                    severity=Severity.BLOCK,
+                                    requires_justification=True,
+                                )
+                            )
                             break
 
             # Check for bypass patterns in any file
             if line.startswith("+"):
                 for pattern in self.bypass_patterns:
                     if pattern.search(line):
-                        findings.append(AntiCheatFinding(
-                            finding_type="mock_bypass",
-                            file_path=current_file or "unknown",
-                            line_number=current_line,
-                            original_content=line[1:].strip(),
-                            severity=Severity.WARN,
-                            requires_justification=True,
-                        ))
+                        findings.append(
+                            AntiCheatFinding(
+                                finding_type="mock_bypass",
+                                file_path=current_file or "unknown",
+                                line_number=current_line,
+                                original_content=line[1:].strip(),
+                                severity=Severity.WARN,
+                                requires_justification=True,
+                            )
+                        )
                         break
 
             # Advance line counter for lines that exist in the new file:
             # '+' lines (additions) and context lines (no prefix) advance;
             # '-' lines (deletions) and '\ No newline' do NOT advance.
-            if line.startswith("+") and not line.startswith("+++"):
-                current_line += 1
-            elif not line.startswith("-") and not line.startswith("\\") and not line.startswith("diff "):
+            if (
+                line.startswith("+")
+                and not line.startswith("+++")
+                or not line.startswith("-")
+                and not line.startswith("\\")
+                and not line.startswith("diff ")
+            ):
                 current_line += 1
 
         # Check for removed test files
@@ -143,19 +146,22 @@ class AntiCheatScanner:
         # The optional intermediate line handles cases where 'index' or 'old mode'
         # appears between the diff header and 'deleted file mode'.
         removed_files = re.findall(
-            r"diff --git a/([^\s]+) b/[^\s]+\n(?:(?:old|new|index|similarity|rename|copy)[^\n]*\n)?deleted file mode \d+",
+            r"diff --git a/([^\s]+) b/[^\s]+\n"
+            r"(?:(?:old|new|index|similarity|rename|copy)[^\n]*\n)?deleted file mode \d+",
             diff_text,
         )
         for removed in removed_files:
             if self._is_test_file(removed):
-                findings.append(AntiCheatFinding(
-                    finding_type="removed_test_file",
-                    file_path=removed,
-                    line_number=None,
-                    original_content=None,
-                    severity=Severity.BLOCK,
-                    requires_justification=True,
-                ))
+                findings.append(
+                    AntiCheatFinding(
+                        finding_type="removed_test_file",
+                        file_path=removed,
+                        line_number=None,
+                        original_content=None,
+                        severity=Severity.BLOCK,
+                        requires_justification=True,
+                    )
+                )
 
         return AntiCheatResult(
             findings=findings,
@@ -170,11 +176,7 @@ class AntiCheatScanner:
                 return True
         return False
 
-    def check_justification(
-        self,
-        result: AntiCheatResult,
-        packet_claims: list[Claim]
-    ) -> list[AntiCheatFinding]:
+    def check_justification(self, result: AntiCheatResult, packet_claims: list[Claim]) -> list[AntiCheatFinding]:
         """
         Cross-reference findings with packet claims to check for justification.
 
