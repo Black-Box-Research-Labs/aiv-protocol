@@ -12,6 +12,12 @@
 | Trace content (code-read only) | 13 | 2 | 0 | 15 | 87% |
 | Trace content (execution-verified) | 10 | 0 | 0 | 10 | 100% |
 | Probe findings | 11 | 0 | 0 | 11 | 100% |
+| Falsification scenarios | 8 | 5 | 1 | 20 | 40% ★ |
+
+★ **Falsification is the weakest category.** 5 of 20 scenarios were wrong or
+broken. 2 referenced hallucinated functions (carried forward from bad predictions),
+2 had wrong counts, and 1 was ambiguous. 6 more were unverifiable (JS runtime or
+commit-scope). Only 8 of 20 were confirmed correct by execution.
 
 ## Verification Method
 
@@ -44,6 +50,18 @@ a JS workflow and cannot be executed from Python — these remain code-read only
 | CLI check | Piped stdin without `-` arg | "No packet body provided", exit 1 — **CONFIRMED** |
 | AntiCheatScanner.scan_diff | Production assertion deletion | 0 findings, 0 test files — **CONFIRMED** |
 
+### Falsification Verification (7 scenarios)
+
+| Claim | Scenario | Result |
+|-------|----------|--------|
+| C-001 | "12 models, all BaseModel frozen" | **WRONG** — actual 13; 4 are Enums not BaseModels |
+| C-002 | /blob/main/ produces E004 BLOCK | **CONFIRMED** by execution |
+| C-003 | `aiv check` exit 0 on valid packet | **AMBIGUOUS** — exit 0 only with `--no-strict` |
+| C-004 | Call `sanitize_shell_input` | **BROKEN** — function hallucinated, does not exist |
+| C-005 | Call `DiffAnalyzer.parse_diff` | **BROKEN** — class hallucinated, does not exist |
+| C-006 | Every model has `frozen=True` | **CONFIRMED** by execution (9/9 BaseModels) |
+| C-007 | "exactly 36 tests pass" | **WRONG** — current suite has 371 tests |
+
 ### Findings Confirmed
 
 - E020 rule_id collision (pipeline.py + evidence.py) → **REAL**
@@ -63,6 +81,19 @@ a JS workflow and cannot be executed from Python — these remain code-read only
 All 5 traces are **code-read only**. The JS workflow runs inside GitHub Actions
 and cannot be executed locally. These traces should be treated as unverified
 mental models until a JS test harness or live CI run confirms them.
+
+### Falsification Verification (8 scenarios)
+
+| Claim | Scenario | Result |
+|-------|----------|--------|
+| C-001 | Workflow triggers on opened/edited/synchronize to main | **CONFIRMED** from file content |
+| C-002 | Missing `## Claim(s)` passes without error | **UNVERIFIABLE** — JS runtime |
+| C-003 | `/blob/main/` in Class E passes without setFailed | **UNVERIFIABLE** — JS runtime |
+| C-004 | Docs-only PR triggers setFailed instead of fast-track | **UNVERIFIABLE** — JS runtime |
+| C-005 | Mismatched head_sha passes without CT-005 | **UNVERIFIABLE** — JS runtime |
+| C-006 | `src/auth/login.py` doesn't trigger critical surface | **CONFIRMED** via Python _CS_PATH |
+| C-007 | Missing class_a_execution.json produces no error | **UNVERIFIABLE** — JS runtime |
+| C-008 | Workflow completes without writing JSON to disk | **CONFIRMED** — writeFileSync found |
 
 ### Findings Confirmed
 
@@ -101,6 +132,16 @@ mental models until a JS test harness or live CI run confirms them.
    Execution proved code has `sod_mode not in ("S0", "S1")` check that catches
    S3 BEFORE the R2+ check. Fixed with `AUDIT CORRECTION` note.
 
+### Falsification Verification (5 scenarios)
+
+| Claim | Scenario | Result |
+|-------|----------|--------|
+| C-001 | "exactly 5 Python files" | **WRONG** — actual 7 (missed `__init__.py`, `__main__.py`) |
+| C-002 | validate_canonical checks head_sha binding | **CONFIRMED** — CT-005 BLOCK on mismatch |
+| C-003 | Workflow under 100 lines, invokes `python -m aiv.guard` | **CONFIRMED** (36 lines) |
+| C-004 | test_guard.py has >= 36 test functions | **CONFIRMED** (36 collected) |
+| C-005 | No files modified outside guard scope | **UNVERIFIABLE** — commit-scope check |
+
 ### Findings Confirmed
 
 - `node`/`npm` hardcoded in manifest.py → **REAL**
@@ -109,19 +150,47 @@ mental models until a JS test harness or live CI run confirms them.
 
 ---
 
+## Falsification Scenario Failure Analysis
+
+The falsification scenarios had **40% accuracy** — the worst category by far.
+Root causes:
+
+1. **Hallucination propagation.** Bad predictions (sanitize_shell_input, DiffAnalyzer)
+   were carried forward into falsification scenarios. The scenarios tested functions
+   that don't exist, making them untestable garbage.
+
+2. **Count parroting.** Scenarios repeated exact counts from predictions/packets
+   ("12 models", "36 tests", "5 files") without verifying them first. Every count
+   was wrong.
+
+3. **Missing execution context.** Scenarios described what to test but didn't specify
+   runtime conditions (`--no-strict`, which test file, which commit). Ambiguity
+   makes a scenario useless for falsification.
+
+4. **JS workflow gap.** 5 of 8 PR#2 scenarios require JS runtime execution that
+   can't be done from Python. These should have been flagged as unverifiable at
+   authoring time, not left as unchecked.
+
+**Key lesson:** A falsification scenario that can't be executed is worthless. Every
+scenario should be written as a runnable test — if you can't run it, don't write it.
+
+---
+
 ## Lessons for Future AI First-Pass
 
 1. **Execute every edge case.** Mental traces without execution verification caught
    only 87% accuracy. Execution verification caught 100%. The sod_mode error would
    have misled a human reviewer if not caught by running the code.
-2. **Don't hallucinate functions.** If a claim says "guard sanitization", predict
-   the mechanism, don't invent specific function names.
-3. **Don't parrot packet claims.** Verify counts independently (file count, line
-   count, test count) during the trace phase.
-4. **Line numbers are fragile.** `StateTransition.line_number` was removed from the
+2. **Execute every falsification scenario.** 40% accuracy on scenarios is
+   unacceptable. Write them as runnable assertions, not English descriptions.
+3. **Don't hallucinate functions.** If a claim says "guard sanitization", predict
+   the mechanism, don't invent specific function names. And NEVER carry hallucinated
+   names into falsification scenarios.
+4. **Don't parrot packet claims.** Verify counts independently (file count, line
+   count, test count) during the trace phase AND in falsification scenarios.
+5. **Line numbers are fragile.** `StateTransition.line_number` was removed from the
    model. Variable name + before/after values tell the story without brittle refs.
-5. **Mark unverifiable traces.** PR#2 JS traces cannot be executed from Python.
-   They should be explicitly marked as "code-read only" until a JS test harness
-   or live CI run confirms them.
-6. **Probe findings were 100% real.** The adversarial probe phase produced the
+6. **Mark unverifiable items at authoring time.** PR#2 JS traces and scenarios
+   cannot be executed from Python. Flag them immediately, don't leave them unchecked.
+7. **Probe findings were 100% real.** The adversarial probe phase produced the
    highest-value output — every flagged issue is a genuine code concern.

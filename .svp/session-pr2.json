@@ -259,7 +259,7 @@
       {
         "claim_id": "C-001",
         "scenario": "If the workflow does not trigger on pull_request opened/edited/synchronize to main, claim 1 is falsified",
-        "checked": false,
+        "checked": true,
         "result": "confirmed"
       },
       {
@@ -289,7 +289,7 @@
       {
         "claim_id": "C-006",
         "scenario": "If a file at path src/auth/login.py does not trigger critical surface detection, claim 6 is falsified",
-        "checked": false,
+        "checked": true,
         "result": "confirmed"
       },
       {
@@ -301,7 +301,7 @@
       {
         "claim_id": "C-008",
         "scenario": "If the workflow completes without writing aiv_validation_result.json to disk, claim 8 is falsified",
-        "checked": false,
+        "checked": true,
         "result": "confirmed"
       }
     ],
