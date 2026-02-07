@@ -17,6 +17,7 @@ classification:
 
 1. `scripts/map_packets.py` parses all git commits and produces a bidirectional mapping of source files to verification packets, output as `FILE_PACKET_MAP.json` and `FILE_PACKET_MAP.md`.
 2. The script correctly distinguishes packet-only commits, source-only commits, and mixed commits — reporting truly unmapped items only when they never co-occur with a counterpart across the entire history.
+3. The script detects ghost packets (deleted from disk but present in git history) and deleted source files (relocated or removed), partitioning them into separate sections so live mapping counts are accurate.
 
 ## Evidence
 
@@ -37,15 +38,17 @@ classification:
 
 - Execution output:
   ```
-  Analyzed 279 commits
-  Mapped 66 source files to 87 packets
-  Unmapped source files: 9
+  Analyzed 291 commits
+  Mapped 56 live source files to 62 live packets
+  Unmapped source files: 11
   Unmapped packets: 3
+  Ghost packets (deleted from disk): 27
+  Deleted source files: 11
   ```
-- 9 unmapped source files are all documentation (README, SPECIFICATION, CHANGELOG, LICENSE, docs/).
-- 3 unmapped packets are structural/meta (TEMPLATE, GITKEEP, AIV_IMPLEMENTATION consolidation).
+- 27 ghost packets correctly identified (all consolidated into AIV_IMPLEMENTATION).
+- 11 deleted source files correctly identified (7 src/svp/ relocated, 4 dead modules removed).
 - Execution environment: Windows, Python 3.x, git CLI.
 
 ## Summary
 
-Adds a rerunnable script that analyzes git commit history to produce a full source-file-to-verification-packet mapping, covering 66 source files across 87 packets from 279 commits.
+Rerunnable script mapping source files to verification packets from git history. Now detects ghost packets and deleted files, reporting 56 live source files across 62 live packets from 291 commits.

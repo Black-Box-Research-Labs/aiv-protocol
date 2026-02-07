@@ -7,6 +7,7 @@ mapping and a Markdown report.
 """
 
 import json
+import os
 import subprocess
 import sys
 from collections import defaultdict
@@ -76,7 +77,28 @@ def packet_name(path: str) -> str:
     return name.replace(".md", "")
 
 
-def build_mapping(commits: list[dict]) -> dict:
+def get_existing_packets(repo_root: Path) -> set[str]:
+    """Return set of packet names that currently exist on disk."""
+    packets_dir = repo_root / ".github" / "aiv-packets"
+    existing = set()
+    if packets_dir.is_dir():
+        for f in packets_dir.iterdir():
+            if (
+                f.name.startswith("VERIFICATION_PACKET_")
+                and f.name.endswith(".md")
+                and f.name != "VERIFICATION_PACKET_TEMPLATE.md"
+            ):
+                name = f.name.replace("VERIFICATION_PACKET_", "").replace(".md", "")
+                existing.add(name)
+    return existing
+
+
+def file_exists_on_disk(repo_root: Path, filepath: str) -> bool:
+    """Check whether a source file still exists in the working tree."""
+    return (repo_root / filepath).is_file()
+
+
+def build_mapping(commits: list[dict], repo_root: Path) -> dict:
     """Build source_file -> [packet_info] mapping."""
     file_to_packets: dict[str, list[dict]] = defaultdict(list)
     packet_to_files: dict[str, list[dict]] = defaultdict(list)
@@ -125,11 +147,31 @@ def build_mapping(commits: list[dict]) -> dict:
     unmapped_files = all_source_files - set(file_to_packets.keys())
     unmapped_packets = all_packets_seen - set(packet_to_files.keys())
 
+    # Detect ghost packets (in git history but deleted from disk)
+    existing_packets = get_existing_packets(repo_root)
+    all_mapped_packets = set(packet_to_files.keys())
+    ghost_packets = sorted(all_mapped_packets - existing_packets)
+
+    # Detect deleted source files (in git history but no longer on disk)
+    deleted_files = sorted(
+        f for f in file_to_packets if not file_exists_on_disk(repo_root, f)
+    )
+
+    # Partition into live vs ghost
+    live_f2p = {k: v for k, v in file_to_packets.items() if k not in deleted_files}
+    ghost_f2p = {k: v for k, v in file_to_packets.items() if k in deleted_files}
+    live_p2f = {k: v for k, v in packet_to_files.items() if k not in ghost_packets}
+    ghost_p2f = {k: v for k, v in packet_to_files.items() if k in ghost_packets}
+
     return {
-        "file_to_packets": dict(file_to_packets),
-        "packet_to_files": dict(packet_to_files),
+        "file_to_packets": dict(live_f2p),
+        "packet_to_files": dict(live_p2f),
         "unmapped_files": sorted(unmapped_files),
         "unmapped_packets": sorted(unmapped_packets),
+        "ghost_packets": ghost_packets,
+        "ghost_packet_to_files": dict(ghost_p2f),
+        "deleted_files": deleted_files,
+        "deleted_file_to_packets": dict(ghost_f2p),
     }
 
 
@@ -138,9 +180,22 @@ def write_markdown_report(mapping: dict, path: Path) -> None:
     p2f = mapping["packet_to_files"]
     unmapped_files = mapping["unmapped_files"]
     unmapped_packets = mapping["unmapped_packets"]
+    ghost_packets = mapping["ghost_packets"]
+    ghost_p2f = mapping["ghost_packet_to_files"]
+    deleted_files = mapping["deleted_files"]
+    deleted_f2p = mapping["deleted_file_to_packets"]
 
     lines = []
     lines.append("# Source File ↔ Verification Packet Mapping")
+    lines.append("")
+    lines.append("> **What is this?** Every commit in this repo pairs a functional file with a verification packet.")
+    lines.append("> This document is the **evidence index** — it answers questions the individual packets cannot:")
+    lines.append(">")
+    lines.append("> - **\"Show me all evidence for file X\"** → [Source Files → Packets](#source-files--verification-packets)")
+    lines.append("> - **\"What files does packet Y cover?\"** → [Packets → Source Files](#verification-packets--source-files)")
+    lines.append("> - **\"Which files have no evidence?\"** → [Unmapped Source Files](#unmapped-source-files)")
+    lines.append(">")
+    lines.append("> **Regenerate:** `python scripts/map_packets.py`")
     lines.append("")
     lines.append("Auto-generated from git commit history.")
     lines.append("")
@@ -148,10 +203,12 @@ def write_markdown_report(mapping: dict, path: Path) -> None:
     # Summary stats
     lines.append("## Summary")
     lines.append("")
-    lines.append(f"- **Mapped source files:** {len(f2p)}")
-    lines.append(f"- **Mapped packets:** {len(p2f)}")
+    lines.append(f"- **Mapped source files (live):** {len(f2p)}")
+    lines.append(f"- **Mapped packets (live):** {len(p2f)}")
     lines.append(f"- **Unmapped source files:** {len(unmapped_files)}")
     lines.append(f"- **Unmapped packets (packet-only commits):** {len(unmapped_packets)}")
+    lines.append(f"- **Ghost packets (deleted from disk):** {len(ghost_packets)}")
+    lines.append(f"- **Deleted source files:** {len(deleted_files)}")
     lines.append("")
 
     # Section 1: Source files → packets
@@ -209,6 +266,34 @@ def write_markdown_report(mapping: dict, path: Path) -> None:
             lines.append(f"- {p}")
         lines.append("")
 
+    # Section 5: Ghost packets
+    if ghost_packets:
+        lines.append("## Ghost Packets (Deleted from Disk)")
+        lines.append("")
+        lines.append("These packets appeared in git history but have been deleted ")
+        lines.append("(typically consolidated into a larger packet like AIV_IMPLEMENTATION).")
+        lines.append("")
+        lines.append("| Ghost Packet | Originally Covered | Superseded By |")
+        lines.append("|---|---|---|")
+        for gp in ghost_packets:
+            files = ghost_p2f.get(gp, [])
+            fnames = ", ".join(sorted(set(f'`{e["file"]}`' for e in files)))
+            lines.append(f"| {gp} | {fnames} | AIV_IMPLEMENTATION |")
+        lines.append("")
+
+    # Section 6: Deleted source files
+    if deleted_files:
+        lines.append("## Deleted Source Files")
+        lines.append("")
+        lines.append("These files appeared in git history but no longer exist on disk ")
+        lines.append("(typically relocated or removed during refactoring).")
+        lines.append("")
+        for df in deleted_files:
+            pkts = deleted_f2p.get(df, [])
+            pkt_names = ", ".join(sorted(set(p["packet"] for p in pkts)))
+            lines.append(f"- `{df}` (was: {pkt_names})")
+        lines.append("")
+
     path.write_text("\n".join(lines), encoding="utf-8")
     print(f"Markdown report: {path}")
 
@@ -225,13 +310,16 @@ def main():
     commits = get_commits_with_files()
     print(f"Analyzed {len(commits)} commits")
 
-    mapping = build_mapping(commits)
+    mapping = build_mapping(commits, repo_root)
     print(
-        f"Mapped {len(mapping['file_to_packets'])} source files "
-        f"to {len(mapping['packet_to_files'])} packets"
+        f"Mapped {len(mapping['file_to_packets'])} live source files "
+        f"to {len(mapping['packet_to_files'])} live packets"
     )
     print(f"Unmapped source files: {len(mapping['unmapped_files'])}")
     print(f"Unmapped packets: {len(mapping['unmapped_packets'])}")
+    print(f"Ghost packets (deleted from disk): {len(mapping['ghost_packets'])}")
+    print(f"Deleted source files: {len(mapping['deleted_files'])}")
+
 
     # Write JSON
     json_path = repo_root / "FILE_PACKET_MAP.json"
