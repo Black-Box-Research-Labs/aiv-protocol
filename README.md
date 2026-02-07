@@ -84,6 +84,8 @@ An AI can hallucinate a function, but it cannot hallucinate a **Class A artifact
 
 The audit also revealed the **Hallucination Cascade** — a recursive failure loop where an AI predicts a nonexistent function, "mentally traces" it, writes a falsification scenario testing it, and produces a perfectly valid JSON session describing a reality that doesn't exist. Artifact-based evidence classes break this loop at step one.
 
+As models develop stronger internal reasoning capabilities, this risk increases — a model that can "think" more convincingly can also hallucinate more convincingly. AIV evidence classes are the external grounding wire.
+
 ### The Honest AI Protocol
 
 These findings produced three protocol rules that harden SVP against AI yes-men:
