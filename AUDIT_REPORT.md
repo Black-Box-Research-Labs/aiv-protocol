@@ -606,17 +606,19 @@ The SVP Protocol Suite has been fully implemented, now relocated under `src/aiv/
 
 **Re-Audit verdict: ✅ NOW IMPLEMENTED.**
 
-The `aiv generate` command now exists (cli/main.py lines 144-258, 366 total lines). It provides:
+The `aiv generate` command now exists (cli/main.py lines 200-646, 665 total lines). It provides:
 - **Tier-based scaffolding:** `aiv generate auth-fix --tier R2` creates a packet file with evidence sections appropriate for the risk tier.
 - **Automated git scope detection:** `_detect_git_scope()` runs `git diff --cached --name-status` to populate the scope inventory with changed files.
 - **Classification block:** Pre-fills `risk_tier`, `sod_mode`, `classified_at` timestamp.
 - **SoD mode detection:** R0/R1 → S0, R2/R3 → S1.
+- 🆕 **CI run URL auto-population:** `_fetch_latest_ci_url()` queries GitHub API (requires `GITHUB_TOKEN`) to find the latest workflow run URL for Class A evidence.
+- 🆕 **Issue tracker integration:** `_fetch_issue_title()` resolves issue numbers for Class E intent linking.
+- 🆕 **Local check results:** `_run_local_checks()` runs pytest, ruff, and mypy, embedding results directly into Class A.
+- 🆕 **`--skip-checks` option** to bypass local check execution for speed.
 
-**What remains:** The generator still lacks:
-- CI run URL auto-population (Class A evidence)
-- Issue tracker integration for Class E intent linking
-- Automated commit SHA insertion
-- No tests for the generate command
+**What remains:**
+- Automated commit SHA insertion (currently left as TODO in generated packet)
+- No sigstore/GPG integration for Class F provenance signing
 
 ---
 
