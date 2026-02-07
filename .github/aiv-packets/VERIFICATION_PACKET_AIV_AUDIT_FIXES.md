@@ -80,6 +80,7 @@ classification:
   - `src/svp/cli/main.py` — Old SVP CLI main removed (Rec #24)
   - `src/svp/lib/__init__.py` — Old SVP lib removed (Rec #24)
   - `src/svp/lib/models.py` — Old SVP models removed (Rec #24)
+  - `src/svp/lib/validators/__init__.py` — Old SVP validators removed (Rec #24)
 
 ### Class A (Execution Evidence)
 
