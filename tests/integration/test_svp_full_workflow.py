@@ -73,14 +73,22 @@ class TestSVPFullWorkflow:
     def test_predict_creates_session(self):
         """SVP-E2E-01: svp predict creates .svp/session-pr42.json."""
         self._run(
-            "predict", "42",
-            "--repo", "test-org/test-repo",
-            "--verifier", "alice",
-            "--test-file", "tests/test_auth.py",
-            "--approach", "The implementation should validate JWT tokens by checking expiry and signature using the standard library hmac module.",
-            "--complexity", "O(n)",
-            "--edge-cases", "expired token",
-            "--edge-cases", "malformed header",
+            "predict",
+            "42",
+            "--repo",
+            "test-org/test-repo",
+            "--verifier",
+            "alice",
+            "--test-file",
+            "tests/test_auth.py",
+            "--approach",
+            "The implementation should validate JWT tokens by checking expiry and signature using the standard library hmac module.",
+            "--complexity",
+            "O(n)",
+            "--edge-cases",
+            "expired token",
+            "--edge-cases",
+            "malformed header",
         )
 
         assert self._session_path().exists(), ".svp/session-pr42.json should exist"
@@ -99,25 +107,40 @@ class TestSVPFullWorkflow:
         """SVP-E2E-02: svp trace appends a trace record to existing session."""
         # First create the session via predict
         self._run(
-            "predict", "42",
-            "--repo", "test-org/test-repo",
-            "--verifier", "alice",
-            "--test-file", "tests/test_auth.py",
-            "--approach", "The implementation should validate JWT tokens by checking expiry and signature using the standard library hmac module.",
-            "--edge-cases", "expired token",
-            "--edge-cases", "malformed header",
+            "predict",
+            "42",
+            "--repo",
+            "test-org/test-repo",
+            "--verifier",
+            "alice",
+            "--test-file",
+            "tests/test_auth.py",
+            "--approach",
+            "The implementation should validate JWT tokens by checking expiry and signature using the standard library hmac module.",
+            "--edge-cases",
+            "expired token",
+            "--edge-cases",
+            "malformed header",
         )
 
         # Then add a trace
         self._run(
-            "trace", "42",
-            "--repo", "test-org/test-repo",
-            "--verifier", "alice",
-            "--function", "src/auth.py::verify_token",
-            "--notes", "The function first decodes the base64 header, extracts the exp claim, compares to current UTC time. If expired, raises AuthError. Then verifies HMAC signature against the secret.",
-            "--edge-case", "Token with exp=0 (epoch start)",
-            "--predicted-output", "AuthError('Token expired')",
-            "--confidence", "high",
+            "trace",
+            "42",
+            "--repo",
+            "test-org/test-repo",
+            "--verifier",
+            "alice",
+            "--function",
+            "src/auth.py::verify_token",
+            "--notes",
+            "The function first decodes the base64 header, extracts the exp claim, compares to current UTC time. If expired, raises AuthError. Then verifies HMAC signature against the secret.",
+            "--edge-case",
+            "Token with exp=0 (epoch start)",
+            "--predicted-output",
+            "AuthError('Token expired')",
+            "--confidence",
+            "high",
         )
 
         session = self._load_session()
@@ -133,34 +156,56 @@ class TestSVPFullWorkflow:
         """SVP-E2E-03: svp probe records adversarial probe with falsification scenario."""
         # Build session through phases 1-2
         self._run(
-            "predict", "42",
-            "--repo", "test-org/test-repo",
-            "--verifier", "alice",
-            "--test-file", "tests/test_auth.py",
-            "--approach", "The implementation should validate JWT tokens by checking expiry and signature using the standard library hmac module.",
-            "--edge-cases", "expired token",
-            "--edge-cases", "malformed header",
+            "predict",
+            "42",
+            "--repo",
+            "test-org/test-repo",
+            "--verifier",
+            "alice",
+            "--test-file",
+            "tests/test_auth.py",
+            "--approach",
+            "The implementation should validate JWT tokens by checking expiry and signature using the standard library hmac module.",
+            "--edge-cases",
+            "expired token",
+            "--edge-cases",
+            "malformed header",
         )
         self._run(
-            "trace", "42",
-            "--repo", "test-org/test-repo",
-            "--verifier", "alice",
-            "--function", "src/auth.py::verify_token",
-            "--notes", "The function first decodes the base64 header, extracts the exp claim, compares to current UTC time. If expired, raises AuthError. Then verifies HMAC signature against the secret.",
-            "--edge-case", "Token with exp=0 (epoch start)",
-            "--predicted-output", "AuthError('Token expired')",
+            "trace",
+            "42",
+            "--repo",
+            "test-org/test-repo",
+            "--verifier",
+            "alice",
+            "--function",
+            "src/auth.py::verify_token",
+            "--notes",
+            "The function first decodes the base64 header, extracts the exp claim, compares to current UTC time. If expired, raises AuthError. Then verifies HMAC signature against the secret.",
+            "--edge-case",
+            "Token with exp=0 (epoch start)",
+            "--predicted-output",
+            "AuthError('Token expired')",
         )
 
         # Add probe with falsification scenario
         self._run(
-            "probe", "42",
-            "--repo", "test-org/test-repo",
-            "--verifier", "alice",
-            "--assessment", "No AI tells detected. Token validation uses constant-time comparison.",
-            "--why-question", "Why was hmac.compare_digest chosen over == for signature comparison?",
-            "--why-context", "Security review of auth module",
-            "--falsify-claim", "C-001",
-            "--falsify-scenario", "If test_verify_token_expired returns 200 OK instead of 401, the expiry claim is falsified.",
+            "probe",
+            "42",
+            "--repo",
+            "test-org/test-repo",
+            "--verifier",
+            "alice",
+            "--assessment",
+            "No AI tells detected. Token validation uses constant-time comparison.",
+            "--why-question",
+            "Why was hmac.compare_digest chosen over == for signature comparison?",
+            "--why-context",
+            "Security review of auth module",
+            "--falsify-claim",
+            "C-001",
+            "--falsify-scenario",
+            "If test_verify_token_expired returns 200 OK instead of 401, the expiry claim is falsified.",
         )
 
         session = self._load_session()
@@ -180,13 +225,20 @@ class TestSVPFullWorkflow:
         """SVP-E2E-04: svp validate exits 1 when phases are missing."""
         # Only predict — missing trace, probe, ownership
         self._run(
-            "predict", "42",
-            "--repo", "test-org/test-repo",
-            "--verifier", "alice",
-            "--test-file", "tests/test_auth.py",
-            "--approach", "The implementation should validate JWT tokens by checking expiry and signature using the standard library hmac module.",
-            "--edge-cases", "expired token",
-            "--edge-cases", "malformed header",
+            "predict",
+            "42",
+            "--repo",
+            "test-org/test-repo",
+            "--verifier",
+            "alice",
+            "--test-file",
+            "tests/test_auth.py",
+            "--approach",
+            "The implementation should validate JWT tokens by checking expiry and signature using the standard library hmac module.",
+            "--edge-cases",
+            "expired token",
+            "--edge-cases",
+            "malformed header",
         )
 
         result = self._run("validate", "42", expect_ok=False)
@@ -206,30 +258,49 @@ class TestSVPFullWorkflow:
         """SVP-E2E-06: svp validate exits 1 when probe has no falsification scenarios (S014)."""
         # Build session through phases 1-3 but WITHOUT falsification scenario
         self._run(
-            "predict", "42",
-            "--repo", "test-org/test-repo",
-            "--verifier", "alice",
-            "--test-file", "tests/test_auth.py",
-            "--approach", "The implementation should validate JWT tokens by checking expiry and signature using the standard library hmac module.",
-            "--edge-cases", "expired token",
-            "--edge-cases", "malformed header",
+            "predict",
+            "42",
+            "--repo",
+            "test-org/test-repo",
+            "--verifier",
+            "alice",
+            "--test-file",
+            "tests/test_auth.py",
+            "--approach",
+            "The implementation should validate JWT tokens by checking expiry and signature using the standard library hmac module.",
+            "--edge-cases",
+            "expired token",
+            "--edge-cases",
+            "malformed header",
         )
         self._run(
-            "trace", "42",
-            "--repo", "test-org/test-repo",
-            "--verifier", "alice",
-            "--function", "src/auth.py::verify_token",
-            "--notes", "The function first decodes the base64 header, extracts the exp claim, compares to current UTC time. If expired, raises AuthError. Then verifies HMAC signature against the secret.",
-            "--edge-case", "Token with exp=0 (epoch start)",
-            "--predicted-output", "AuthError('Token expired')",
+            "trace",
+            "42",
+            "--repo",
+            "test-org/test-repo",
+            "--verifier",
+            "alice",
+            "--function",
+            "src/auth.py::verify_token",
+            "--notes",
+            "The function first decodes the base64 header, extracts the exp claim, compares to current UTC time. If expired, raises AuthError. Then verifies HMAC signature against the secret.",
+            "--edge-case",
+            "Token with exp=0 (epoch start)",
+            "--predicted-output",
+            "AuthError('Token expired')",
         )
         # Probe WITHOUT --falsify-claim / --falsify-scenario
         self._run(
-            "probe", "42",
-            "--repo", "test-org/test-repo",
-            "--verifier", "alice",
-            "--assessment", "No AI tells detected in this PR.",
-            "--why-question", "Why was this approach chosen over alternatives?",
+            "probe",
+            "42",
+            "--repo",
+            "test-org/test-repo",
+            "--verifier",
+            "alice",
+            "--assessment",
+            "No AI tells detected in this PR.",
+            "--why-question",
+            "Why was this approach chosen over alternatives?",
         )
 
         result = self._run("validate", "42", expect_ok=False)
@@ -237,9 +308,7 @@ class TestSVPFullWorkflow:
 
         output = json.loads(result.stdout)
         rule_ids = {e["rule_id"] for e in output["errors"]}
-        assert "S014" in rule_ids, (
-            f"S014 should fire for missing falsification scenarios. Got: {rule_ids}"
-        )
+        assert "S014" in rule_ids, f"S014 should fire for missing falsification scenarios. Got: {rule_ids}"
 
     # ------------------------------------------------------------------ #
     # Full journey (phases 1-3 via CLI + phase 4 via model injection)
@@ -254,50 +323,82 @@ class TestSVPFullWorkflow:
         """
         # Phase 1: Predict
         self._run(
-            "predict", "42",
-            "--repo", "test-org/test-repo",
-            "--verifier", "alice",
-            "--test-file", "tests/test_auth.py",
-            "--approach", "The implementation should validate JWT tokens by checking expiry and signature using the standard library hmac module.",
-            "--edge-cases", "expired token",
-            "--edge-cases", "malformed header",
+            "predict",
+            "42",
+            "--repo",
+            "test-org/test-repo",
+            "--verifier",
+            "alice",
+            "--test-file",
+            "tests/test_auth.py",
+            "--approach",
+            "The implementation should validate JWT tokens by checking expiry and signature using the standard library hmac module.",
+            "--edge-cases",
+            "expired token",
+            "--edge-cases",
+            "malformed header",
         )
 
         # Phase 2: Trace
         self._run(
-            "trace", "42",
-            "--repo", "test-org/test-repo",
-            "--verifier", "alice",
-            "--function", "src/auth.py::verify_token",
-            "--notes", "The function first decodes the base64 header, extracts the exp claim, compares to current UTC time. If expired, raises AuthError. Then verifies HMAC signature against the secret.",
-            "--edge-case", "Token with exp=0 (epoch start)",
-            "--predicted-output", "AuthError('Token expired')",
+            "trace",
+            "42",
+            "--repo",
+            "test-org/test-repo",
+            "--verifier",
+            "alice",
+            "--function",
+            "src/auth.py::verify_token",
+            "--notes",
+            "The function first decodes the base64 header, extracts the exp claim, compares to current UTC time. If expired, raises AuthError. Then verifies HMAC signature against the secret.",
+            "--edge-case",
+            "Token with exp=0 (epoch start)",
+            "--predicted-output",
+            "AuthError('Token expired')",
         )
 
         # Phase 3: Probe (with falsification scenario)
         self._run(
-            "probe", "42",
-            "--repo", "test-org/test-repo",
-            "--verifier", "alice",
-            "--assessment", "No AI tells detected. Token validation uses constant-time comparison.",
-            "--why-question", "Why was hmac.compare_digest chosen over == for signature comparison?",
-            "--why-context", "Security review of auth module",
-            "--falsify-claim", "C-001",
-            "--falsify-scenario", "If test_verify_token_expired returns 200 OK instead of 401, the expiry claim is falsified.",
+            "probe",
+            "42",
+            "--repo",
+            "test-org/test-repo",
+            "--verifier",
+            "alice",
+            "--assessment",
+            "No AI tells detected. Token validation uses constant-time comparison.",
+            "--why-question",
+            "Why was hmac.compare_digest chosen over == for signature comparison?",
+            "--why-context",
+            "Security review of auth module",
+            "--falsify-claim",
+            "C-001",
+            "--falsify-scenario",
+            "If test_verify_token_expired returns 200 OK instead of 401, the expiry claim is falsified.",
         )
 
         # Phase 4: Ownership via CLI
         self._run(
-            "ownership", "42",
-            "--repo", "test-org/test-repo",
-            "--verifier", "alice",
-            "--commit-sha", "a" * 40,
-            "--message", "ownership: clarify verify_token naming and add docstring",
-            "--rename-file", "src/auth.py",
-            "--rename-from", "check_tok",
-            "--rename-to", "verify_token_expiry",
-            "--rename-type", "function",
-            "--rename-reason", "Clarifies that this function specifically checks token expiry",
+            "ownership",
+            "42",
+            "--repo",
+            "test-org/test-repo",
+            "--verifier",
+            "alice",
+            "--commit-sha",
+            "a" * 40,
+            "--message",
+            "ownership: clarify verify_token naming and add docstring",
+            "--rename-file",
+            "src/auth.py",
+            "--rename-from",
+            "check_tok",
+            "--rename-to",
+            "verify_token_expiry",
+            "--rename-type",
+            "function",
+            "--rename-reason",
+            "Clarifies that this function specifically checks token expiry",
         )
 
         # Validate: should pass
@@ -309,9 +410,8 @@ class TestSVPFullWorkflow:
         assert output["phase_2_complete"] is True, "Phase 2 (Trace) should pass"
         assert output["phase_3_complete"] is True, "Phase 3 (Probe) should pass"
         assert output["phase_4_complete"] is True, "Phase 4 (Ownership) should pass"
-        assert len(output["errors"]) == 0, (
-            f"Complete session should have 0 errors, got:\n"
-            + "\n".join(f"  [{e['rule_id']}] {e['message']}" for e in output["errors"])
+        assert len(output["errors"]) == 0, "Complete session should have 0 errors, got:\n" + "\n".join(
+            f"  [{e['rule_id']}] {e['message']}" for e in output["errors"]
         )
 
     # ------------------------------------------------------------------ #
@@ -321,25 +421,42 @@ class TestSVPFullWorkflow:
     def test_ownership_records_commit(self):
         """SVP-E2E-10: svp ownership records ownership commit with rename."""
         self._run(
-            "predict", "42",
-            "--repo", "test-org/test-repo",
-            "--verifier", "alice",
-            "--test-file", "tests/test_auth.py",
-            "--approach", "The implementation should validate JWT tokens by checking expiry and signature using the standard library hmac module.",
-            "--edge-cases", "expired token",
-            "--edge-cases", "malformed header",
+            "predict",
+            "42",
+            "--repo",
+            "test-org/test-repo",
+            "--verifier",
+            "alice",
+            "--test-file",
+            "tests/test_auth.py",
+            "--approach",
+            "The implementation should validate JWT tokens by checking expiry and signature using the standard library hmac module.",
+            "--edge-cases",
+            "expired token",
+            "--edge-cases",
+            "malformed header",
         )
         self._run(
-            "ownership", "42",
-            "--repo", "test-org/test-repo",
-            "--verifier", "alice",
-            "--commit-sha", "b" * 40,
-            "--message", "ownership: rename check_tok to verify_token_expiry",
-            "--rename-file", "src/auth.py",
-            "--rename-from", "check_tok",
-            "--rename-to", "verify_token_expiry",
-            "--rename-type", "function",
-            "--rename-reason", "Clarifies that this function checks token expiry specifically",
+            "ownership",
+            "42",
+            "--repo",
+            "test-org/test-repo",
+            "--verifier",
+            "alice",
+            "--commit-sha",
+            "b" * 40,
+            "--message",
+            "ownership: rename check_tok to verify_token_expiry",
+            "--rename-file",
+            "src/auth.py",
+            "--rename-from",
+            "check_tok",
+            "--rename-to",
+            "verify_token_expiry",
+            "--rename-type",
+            "function",
+            "--rename-reason",
+            "Clarifies that this function checks token expiry specifically",
         )
 
         session = self._load_session()
@@ -356,24 +473,40 @@ class TestSVPFullWorkflow:
     def test_probe_multiple_falsification_scenarios(self):
         """SVP-E2E-11: svp probe accepts multiple --falsify-claim/--falsify-scenario pairs."""
         self._run(
-            "predict", "42",
-            "--repo", "test-org/test-repo",
-            "--verifier", "alice",
-            "--test-file", "tests/test_auth.py",
-            "--approach", "The implementation should validate JWT tokens by checking expiry and signature using the standard library hmac module.",
-            "--edge-cases", "expired token",
-            "--edge-cases", "malformed header",
+            "predict",
+            "42",
+            "--repo",
+            "test-org/test-repo",
+            "--verifier",
+            "alice",
+            "--test-file",
+            "tests/test_auth.py",
+            "--approach",
+            "The implementation should validate JWT tokens by checking expiry and signature using the standard library hmac module.",
+            "--edge-cases",
+            "expired token",
+            "--edge-cases",
+            "malformed header",
         )
         self._run(
-            "probe", "42",
-            "--repo", "test-org/test-repo",
-            "--verifier", "alice",
-            "--assessment", "No AI tells detected. Full review complete.",
-            "--why-question", "Why was hmac.compare_digest chosen over == for comparison?",
-            "--falsify-claim", "C-001",
-            "--falsify-scenario", "If test_verify_token_expired returns 200 OK, the expiry claim is falsified.",
-            "--falsify-claim", "C-002",
-            "--falsify-scenario", "If test_verify_signature accepts a tampered token, the signature claim is falsified.",
+            "probe",
+            "42",
+            "--repo",
+            "test-org/test-repo",
+            "--verifier",
+            "alice",
+            "--assessment",
+            "No AI tells detected. Full review complete.",
+            "--why-question",
+            "Why was hmac.compare_digest chosen over == for comparison?",
+            "--falsify-claim",
+            "C-001",
+            "--falsify-scenario",
+            "If test_verify_token_expired returns 200 OK, the expiry claim is falsified.",
+            "--falsify-claim",
+            "C-002",
+            "--falsify-scenario",
+            "If test_verify_signature accepts a tampered token, the signature claim is falsified.",
         )
 
         session = self._load_session()
@@ -389,24 +522,38 @@ class TestSVPFullWorkflow:
     def test_probe_resume_merges_scenarios(self):
         """SVP-E2E-12: Running svp probe twice merges new scenarios into existing probe."""
         self._run(
-            "predict", "42",
-            "--repo", "test-org/test-repo",
-            "--verifier", "alice",
-            "--test-file", "tests/test_auth.py",
-            "--approach", "The implementation should validate JWT tokens by checking expiry and signature using the standard library hmac module.",
-            "--edge-cases", "expired token",
-            "--edge-cases", "malformed header",
+            "predict",
+            "42",
+            "--repo",
+            "test-org/test-repo",
+            "--verifier",
+            "alice",
+            "--test-file",
+            "tests/test_auth.py",
+            "--approach",
+            "The implementation should validate JWT tokens by checking expiry and signature using the standard library hmac module.",
+            "--edge-cases",
+            "expired token",
+            "--edge-cases",
+            "malformed header",
         )
 
         # First probe with C-001
         self._run(
-            "probe", "42",
-            "--repo", "test-org/test-repo",
-            "--verifier", "alice",
-            "--assessment", "No AI tells detected. Full review complete.",
-            "--why-question", "Why was hmac.compare_digest chosen over == for comparison?",
-            "--falsify-claim", "C-001",
-            "--falsify-scenario", "If test_verify_token_expired returns 200 OK, the expiry claim is falsified.",
+            "probe",
+            "42",
+            "--repo",
+            "test-org/test-repo",
+            "--verifier",
+            "alice",
+            "--assessment",
+            "No AI tells detected. Full review complete.",
+            "--why-question",
+            "Why was hmac.compare_digest chosen over == for comparison?",
+            "--falsify-claim",
+            "C-001",
+            "--falsify-scenario",
+            "If test_verify_token_expired returns 200 OK, the expiry claim is falsified.",
         )
 
         session = self._load_session()
@@ -414,20 +561,26 @@ class TestSVPFullWorkflow:
 
         # Second probe adds C-002 (should merge, not overwrite)
         self._run(
-            "probe", "42",
-            "--repo", "test-org/test-repo",
-            "--verifier", "alice",
-            "--assessment", "Updated assessment after second review pass.",
-            "--why-question", "Why no rate limiting on token verification?",
-            "--falsify-claim", "C-002",
-            "--falsify-scenario", "If test_verify_signature accepts a tampered token, signature claim is falsified.",
+            "probe",
+            "42",
+            "--repo",
+            "test-org/test-repo",
+            "--verifier",
+            "alice",
+            "--assessment",
+            "Updated assessment after second review pass.",
+            "--why-question",
+            "Why no rate limiting on token verification?",
+            "--falsify-claim",
+            "C-002",
+            "--falsify-scenario",
+            "If test_verify_signature accepts a tampered token, signature claim is falsified.",
         )
 
         session = self._load_session()
         scenarios = session["probe"]["falsification_scenarios"]
-        assert len(scenarios) == 2, (
-            f"Expected 2 merged scenarios, got {len(scenarios)}: "
-            + str([s["claim_id"] for s in scenarios])
+        assert len(scenarios) == 2, f"Expected 2 merged scenarios, got {len(scenarios)}: " + str(
+            [s["claim_id"] for s in scenarios]
         )
         claim_ids = {s["claim_id"] for s in scenarios}
         assert claim_ids == {"C-001", "C-002"}, f"Got claim_ids: {claim_ids}"
@@ -439,13 +592,20 @@ class TestSVPFullWorkflow:
     def test_status_shows_progress(self):
         """SVP-E2E-08: svp status shows phase completion for partial session."""
         self._run(
-            "predict", "42",
-            "--repo", "test-org/test-repo",
-            "--verifier", "alice",
-            "--test-file", "tests/test_auth.py",
-            "--approach", "The implementation should validate JWT tokens by checking expiry and signature using the standard library hmac module.",
-            "--edge-cases", "expired token",
-            "--edge-cases", "malformed header",
+            "predict",
+            "42",
+            "--repo",
+            "test-org/test-repo",
+            "--verifier",
+            "alice",
+            "--test-file",
+            "tests/test_auth.py",
+            "--approach",
+            "The implementation should validate JWT tokens by checking expiry and signature using the standard library hmac module.",
+            "--edge-cases",
+            "expired token",
+            "--edge-cases",
+            "malformed header",
         )
 
         result = self._run("status", "42")
