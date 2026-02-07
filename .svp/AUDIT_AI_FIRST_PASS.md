@@ -1,196 +1,209 @@
-# AI First-Pass SVP Audit Scorecard
+# Case Study: AI First-Pass SVP Audit
 
-**Auditor:** cascade-ai-first-pass (self-audit)
+**Why this matters:** This document is the empirical proof that the AIV+SVP protocol
+works. An AI was given 3 PRs to verify. It produced structured sessions. Those
+sessions were then audited by executing every claim. The results expose exactly
+where AI verification succeeds, where it fails, and what the protocol must enforce.
+
+**Author:** Human + AI collaborative analysis
 **Date:** 2026-02-07
-**Sessions audited:** PR#1 (AIV_IMPLEMENTATION), PR#2 (AIV_GUARD), PR#3 (GUARD_REFACTOR)
-
-## Overall Results
-
-| Category | Right | Wrong | Partial | Total | Accuracy |
-|----------|-------|-------|---------|-------|----------|
-| Predictions | 22 | 8 | 1 | 31 | 74% |
-| Trace content (code-read only) | 13 | 2 | 0 | 15 | 87% |
-| Trace content (execution-verified) | 10 | 0 | 0 | 10 | 100% |
-| Probe findings | 11 | 0 | 0 | 11 | 100% |
-| Falsification scenarios | 8 | 5 | 1 | 20 | 40% ★ |
-
-★ **Falsification is the weakest category.** 5 of 20 scenarios were wrong or
-broken. 2 referenced hallucinated functions (carried forward from bad predictions),
-2 had wrong counts, and 1 was ambiguous. 6 more were unverifiable (JS runtime or
-commit-scope). Only 8 of 20 were confirmed correct by execution.
-
-## Verification Method
-
-**Round 1 (code-read):** Traces written by reading source code and mentally
-simulating execution. Found 2 errors: one factually wrong (sod_mode S3) and
-one misleading (renamed file critical surface).
-
-**Round 2 (execution-verified):** Each edge case actually executed via Python.
-All 10 testable traces confirmed correct after corrections. PR#2 traces target
-a JS workflow and cannot be executed from Python — these remain code-read only.
+**Sessions:** PR#1 (AIV_IMPLEMENTATION), PR#2 (AIV_GUARD), PR#3 (GUARD_REFACTOR)
 
 ---
 
-## PR#1: AIV_IMPLEMENTATION (R2, 7 claims)
+## 1. The Scorecard
 
-### Prediction Errors (4 of 12)
+| Phase | Accuracy | Value Type | Failure Mode |
+| :--- | :--- | :--- | :--- |
+| **Prediction** | 74% (22/31) | Architectural mapping | Hallucination — inventing functions that don't exist |
+| **Trace (code-read)** | 87% (13/15) | Logic navigation | Assumption — misreading complex conditionals |
+| **Trace (execution-verified)** | 100% (10/10) | Logic navigation | None after corrections |
+| **Probe findings** | **100% (11/11)** | **Bug discovery** | **None — 8 real bugs found in "passing" code** |
+| **Falsification** | **40% (8/20)** | **Pure theater** | Parroting — repeating wrong numbers from predictions |
 
-- **"12 models"** → actual 13 (missed `FrictionScore`)
-- **"computed property evidence_classes_present"** → it's a regular field
-- **"sanitize_shell_input"** → hallucinated, does not exist
-- **"DiffAnalyzer class"** → hallucinated, actual is `AntiCheatScanner`
+---
 
-### Trace Verification (5/5 execution-verified)
+## 2. The Core Discovery: Hunter vs. Validator
 
-| Trace | Edge Case | Execution Result |
-|-------|-----------|-----------------|
-| ArtifactLink.from_url | `/blob/abcdef1/` (7-char hex) | `is_immutable=True` — **CONFIRMED** |
-| PacketParser.parse | `##` inside fenced code block | 8 sections found (should be 7) — **BUG CONFIRMED** |
-| ValidationPipeline.validate | Mutable `/blob/main/` link | E004 BLOCK + pipeline continues — **CONFIRMED** |
+The AI is a **superb Hunter** but a **dangerous Validator**.
+
+- **The Hunter (Probe Phase — 100%):** Reading code adversarially to find bugs,
+  the AI found logic collisions, missing regex patterns, hardcoded assumptions, and
+  a header injection vulnerability. Every finding was real. This is the value.
+
+- **The Validator (Falsification Phase — 40%):** Attempting to "prove" claims true,
+  the AI defaulted to pattern matching. It parroted "12 models" because it predicted
+  "12 models," even though the code had 13. It validated theater, not logic.
+
+**Conclusion:** The AI is not a "Verifier Jr." It is an **Automated Adversary**.
+
+---
+
+## 3. The Hallucination Cascade
+
+The audit revealed a recursive failure loop unique to AI:
+
+1. **Predict:** AI predicts `sanitize_shell_input` exists.
+2. **Trace:** AI "mentally traces" that non-existent function.
+3. **Probe:** AI writes a falsification scenario testing that function.
+4. **Result:** A perfectly valid JSON file describing a reality that doesn't exist.
+
+For an AI, "Mental Simulation" is a synonym for "Confidently Incorrect Hallucination."
+This is why **S015** now requires AI sessions to include `verified_output` from
+actual execution — mental simulation is banned for AI verifiers.
+
+---
+
+## 4. Bugs Found (All Real)
+
+The probe phase found **8 architectural flaws** that 371 unit tests missed:
+
+| # | Bug | File | Severity |
+|---|-----|------|----------|
+| 1 | Parser treats `##` inside fenced code blocks as sections (header injection) | `parser.py` | **HIGH — FIXED** |
+| 2 | E020 rule_id collision between pipeline.py and evidence.py | `pipeline.py` | Medium |
+| 3 | `.py` files excluded from JS guard semantic analysis | `aiv-guard.yml` | Medium |
+| 4 | Mutable branch list differs: JS checks 5, Python checks 7 | `models.py` / `aiv-guard.yml` | Medium |
+| 5 | Section detection uses substring `includes()` not heading match | `aiv-guard.yml` | Medium |
+| 6 | `node`/`npm` hardcoded in manifest validation (rejects Python CI) | `manifest.py` | Medium |
+| 7 | Zero-test manifests pass Class A validation | `manifest.py` | **High** |
+| 8 | No retry logic on 429 rate limits | `github_api.py` | Medium |
+
+Bug #1 was fixed immediately (commit `304d47e`). The others remain as documented tech debt.
+
+---
+
+## 5. Execution Verification Detail
+
+### Verification Method
+
+- **Round 1 (code-read):** Traces written by reading source and mentally simulating.
+  Found 2 errors: one factually wrong (`sod_mode` S3), one misleading (critical surfaces).
+- **Round 2 (execution-verified):** Every edge case actually executed via Python.
+  All 10 testable traces confirmed correct after corrections. PR#2 traces (JS
+  workflow) remain code-read only — cannot be executed from Python.
+
+### PR#1: AIV_IMPLEMENTATION — Traces (5/5 verified)
+
+| Trace | Edge Case | Result |
+|-------|-----------|--------|
+| `ArtifactLink.from_url` | `/blob/abcdef1/` (7-char hex) | `is_immutable=True` — **CONFIRMED** |
+| `PacketParser.parse` | `##` inside fenced code block | 8 sections (should be 7) — **BUG CONFIRMED** |
+| `ValidationPipeline.validate` | Mutable `/blob/main/` link | E004 BLOCK + pipeline continues — **CONFIRMED** |
 | CLI check | Piped stdin without `-` arg | "No packet body provided", exit 1 — **CONFIRMED** |
-| AntiCheatScanner.scan_diff | Production assertion deletion | 0 findings, 0 test files — **CONFIRMED** |
+| `AntiCheatScanner.scan_diff` | Production assertion deletion | 0 findings, 0 test files — **CONFIRMED** |
 
-### Falsification Verification (7 scenarios)
+### PR#2: AIV_GUARD — Traces (0/5 verified — JS workflow)
 
-| Claim | Scenario | Result |
-|-------|----------|--------|
-| C-001 | "12 models, all BaseModel frozen" | **WRONG** — actual 13; 4 are Enums not BaseModels |
-| C-002 | /blob/main/ produces E004 BLOCK | **CONFIRMED** by execution |
-| C-003 | `aiv check` exit 0 on valid packet | **AMBIGUOUS** — exit 0 only with `--no-strict` |
-| C-004 | Call `sanitize_shell_input` | **BROKEN** — function hallucinated, does not exist |
-| C-005 | Call `DiffAnalyzer.parse_diff` | **BROKEN** — class hallucinated, does not exist |
-| C-006 | Every model has `frozen=True` | **CONFIRMED** by execution (9/9 BaseModels) |
-| C-007 | "exactly 36 tests pass" | **WRONG** — current suite has 371 tests |
+All 5 traces are **code-read only**. The 2244-line JS workflow runs inside GitHub
+Actions and cannot be executed locally.
 
-### Findings Confirmed
+### PR#3: GUARD_REFACTOR — Traces (5/5 verified)
 
-- E020 rule_id collision (pipeline.py + evidence.py) → **REAL**
-- Parser code block bug (no fenced block detection) → **REAL**
-
----
-
-## PR#2: AIV_GUARD (R2, 8 claims)
-
-### Prediction Errors (2 of 10)
-
-- **"regex for section headers"** → actual uses `packetContent.includes(h)` (substring)
-- **"artifact download via direct API call"** → actual is env-var inter-step communication
-
-### Trace Verification (0/5 execution-verified — JS workflow, cannot run from Python)
-
-All 5 traces are **code-read only**. The JS workflow runs inside GitHub Actions
-and cannot be executed locally. These traces should be treated as unverified
-mental models until a JS test harness or live CI run confirms them.
-
-### Falsification Verification (8 scenarios)
-
-| Claim | Scenario | Result |
-|-------|----------|--------|
-| C-001 | Workflow triggers on opened/edited/synchronize to main | **CONFIRMED** from file content |
-| C-002 | Missing `## Claim(s)` passes without error | **UNVERIFIABLE** — JS runtime |
-| C-003 | `/blob/main/` in Class E passes without setFailed | **UNVERIFIABLE** — JS runtime |
-| C-004 | Docs-only PR triggers setFailed instead of fast-track | **UNVERIFIABLE** — JS runtime |
-| C-005 | Mismatched head_sha passes without CT-005 | **UNVERIFIABLE** — JS runtime |
-| C-006 | `src/auth/login.py` doesn't trigger critical surface | **CONFIRMED** via Python _CS_PATH |
-| C-007 | Missing class_a_execution.json produces no error | **UNVERIFIABLE** — JS runtime |
-| C-008 | Workflow completes without writing JSON to disk | **CONFIRMED** — writeFileSync found |
-
-### Findings Confirmed
-
-- `.py` excluded from `shouldFetchContentAtHead` → **REAL** (regex on line 605)
-- Mutable branch list JS≠Python (5 vs 7) → **REAL**
-- Substring `includes()` for section detection → **REAL**
-
----
-
-## PR#3: GUARD_REFACTOR (R2, 5 claims)
-
-### Prediction Errors (3 of 9)
-
-- **"5 files"** → actual 7 (missed `__init__.py`, `__main__.py`)
-- **"45-line workflow"** → actual 36 lines (parroted packet claim without verifying)
-- **"84+36=120 tests"** → not independently verified
-
-### Trace Verification (5/5 execution-verified)
-
-| Trace | Edge Case | Execution Result |
-|-------|-----------|-----------------|
-| GuardRunner._check_critical_surfaces | Renamed `helpers.py` (no auth path), empty patch | Path: [], Semantic: [] — **CONFIRMED** (trace fixed: was misleading) |
-| validate_canonical | `sod_mode='S3'` | BLOCK CLS-003 immediately — **CONFIRMED** (trace fixed: was factually wrong) |
-| GuardResult.finalize | WARN-only findings | `overall_result=PASS` — **CONFIRMED** |
-| GitHubAPI._request_bytes | 429 HTTPError | `GitHubAPIError(status_code=429)`, no retry — **CONFIRMED** |
-| validate_class_a_manifest | `test_results: {pass:0, fail:0, skip:0}` | `errors=[]`, validation passes — **CONFIRMED** |
+| Trace | Edge Case | Result |
+|-------|-----------|--------|
+| `GuardRunner._check_critical_surfaces` | Renamed `helpers.py`, empty patch | Path: [], Semantic: [] — **CONFIRMED** |
+| `validate_canonical` | `sod_mode='S3'` | BLOCK CLS-003 immediately — **CONFIRMED** (was factually wrong, fixed) |
+| `GuardResult.finalize` | WARN-only findings | `overall_result=PASS` — **CONFIRMED** |
+| `GitHubAPI._request_bytes` | 429 HTTPError | `GitHubAPIError(status_code=429)`, no retry — **CONFIRMED** |
+| `validate_class_a_manifest` | `{pass:0, fail:0, skip:0}` | `errors=[]`, validation passes — **CONFIRMED** |
 
 ### Trace Corrections Applied
 
-1. **Trace 1 (critical surfaces):** Original said "would miss the file" without
-   specifying that path patterns still catch files with auth keywords in the path.
-   Fixed to show both path AND semantic checks explicitly, with note that
-   `src/auth/login.py` would still be caught by path patterns.
+1. **Critical surfaces trace:** Original said "would miss the file" without noting
+   path patterns still catch auth-named files. Fixed with explicit path + semantic check.
+2. **sod_mode trace:** Original claimed S3 "passes silently for R0/R1". Execution
+   proved `sod_mode not in ("S0", "S1")` blocks S3 before R2+ check runs.
 
-2. **Trace 2 (sod_mode):** Original claimed S3 "passes silently for R0/R1".
-   Execution proved code has `sod_mode not in ("S0", "S1")` check that catches
-   S3 BEFORE the R2+ check. Fixed with `AUDIT CORRECTION` note.
+---
 
-### Falsification Verification (5 scenarios)
+## 6. Falsification Scenario Detail
+
+### PR#1 (7 scenarios — 2 confirmed, 2 broken, 2 wrong, 1 ambiguous)
 
 | Claim | Scenario | Result |
 |-------|----------|--------|
-| C-001 | "exactly 5 Python files" | **WRONG** — actual 7 (missed `__init__.py`, `__main__.py`) |
-| C-002 | validate_canonical checks head_sha binding | **CONFIRMED** — CT-005 BLOCK on mismatch |
-| C-003 | Workflow under 100 lines, invokes `python -m aiv.guard` | **CONFIRMED** (36 lines) |
-| C-004 | test_guard.py has >= 36 test functions | **CONFIRMED** (36 collected) |
-| C-005 | No files modified outside guard scope | **UNVERIFIABLE** — commit-scope check |
+| C-001 | "12 models, all BaseModel frozen" | **WRONG** — actual 13; 4 are Enums |
+| C-002 | `/blob/main/` produces E004 BLOCK | **CONFIRMED** |
+| C-003 | `aiv check` exit 0 on valid packet | **AMBIGUOUS** — only with `--no-strict` |
+| C-004 | Call `sanitize_shell_input` | **BROKEN** — hallucinated function |
+| C-005 | Call `DiffAnalyzer.parse_diff` | **BROKEN** — hallucinated class |
+| C-006 | Every model has `frozen=True` | **CONFIRMED** (9/9 BaseModels) |
+| C-007 | "exactly 36 tests pass" | **WRONG** — suite has 371 |
 
-### Findings Confirmed
+### PR#2 (8 scenarios — 3 confirmed, 5 unverifiable)
 
-- `node`/`npm` hardcoded in manifest.py → **REAL**
-- Zero-test acceptance (`_is_int(0)` passes) → **REAL**
-- Branch list inconsistency → **REAL**
+| Claim | Scenario | Result |
+|-------|----------|--------|
+| C-001 | Workflow triggers on opened/edited/synchronize to main | **CONFIRMED** |
+| C-002–C-005, C-007 | Various JS runtime checks | **UNVERIFIABLE** — JS runtime |
+| C-006 | `src/auth/login.py` triggers critical surface | **CONFIRMED** via `_CS_PATH` |
+| C-008 | Workflow writes JSON to disk | **CONFIRMED** — `writeFileSync` found |
+
+### PR#3 (5 scenarios — 3 confirmed, 1 wrong, 1 unverifiable)
+
+| Claim | Scenario | Result |
+|-------|----------|--------|
+| C-001 | "exactly 5 Python files" | **WRONG** — actual 7 |
+| C-002 | head_sha binding check | **CONFIRMED** — CT-005 BLOCK |
+| C-003 | Workflow < 100 lines, invokes guard | **CONFIRMED** (36 lines) |
+| C-004 | test_guard.py >= 36 test functions | **CONFIRMED** (36 collected) |
+| C-005 | No files modified outside guard scope | **UNVERIFIABLE** — commit-scope |
+
+### Root Cause Analysis
+
+1. **Hallucination propagation.** `sanitize_shell_input` and `DiffAnalyzer` were
+   invented in predictions, carried into falsification scenarios. Garbage in, garbage out.
+2. **Count parroting.** "12 models", "36 tests", "5 files" — all wrong because
+   numbers were repeated from predictions instead of independently verified.
+3. **Missing execution context.** Scenarios didn't specify `--no-strict`, which
+   test file, or which commit. Ambiguity kills falsifiability.
+4. **JS workflow gap.** 5 of 8 PR#2 scenarios require JS runtime. Should have
+   been flagged unverifiable at authoring time.
 
 ---
 
-## Falsification Scenario Failure Analysis
+## 7. Protocol Changes Implemented
 
-The falsification scenarios had **40% accuracy** — the worst category by far.
-Root causes:
+This audit directly produced 4 changes to the SVP protocol:
 
-1. **Hallucination propagation.** Bad predictions (sanitize_shell_input, DiffAnalyzer)
-   were carried forward into falsification scenarios. The scenarios tested functions
-   that don't exist, making them untestable garbage.
+| Change | Rule | What It Does |
+|--------|------|-------------|
+| **SessionType enum** | — | `human_verification` vs `ai_adversarial_triage` on `SVPSession` |
+| **Execution Trace** | S015 | AI sessions BLOCK without `verified_output` on traces |
+| **Falsification-as-Code** | S016 | AI sessions BLOCK without `test_code` on scenarios |
+| **Parser bug fix** | — | Fenced code block headings no longer parsed as sections |
 
-2. **Count parroting.** Scenarios repeated exact counts from predictions/packets
-   ("12 models", "36 tests", "5 files") without verifying them first. Every count
-   was wrong.
-
-3. **Missing execution context.** Scenarios described what to test but didn't specify
-   runtime conditions (`--no-strict`, which test file, which commit). Ambiguity
-   makes a scenario useless for falsification.
-
-4. **JS workflow gap.** 5 of 8 PR#2 scenarios require JS runtime execution that
-   can't be done from Python. These should have been flagged as unverifiable at
-   authoring time, not left as unchecked.
-
-**Key lesson:** A falsification scenario that can't be executed is worthless. Every
-scenario should be written as a runnable test — if you can't run it, don't write it.
+Additionally: `StateTransition.line_number` was removed from the model entirely
+because line numbers are fragile references that rot with every edit.
 
 ---
 
-## Lessons for Future AI First-Pass
+## 8. What This Proves About AIV+SVP
 
-1. **Execute every edge case.** Mental traces without execution verification caught
-   only 87% accuracy. Execution verification caught 100%. The sod_mode error would
-   have misled a human reviewer if not caught by running the code.
-2. **Execute every falsification scenario.** 40% accuracy on scenarios is
-   unacceptable. Write them as runnable assertions, not English descriptions.
-3. **Don't hallucinate functions.** If a claim says "guard sanitization", predict
-   the mechanism, don't invent specific function names. And NEVER carry hallucinated
-   names into falsification scenarios.
-4. **Don't parrot packet claims.** Verify counts independently (file count, line
-   count, test count) during the trace phase AND in falsification scenarios.
-5. **Line numbers are fragile.** `StateTransition.line_number` was removed from the
-   model. Variable name + before/after values tell the story without brittle refs.
-6. **Mark unverifiable items at authoring time.** PR#2 JS traces and scenarios
-   cannot be executed from Python. Flag them immediately, don't leave them unchecked.
-7. **Probe findings were 100% real.** The adversarial probe phase produced the
-   highest-value output — every flagged issue is a genuine code concern.
+### The protocol works.
+
+The SVP process caught errors that would have been invisible without it:
+- A factually wrong trace (sod_mode) that would have misled human reviewers
+- 8 real bugs in code that passed 371 unit tests
+- A header injection vulnerability in the parser
+
+### AI verification is real — but only the adversarial part.
+
+The probe phase (100% accuracy) is genuine value. The prediction and falsification
+phases are scaffolding that exposes the AI's blind spots. The 40% falsification
+rate proves that an AI cannot validate its own claims — it can only find bugs in
+other code.
+
+### The "Honest Protocol" is the right response.
+
+Banning mental simulation (S015) and requiring code-as-falsification (S016) for AI
+sessions doesn't weaken the protocol — it makes it honest. An AI that is forced to
+execute its edge cases and write pytest snippets for its claims will either produce
+verified work or fail loudly. Both outcomes are better than theater.
+
+### Retrospective SVP clears architectural debt.
+
+Running SVP sessions on existing PRs — after the code is merged — found issues
+that pre-merge review missed. This is not a failure of pre-merge review; it's
+proof that adversarial probing adds value at every stage of the lifecycle.
