@@ -80,6 +80,17 @@ class PacketParser:
         r"Class\s+([A-F])\b", re.IGNORECASE
     )
 
+    # Pattern matching placeholder-only content lines
+    _PLACEHOLDER_RE = re.compile(
+        r"^[\s\-*]*"
+        r"(TODO|TBD|PENDING|N/?A|NONE|FIXME|XXX)"
+        r"[:\s.]",
+        re.IGNORECASE | re.MULTILINE,
+    )
+
+    # Minimum non-placeholder alphabetic characters for substance
+    _MIN_SUBSTANCE_ALPHA = 10
+
     def __init__(self) -> None:
         self._last_errors: list[ValidationFinding] = []
 
@@ -246,17 +257,34 @@ class PacketParser:
             return None
 
     def _collect_evidence_classes(self, sections: list[ParsedSection]) -> set[EvidenceClass]:
-        """Scan all ### Class X evidence sections and return the set of classes found."""
+        """Scan all ### Class X evidence sections and return the set of classes found.
+
+        Only counts a section as present if its content is substantive —
+        headings with only placeholder text (TODO, TBD, N/A, etc.) are ignored.
+        """
         found: set[EvidenceClass] = set()
         for s in sections:
             if s.level == 3:
                 match = self.EVIDENCE_CLASS_PATTERN.search(s.title)
                 if match:
                     try:
-                        found.add(EvidenceClass.from_string(match.group(1)))
+                        ev_class = EvidenceClass.from_string(match.group(1))
+                        if self._is_substantive(s.content):
+                            found.add(ev_class)
                     except ValueError:
                         pass
         return found
+
+    def _is_substantive(self, content: list[str]) -> bool:
+        """Return True if section content is more than just placeholders."""
+        joined = "\n".join(content).strip()
+        if not joined:
+            return False
+        # Strip all placeholder lines; if nothing remains, not substantive
+        non_placeholder = self._PLACEHOLDER_RE.sub("", joined).strip()
+        # Must have real alphanumeric content beyond punctuation/bullets
+        alpha_content = re.sub(r"[^a-zA-Z0-9]", "", non_placeholder)
+        return len(alpha_content) >= self._MIN_SUBSTANCE_ALPHA
 
     def _parse_intent(self, sections: list[ParsedSection]) -> IntentSection | None:
         """
