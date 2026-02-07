@@ -83,45 +83,75 @@ class EvidenceValidator(BaseValidator):
         """
         errors: list[ValidationFinding] = []
 
-        # Check for CI link
+        # Check artifact type
         if isinstance(claim.artifact, ArtifactLink):
-            if claim.artifact.link_type not in ("github_actions", "external"):
-                # Not a CI link - warn but allow
-                if "performance" in claim.description.lower():
-                    errors.append(
-                        self._make_finding(
-                            rule_id="E013",
-                            severity="block",
-                            message="Performance claims require CI-based differential benchmarks",
-                            location=f"Section {claim.section_number}",
-                            suggestion=("Link to a CI job that runs benchmarks on both main and feature branches"),
-                        )
+            if claim.artifact.link_type in ("github_actions", "external"):
+                # Good: CI link — this is the ideal Class A evidence
+                pass
+            elif "performance" in claim.description.lower():
+                errors.append(
+                    self._make_finding(
+                        rule_id="E013",
+                        severity="block",
+                        message="Performance claims require CI-based differential benchmarks",
+                        location=f"Section {claim.section_number}",
+                        suggestion="Link to a CI job that runs benchmarks on both main and feature branches",
                     )
-                elif "ui" in claim.description.lower() or "visual" in claim.description.lower():
-                    errors.append(
-                        self._make_finding(
-                            rule_id="E012",
-                            severity="warn",
-                            message=("UI evidence should show state transition (GIF/video preferred)"),
-                            location=f"Section {claim.section_number}",
-                        )
+                )
+            elif "ui" in claim.description.lower() or "visual" in claim.description.lower():
+                errors.append(
+                    self._make_finding(
+                        rule_id="E012",
+                        severity="warn",
+                        message="UI evidence should show state transition (GIF/video preferred)",
+                        location=f"Section {claim.section_number}",
                     )
-                elif claim.artifact.link_type == "github_blob":
-                    errors.append(
-                        self._make_finding(
-                            rule_id="E020",
-                            severity="warn",
-                            message=(
-                                "Class A (Execution) evidence links to a code file, "
-                                "not a CI run. Execution evidence should prove "
-                                "the code was *run*, not just that it *exists*."
-                            ),
-                            location=f"Section {claim.section_number}",
-                            suggestion=(
-                                "Link to a GitHub Actions run (e.g. /actions/runs/12345) or external CI artifact."
-                            ),
-                        )
+                )
+            elif claim.artifact.link_type == "github_blob":
+                errors.append(
+                    self._make_finding(
+                        rule_id="E020",
+                        severity="warn",
+                        message=(
+                            "Class A (Execution) evidence links to a code file, "
+                            "not a CI run. Execution evidence should prove "
+                            "the code was *run*, not just that it *exists*."
+                        ),
+                        location=f"Section {claim.section_number}",
+                        suggestion=(
+                            "Link to a GitHub Actions run (e.g. /actions/runs/12345) or external CI artifact."
+                        ),
                     )
+                )
+            elif claim.artifact.link_type == "github_pr":
+                errors.append(
+                    self._make_finding(
+                        rule_id="E012",
+                        severity="info",
+                        message=(
+                            "Class A (Execution) evidence links to a PR, not a CI run. "
+                            "Consider linking directly to the workflow run for stronger evidence."
+                        ),
+                        location=f"Section {claim.section_number}",
+                        suggestion="Link to the Actions tab run associated with this PR.",
+                    )
+                )
+        elif isinstance(claim.artifact, str):
+            # Plain string artifact — no URL at all
+            artifact_lower = claim.artifact.lower().strip()
+            if artifact_lower and artifact_lower not in ("see evidence section", "n/a"):
+                errors.append(
+                    self._make_finding(
+                        rule_id="E012",
+                        severity="warn",
+                        message=(
+                            "Class A (Execution) evidence is a text reference, not a link. "
+                            "Execution evidence should link to a CI run or test output."
+                        ),
+                        location=f"Section {claim.section_number}",
+                        suggestion="Provide a URL to a GitHub Actions run or external CI artifact.",
+                    )
+                )
 
         return errors
 
