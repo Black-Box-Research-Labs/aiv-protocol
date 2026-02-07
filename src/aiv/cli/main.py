@@ -34,6 +34,7 @@ def check(
     diff: Path | None = typer.Option(None, "--diff", "-d", help="Path to diff file for anti-cheat scanning"),
     strict: bool = typer.Option(True, "--strict/--no-strict", help="Treat warnings as errors"),
     config: Path | None = typer.Option(None, "--config", "-c", help="Path to .aiv.yml configuration file"),
+    audit_links: bool = typer.Option(False, "--audit-links", help="Verify evidence URLs are reachable via HTTP HEAD"),
 ) -> None:
     """
     Validate a Verification Packet locally.
@@ -61,7 +62,7 @@ def check(
         raise typer.Exit(1)
 
     # Run full pipeline
-    pipeline = ValidationPipeline(cfg)
+    pipeline = ValidationPipeline(cfg, audit_links=audit_links)
     diff_text = diff.read_text(encoding="utf-8") if diff and diff.exists() else None
     result = pipeline.validate(body_text, diff=diff_text)
 
