@@ -9,14 +9,14 @@ from __future__ import annotations
 import re
 from re import Pattern
 
+from ..config import ZeroTouchConfig
 from ..models import (
     Claim,
     FrictionScore,
-    ValidationFinding,
     Severity,
+    ValidationFinding,
     VerificationPacket,
 )
-from ..config import ZeroTouchConfig
 from .base import BaseValidator
 
 
@@ -35,12 +35,8 @@ class ZeroTouchValidator(BaseValidator):
         self.prohibited_patterns: list[Pattern[str]] = [
             re.compile(p, re.IGNORECASE) for p in self.config.prohibited_patterns
         ]
-        self.allowed_patterns: list[Pattern[str]] = [
-            re.compile(p, re.IGNORECASE) for p in self.config.allowed_patterns
-        ]
-        self.step_patterns: list[Pattern[str]] = [
-            re.compile(p, re.IGNORECASE) for p in self.config.step_separators
-        ]
+        self.allowed_patterns: list[Pattern[str]] = [re.compile(p, re.IGNORECASE) for p in self.config.allowed_patterns]
+        self.step_patterns: list[Pattern[str]] = [re.compile(p, re.IGNORECASE) for p in self.config.step_separators]
 
     def validate(self, packet: VerificationPacket) -> list[ValidationFinding]:
         """Validate all claims in a packet for zero-touch compliance."""
@@ -76,18 +72,14 @@ class ZeroTouchValidator(BaseValidator):
                     step_count=0,
                     prohibited_patterns_found=[],
                     is_zero_touch_compliant=True,
-                    recommendation=None
+                    recommendation=None,
                 )
 
         # Check for explicit zero-touch compliance phrases (early exit)
         repro_lower = reproduction.lower()
         if any(phrase in repro_lower for phrase in self._ZT_COMPLIANCE_PHRASES):
             return errors, FrictionScore(
-                score=0,
-                step_count=0,
-                prohibited_patterns_found=[],
-                is_zero_touch_compliant=True,
-                recommendation=None
+                score=0, step_count=0, prohibited_patterns_found=[], is_zero_touch_compliant=True, recommendation=None
             )
 
         # Strip fenced code blocks before checking prohibited patterns.
@@ -102,19 +94,17 @@ class ZeroTouchValidator(BaseValidator):
                 prohibited_found.append(pattern.pattern)
 
         if prohibited_found:
-            errors.append(ValidationFinding(
-                rule_id="E008",
-                severity=Severity.BLOCK,
-                message=(
-                    "Reproduction instructions require local execution. "
-                    "Zero-Touch mandate violated."
-                ),
-                location=f"Section {claim.section_number}",
-                suggestion=(
-                    "Replace manual steps with a link to CI artifacts. "
-                    "Example: 'See CI artifact: test_output.log'"
+            errors.append(
+                ValidationFinding(
+                    rule_id="E008",
+                    severity=Severity.BLOCK,
+                    message=("Reproduction instructions require local execution. Zero-Touch mandate violated."),
+                    location=f"Section {claim.section_number}",
+                    suggestion=(
+                        "Replace manual steps with a link to CI artifacts. Example: 'See CI artifact: test_output.log'"
+                    ),
                 )
-            ))
+            )
 
         # Count steps (using stripped text, excluding code blocks)
         step_count = 1  # Start with 1 (the instruction itself)
@@ -123,16 +113,18 @@ class ZeroTouchValidator(BaseValidator):
             step_count += len(matches)
 
         if step_count > self.config.max_steps:
-            errors.append(ValidationFinding(
-                rule_id="E008",
-                severity=Severity.WARN,
-                message=(
-                    f"High-friction reproduction: {step_count} steps detected. "
-                    f"Maximum recommended: {self.config.max_steps}"
-                ),
-                location=f"Section {claim.section_number}",
-                suggestion="Consolidate into a single automated script or CI artifact link"
-            ))
+            errors.append(
+                ValidationFinding(
+                    rule_id="E008",
+                    severity=Severity.WARN,
+                    message=(
+                        f"High-friction reproduction: {step_count} steps detected. "
+                        f"Maximum recommended: {self.config.max_steps}"
+                    ),
+                    location=f"Section {claim.section_number}",
+                    suggestion="Consolidate into a single automated script or CI artifact link",
+                )
+            )
 
         # Calculate friction score
         friction_score = FrictionScore(
@@ -140,7 +132,7 @@ class ZeroTouchValidator(BaseValidator):
             step_count=step_count,
             prohibited_patterns_found=prohibited_found,
             is_zero_touch_compliant=len(prohibited_found) == 0,
-            recommendation=self._generate_recommendation(prohibited_found, step_count)
+            recommendation=self._generate_recommendation(prohibited_found, step_count),
         )
 
         return errors, friction_score
@@ -157,20 +149,18 @@ class ZeroTouchValidator(BaseValidator):
 
         # Aggregate warning if total friction is high
         if total_friction > 20:
-            all_errors.append(ValidationFinding(
-                rule_id="E008",
-                severity=Severity.WARN,
-                message=f"Total packet friction score: {total_friction}. Consider simplifying.",
-                location="Packet-wide",
-            ))
+            all_errors.append(
+                ValidationFinding(
+                    rule_id="E008",
+                    severity=Severity.WARN,
+                    message=f"Total packet friction score: {total_friction}. Consider simplifying.",
+                    location="Packet-wide",
+                )
+            )
 
         return all_errors
 
-    def _generate_recommendation(
-        self,
-        prohibited: list[str],
-        step_count: int
-    ) -> str | None:
+    def _generate_recommendation(self, prohibited: list[str], step_count: int) -> str | None:
         """Generate actionable recommendation based on findings."""
 
         if not prohibited and step_count <= 1:
@@ -179,23 +169,15 @@ class ZeroTouchValidator(BaseValidator):
         recommendations: list[str] = []
 
         if any("git" in p for p in prohibited):
-            recommendations.append(
-                "Replace git commands with GitHub file permalinks"
-            )
+            recommendations.append("Replace git commands with GitHub file permalinks")
 
         if any("install" in p for p in prohibited):
-            recommendations.append(
-                "Dependencies should be handled by CI; link to successful CI run"
-            )
+            recommendations.append("Dependencies should be handled by CI; link to successful CI run")
 
         if any("run" in p.lower() or "pytest" in p for p in prohibited):
-            recommendations.append(
-                "Execution evidence should be a CI artifact link, not a command"
-            )
+            recommendations.append("Execution evidence should be a CI artifact link, not a command")
 
         if step_count > 1:
-            recommendations.append(
-                f"Consolidate {step_count} steps into single CI job"
-            )
+            recommendations.append(f"Consolidate {step_count} steps into single CI job")
 
         return "; ".join(recommendations) if recommendations else None
