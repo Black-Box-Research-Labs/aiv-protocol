@@ -142,8 +142,7 @@ class LinkValidator(BaseValidator):
                         message=f"Evidence link unreachable (HTTP {status}): {url}",
                         location=location,
                         suggestion=(
-                            "Verify the URL is correct — check for SHA typos, "
-                            "deleted resources, or permission issues."
+                            "Verify the URL is correct — check for SHA typos, deleted resources, or permission issues."
                         ),
                     )
                 )

@@ -465,7 +465,8 @@ def _fetch_latest_ci_url(owner: str, repo: str) -> str:
             data = json.loads(resp.read())
         runs = data.get("workflow_runs", [])
         if runs:
-            return runs[0].get("html_url", "")
+            html_url: str = runs[0].get("html_url", "")
+            return html_url
     except Exception:
         pass
 
@@ -493,7 +494,8 @@ def _fetch_issue_title(owner: str, repo: str, issue_number: str) -> str:
         )
         with urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read())
-        return data.get("title", "")
+        title: str = data.get("title", "")
+        return title
     except Exception:
         pass
 

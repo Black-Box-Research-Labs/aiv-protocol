@@ -67,7 +67,8 @@ class GitHubAPI:
         req = Request(url, headers=headers)
         try:
             with urlopen(req, timeout=60) as resp:
-                return resp.read()
+                result: bytes = resp.read()
+                return result
         except HTTPError as e:
             raise GitHubAPIError(
                 f"GitHub API request failed: {url} ({e.code})",
@@ -137,7 +138,8 @@ class GitHubAPI:
         """Fetch a workflow run by ID."""
         url = f"{self.base_url}/repos/{ctx.owner}/{ctx.repo}/actions/runs/{run_id}"
         try:
-            return self._request(url)
+            result: dict[str, Any] = self._request(url)
+            return result
         except GitHubAPIError:
             return None
 
@@ -194,6 +196,7 @@ class GitHubAPI:
         url = f"{self.base_url}/search/code?q={q}&per_page=1"
         try:
             data = self._request(url)
-            return data.get("total_count", 0)
+            count: int = data.get("total_count", 0)
+            return count
         except GitHubAPIError:
             return 0

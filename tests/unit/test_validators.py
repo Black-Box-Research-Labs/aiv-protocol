@@ -441,11 +441,16 @@ class TestLinkVitality:
 
     def test_audit_links_200_passes(self, _make_packet_with_url, monkeypatch):
         """No E021 when HTTP HEAD returns 200."""
+
         class FakeResp:
             status = 200
             reason = "OK"
-            def __enter__(self): return self
-            def __exit__(self, *a): pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                pass
 
         monkeypatch.setattr("aiv.lib.validators.links.urlopen", lambda req, **kw: FakeResp())
 
@@ -493,11 +498,16 @@ class TestLinkVitality:
         from aiv.lib.models import ArtifactLink, IntentSection
 
         call_count = 0
+
         class FakeResp:
             status = 200
             reason = "OK"
-            def __enter__(self): return self
-            def __exit__(self, *a): pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                pass
 
         def _counting_urlopen(req, **kw):
             nonlocal call_count

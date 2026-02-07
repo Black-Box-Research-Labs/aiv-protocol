@@ -7,7 +7,6 @@ mapping and a Markdown report.
 """
 
 import json
-import os
 import subprocess
 import sys
 from collections import defaultdict
@@ -66,9 +65,7 @@ def is_packet(path: str) -> bool:
 def is_source_file(path: str) -> bool:
     if any(path.startswith(p) for p in EXCLUDE_PREFIXES):
         return False
-    if path in EXCLUDE_FILES:
-        return False
-    return True
+    return path not in EXCLUDE_FILES
 
 
 def packet_name(path: str) -> str:
@@ -126,10 +123,7 @@ def build_mapping(commits: list[dict], repo_root: Path) -> dict:
                         "subject": commit["subject"],
                     }
                     # Avoid duplicates
-                    if not any(
-                        e["packet"] == pname and e["commit"] == entry["commit"]
-                        for e in file_to_packets[src]
-                    ):
+                    if not any(e["packet"] == pname and e["commit"] == entry["commit"] for e in file_to_packets[src]):
                         file_to_packets[src].append(entry)
 
                     src_entry = {
@@ -137,10 +131,7 @@ def build_mapping(commits: list[dict], repo_root: Path) -> dict:
                         "commit": commit["sha"][:7],
                         "subject": commit["subject"],
                     }
-                    if not any(
-                        e["file"] == src and e["commit"] == src_entry["commit"]
-                        for e in packet_to_files[pname]
-                    ):
+                    if not any(e["file"] == src and e["commit"] == src_entry["commit"] for e in packet_to_files[pname]):
                         packet_to_files[pname].append(src_entry)
 
     # Unmapped = files/packets that NEVER got a mapping across any commit
@@ -153,9 +144,7 @@ def build_mapping(commits: list[dict], repo_root: Path) -> dict:
     ghost_packets = sorted(all_mapped_packets - existing_packets)
 
     # Detect deleted source files (in git history but no longer on disk)
-    deleted_files = sorted(
-        f for f in file_to_packets if not file_exists_on_disk(repo_root, f)
-    )
+    deleted_files = sorted(f for f in file_to_packets if not file_exists_on_disk(repo_root, f))
 
     # Partition into live vs ghost
     live_f2p = {k: v for k, v in file_to_packets.items() if k not in deleted_files}
@@ -191,9 +180,13 @@ def write_markdown_report(mapping: dict, path: Path) -> None:
     lines.append("> **What is this?** Every commit in this repo pairs a functional file with a verification packet.")
     lines.append("> This document is the **evidence index** — it answers questions the individual packets cannot:")
     lines.append(">")
-    lines.append("> - **\"Show me all evidence for file X\"** → [Source Files → Packets](#source-files--verification-packets)")
-    lines.append("> - **\"What files does packet Y cover?\"** → [Packets → Source Files](#verification-packets--source-files)")
-    lines.append("> - **\"Which files have no evidence?\"** → [Unmapped Source Files](#unmapped-source-files)")
+    lines.append(
+        '> - **"Show me all evidence for file X"** → [Source Files → Packets](#source-files--verification-packets)'
+    )
+    lines.append(
+        '> - **"What files does packet Y cover?"** → [Packets → Source Files](#verification-packets--source-files)'
+    )
+    lines.append('> - **"Which files have no evidence?"** → [Unmapped Source Files](#unmapped-source-files)')
     lines.append(">")
     lines.append("> **Regenerate:** `python scripts/map_packets.py`")
     lines.append("")
@@ -230,7 +223,7 @@ def write_markdown_report(mapping: dict, path: Path) -> None:
             fname = Path(filepath).name
             packets = f2p[filepath]
             pkt_names = ", ".join(sorted(set(p["packet"] for p in packets)))
-            commits = ", ".join(sorted(set(f'`{p["commit"]}`' for p in packets)))
+            commits = ", ".join(sorted(set(f"`{p['commit']}`" for p in packets)))
             lines.append(f"| `{fname}` | {pkt_names} | {commits} |")
         lines.append("")
 
@@ -241,8 +234,8 @@ def write_markdown_report(mapping: dict, path: Path) -> None:
     lines.append("|---|---|---|")
     for pname in sorted(p2f.keys()):
         files_list = p2f[pname]
-        fnames = ", ".join(sorted(set(f'`{e["file"]}`' for e in files_list)))
-        commits = ", ".join(sorted(set(f'`{e["commit"]}`' for e in files_list)))
+        fnames = ", ".join(sorted(set(f"`{e['file']}`" for e in files_list)))
+        commits = ", ".join(sorted(set(f"`{e['commit']}`" for e in files_list)))
         lines.append(f"| {pname} | {fnames} | {commits} |")
     lines.append("")
 
@@ -277,7 +270,7 @@ def write_markdown_report(mapping: dict, path: Path) -> None:
         lines.append("|---|---|---|")
         for gp in ghost_packets:
             files = ghost_p2f.get(gp, [])
-            fnames = ", ".join(sorted(set(f'`{e["file"]}`' for e in files)))
+            fnames = ", ".join(sorted(set(f"`{e['file']}`" for e in files)))
             lines.append(f"| {gp} | {fnames} | AIV_IMPLEMENTATION |")
         lines.append("")
 
@@ -312,14 +305,12 @@ def main():
 
     mapping = build_mapping(commits, repo_root)
     print(
-        f"Mapped {len(mapping['file_to_packets'])} live source files "
-        f"to {len(mapping['packet_to_files'])} live packets"
+        f"Mapped {len(mapping['file_to_packets'])} live source files to {len(mapping['packet_to_files'])} live packets"
     )
     print(f"Unmapped source files: {len(mapping['unmapped_files'])}")
     print(f"Unmapped packets: {len(mapping['unmapped_packets'])}")
     print(f"Ghost packets (deleted from disk): {len(mapping['ghost_packets'])}")
     print(f"Deleted source files: {len(mapping['deleted_files'])}")
-
 
     # Write JSON
     json_path = repo_root / "FILE_PACKET_MAP.json"

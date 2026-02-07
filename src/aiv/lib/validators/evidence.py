@@ -118,9 +118,7 @@ class EvidenceValidator(BaseValidator):
                             "the code was *run*, not just that it *exists*."
                         ),
                         location=f"Section {claim.section_number}",
-                        suggestion=(
-                            "Link to a GitHub Actions run (e.g. /actions/runs/12345) or external CI artifact."
-                        ),
+                        suggestion=("Link to a GitHub Actions run (e.g. /actions/runs/12345) or external CI artifact."),
                     )
                 )
             elif claim.artifact.link_type == "github_pr":

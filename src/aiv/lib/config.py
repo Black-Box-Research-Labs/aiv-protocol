@@ -14,9 +14,7 @@ from pydantic_settings import BaseSettings
 try:
     import yaml
 except ImportError as _yaml_err:
-    raise ImportError(
-        "PyYAML is required for AIV configuration. Install it with: pip install PyYAML"
-    ) from _yaml_err
+    raise ImportError("PyYAML is required for AIV configuration. Install it with: pip install PyYAML") from _yaml_err
 
 from .errors import ConfigurationError
 
