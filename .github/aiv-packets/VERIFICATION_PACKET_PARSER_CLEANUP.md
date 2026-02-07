@@ -1,6 +1,6 @@
 # AIV Verification Packet (v2.1)
 
-**Commit:** `pending`  
+**Commit:** `dfe6438`  
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
 ---
@@ -30,7 +30,7 @@ classification:
 
 ### Class E (Intent Alignment)
 
-- **Link:** AUDIT_REPORT.md — Findings L02 and D07.
+- **Link:** [AUDIT_REPORT.md — Findings L02 and D07.](https://github.com/ImmortalDemonGod/aiv-protocol/blob/dfe6438/AUDIT_REPORT.md)
 - **Requirements Verified:**
   1. ✅ Claims with default Class B get Class B unlinked evidence when available
   2. ✅ Dead method removed
