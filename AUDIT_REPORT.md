@@ -689,19 +689,29 @@ All five priority items from the previous audit's revised roadmap have been comp
 |----------|------|--------|
 | **P0** | Fix validator defects (L01–L05) | ✅ All fixed — regex, enrichment, heuristic, rule IDs, zero-touch |
 | **P1** | Classification parsing + risk-tier enforcement | ✅ Implemented — parser + pipeline + 9 tests |
-| **P2** | Refactor AIV Guard to use Python package | ✅ Implemented — 6 files, ~1,571 lines, 36 tests |
-| **P3** | Build `aiv generate` command | ✅ Implemented — tier-based scaffolding + git scope detection |
-| **P4** | Implement SVP Core (predict/trace/probe) | ✅ Implemented — 6 files, 43 tests |
+| **P2** | Refactor AIV Guard to use Python package | ✅ Implemented — 6 files, ~1,401 lines, tests in test_guard.py |
+| **P3** | Build `aiv generate` command | ✅ Implemented — tier-based scaffolding + git scope + CI/issue auto-population |
+| **P4** | Implement SVP Core (predict/trace/probe) | ✅ Implemented — models, validators (S001-S016), CLI, rating engine |
 
-**Updated roadmap for next phase:**
+**Updated roadmap for next phase (all previous P0-P4 completed):**
 
 | Priority | Task | Rationale |
 |----------|------|-----------|
-| **P0** | Resolve remaining LOW-severity issues | Clean up: narrow exception catch, delete legacy parser, unify fast-track, wire error classes |
-| **P1** | Add missing test coverage | Generate command tests, anti-cheat deleted file test, parser edge cases, strict mode |
-| **P2** | Decommission JS guard workflow | Once Python guard is validated in production, remove `aiv-guard.yml` |
-| **P3** | Resolve Class D/F naming conflict | Align with canonical spec or document the divergence explicitly |
-| **P4** | Enhance generator with CI/issue integration | Auto-populate Class A run URLs, Class E issue links |
+| ~~**P0**~~ | ~~Resolve remaining LOW-severity issues~~ | ✅ DONE — exception catch narrowed, legacy parser deleted, fast-track unified, error classes wired |
+| ~~**P1**~~ | ~~Add missing test coverage~~ | ✅ DONE — 428 tests (generate, anti-cheat, parser, strict mode, E2E compliance, SVP E2E) |
+| ~~**P2**~~ | ~~Decommission JS guard workflow~~ | ✅ DONE — `aiv-guard.yml` deleted (commit `59167a1`) |
+| ~~**P3**~~ | ~~Resolve Class D/F naming conflict~~ | ✅ DONE — DIFFERENTIAL/PROVENANCE aligned with canonical spec |
+| ~~**P4**~~ | ~~Enhance generator with CI/issue integration~~ | ✅ DONE — `_fetch_latest_ci_url()`, `_fetch_issue_title()`, `_run_local_checks()` |
+
+**Next-phase roadmap:**
+
+| Priority | Task | Rationale |
+|----------|------|-----------|
+| **P0** | ELO rating persistence + storage layer | Models exist (`rating.py`) but no database/file-backed persistence |
+| **P1** | Python guard PR comment posting | Currently exits 0/1 only — no inline GitHub PR comments |
+| **P2** | Package as GitHub Action (`action.yml` + `Dockerfile`) | Would allow external repos to use `aiv-guard` without installing the package |
+| **P3** | SVP Phase 4 human ownership workflow | All 3 SVP sessions are IN_PROGRESS — missing human ownership commits |
+| **P4** | Sigstore/GPG integration for Class F provenance signing | No cryptographic signing of provenance evidence |
 
 ---
 
