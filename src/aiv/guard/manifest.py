@@ -45,7 +45,8 @@ def validate_class_a_manifest(
         errors.append("class_a_execution.json.run must be an object")
     else:
         if repo and run.get("repository") != repo:
-            errors.append(f"class_a_execution.json.run.repository mismatch (got={run.get('repository')}, expected={repo})")
+            got_repo = run.get("repository")
+            errors.append(f"class_a_execution.json.run.repository mismatch (got={got_repo}, expected={repo})")
         if not _is_non_empty_str(run.get("run_id", "")):
             errors.append("class_a_execution.json.run.run_id must be non-empty")
 
@@ -54,7 +55,11 @@ def validate_class_a_manifest(
         errors.append("class_a_execution.json.execution_environment must be an object")
     else:
         os_info = env.get("os")
-        if not isinstance(os_info, dict) or not _is_non_empty_str(os_info.get("name", "")) or not _is_non_empty_str(os_info.get("release", "")):
+        if (
+            not isinstance(os_info, dict)
+            or not _is_non_empty_str(os_info.get("name", ""))
+            or not _is_non_empty_str(os_info.get("release", ""))
+        ):
             errors.append("class_a_execution.json.execution_environment.os must include name and release")
         if not _is_non_empty_str(env.get("node", "")):
             errors.append("class_a_execution.json.execution_environment.node must be non-empty")
@@ -127,9 +132,11 @@ def validate_class_c_manifest(
         if not isinstance(ref, list) or len(ref) == 0:
             errors.append("class_c_negative.json.test_integrity.required_evidence_files must be a non-empty array")
         if ti.get("semantic_report_artifact") != "test_integrity_semantic.json":
-            errors.append("class_c_negative.json.test_integrity.semantic_report_artifact must equal test_integrity_semantic.json")
+            errors.append(
+                "class_c_negative.json.test_integrity.semantic_report_artifact must equal test_integrity_semantic.json"
+            )
         method = ti.get("method")
-        if not _is_non_empty_str(method) or "semantic" not in method.lower():
+        if not _is_non_empty_str(method) or "semantic" not in str(method).lower():
             errors.append("class_c_negative.json.test_integrity.method must indicate semantic analysis")
 
     return errors

@@ -46,7 +46,7 @@ classification:
 
 Files modified in this atomic commit series:
 
-<!-- CURRENT_FILE: src/aiv/guard/github_api.py (6/37) -->
+<!-- CURRENT_FILE: src/aiv/guard/manifest.py (7/37) -->
 
 ---
 
