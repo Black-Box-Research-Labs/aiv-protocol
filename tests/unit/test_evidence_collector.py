@@ -488,6 +488,65 @@ class TestASTTestGraph:
 
 
 # ---------------------------------------------------------------------------
+# Phase 2b: _CallVisitor subprocess CLI detection
+# ---------------------------------------------------------------------------
+
+
+class TestCallVisitorSubprocessDetection:
+    """_CallVisitor must detect aiv CLI commands invoked via subprocess."""
+
+    def test_detects_direct_subprocess_run(self):
+        """subprocess.run([sys.executable, '-m', 'aiv', 'commit', ...]) adds commit_cmd."""
+        import ast
+
+        from aiv.lib.evidence_collector import _CallVisitor
+
+        source = (
+            "def helper():\n"
+            '    subprocess.run([sys.executable, "-m", "aiv", "commit", "f.py"])\n'
+        )
+        tree = ast.parse(source)
+        func = [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)][0]
+        cv = _CallVisitor()
+        cv.visit(func)
+        assert "commit_cmd" in cv.called
+        assert "commit" in cv.called
+
+    def test_detects_list_literal_variable(self):
+        """base = [..., 'aiv', 'init', ...] detected even without subprocess.run in same scope."""
+        import ast
+
+        from aiv.lib.evidence_collector import _CallVisitor
+
+        source = (
+            "def helper():\n"
+            '    base = [sys.executable, "-m", "aiv", "init", "."]\n'
+            "    subprocess.run(base)\n"
+        )
+        tree = ast.parse(source)
+        func = [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)][0]
+        cv = _CallVisitor()
+        cv.visit(func)
+        assert "init" in cv.called
+
+    def test_unknown_command_ignored(self):
+        """Commands not in _CLI_COMMAND_TO_FUNC are not added."""
+        import ast
+
+        from aiv.lib.evidence_collector import _CallVisitor
+
+        source = (
+            "def helper():\n"
+            '    subprocess.run([sys.executable, "-m", "aiv", "nonexistent"])\n'
+        )
+        tree = ast.parse(source)
+        func = [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)][0]
+        cv = _CallVisitor()
+        cv.visit(func)
+        assert "nonexistent" not in cv.called
+
+
+# ---------------------------------------------------------------------------
 # Phase 3: find_covering_tests (semantic Class A)
 # ---------------------------------------------------------------------------
 
@@ -546,6 +605,48 @@ class TestFindCoveringTests:
         assert len(results) == 1
         assert "WARNING" in results[0].coverage_verdict
         assert "No tests import" in results[0].coverage_verdict
+
+    def test_subprocess_cli_test_detected(self, tmp_path):
+        """A test that invokes aiv via subprocess.run is detected as covering the CLI function."""
+        test_dir = tmp_path / "tests"
+        test_dir.mkdir()
+        (test_dir / "test_cli.py").write_text(
+            "import subprocess\nimport sys\n\n"
+            "def test_init_creates_config():\n"
+            '    subprocess.run([sys.executable, "-m", "aiv", "init", "."])\n'
+            "    assert True\n",
+            encoding="utf-8",
+        )
+        from aiv.lib.evidence_collector import build_test_graph, find_covering_tests
+
+        graph = build_test_graph(str(test_dir))
+        results = find_covering_tests(["init"], graph)
+        assert len(results) == 1
+        assert len(results[0].calling_tests) == 1
+        assert "test_init_creates_config" in results[0].calling_tests[0]
+        assert "WARNING" not in results[0].coverage_verdict
+
+    def test_subprocess_cli_via_helper_detected(self, tmp_path):
+        """A test that calls a helper which invokes aiv via subprocess is detected."""
+        test_dir = tmp_path / "tests"
+        test_dir.mkdir()
+        (test_dir / "test_cli_helper.py").write_text(
+            "import subprocess\nimport sys\n\n"
+            "def _run_aiv_commit():\n"
+            '    return subprocess.run([sys.executable, "-m", "aiv", "commit", "f.py"])\n\n'
+            "def test_commit_works():\n"
+            "    result = _run_aiv_commit()\n"
+            "    assert result is not None\n",
+            encoding="utf-8",
+        )
+        from aiv.lib.evidence_collector import build_test_graph, find_covering_tests
+
+        graph = build_test_graph(str(test_dir))
+        results = find_covering_tests(["commit_cmd"], graph)
+        assert len(results) == 1
+        assert len(results[0].calling_tests) == 1
+        assert "test_commit_works" in results[0].calling_tests[0]
+        assert "WARNING" not in results[0].coverage_verdict
 
     def test_retro_xdist_bug(self, tmp_path):
         """Retro-test: xdist bug. Tests import ClassAEvidence but never call collect_class_a.
