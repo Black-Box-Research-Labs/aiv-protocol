@@ -237,6 +237,88 @@ class TestTodoRemnants:
         assert len(todo_findings) == 0
 
 
+class TestEvidenceTodoSeverity:
+    """Verify that TODOs inside evidence sections are ERROR (blocking), not WARNING.
+
+    These tests cover the auditor change in auditor.py#L251-L262 (CLASS_E_NO_URL
+    severity escalation) and auditor.py#L276-L296 (evidence_section tracking).
+    """
+
+    def test_evidence_todo_is_error(self, tmp_path: Path):
+        """A TODO inside ## Evidence must be AuditSeverity.ERROR, not WARNING.
+
+        Before the fix, all TODO_PRESENT findings were WARNING (non-blocking).
+        After: TODOs in evidence sections are ERROR because they mean the
+        evidence is missing, not just incomplete metadata.
+        """
+        body = MINIMAL_CLEAN_PACKET.replace(
+            "- 100/100 pytest tests pass",
+            "- TODO: Paste test output here",
+        )
+        _write_packet(tmp_path, "VERIFICATION_PACKET_BAD.md", body)
+        auditor = PacketAuditor()
+        result = auditor.audit(tmp_path)
+        evidence_todos = [
+            f for f in result.findings
+            if f.finding_type == "TODO_PRESENT" and f.severity == AuditSeverity.ERROR
+        ]
+        assert len(evidence_todos) >= 1, (
+            f"Expected at least 1 ERROR-severity TODO_PRESENT in evidence section, "
+            f"got findings: {result.findings}"
+        )
+
+    def test_class_e_todo_link_is_error(self, tmp_path: Path):
+        """Class E link containing 'TODO' must be AuditSeverity.ERROR.
+
+        Before the fix, CLASS_E_NO_URL was always WARNING. After: if the link
+        text contains the word 'TODO', it's ERROR because it means the intent
+        evidence was never provided.
+        """
+        body = MINIMAL_CLEAN_PACKET.replace(
+            "- **Link:** [Test Spec](https://github.com/ImmortalDemonGod/aiv-protocol/blob/abc1234/SPECIFICATION.md)",
+            "- **Link:** TODO: SHA-pinned link to spec/issue/directive",
+        )
+        _write_packet(tmp_path, "VERIFICATION_PACKET_BAD.md", body)
+        auditor = PacketAuditor()
+        result = auditor.audit(tmp_path)
+        class_e_findings = [
+            f for f in result.findings
+            if f.finding_type == "CLASS_E_NO_URL"
+        ]
+        assert len(class_e_findings) == 1
+        assert class_e_findings[0].severity == AuditSeverity.ERROR, (
+            f"Expected ERROR for TODO in Class E link, got {class_e_findings[0].severity}"
+        )
+
+    def test_classification_todo_stays_warning(self, tmp_path: Path):
+        """A TODO in classification_rationale (outside evidence) stays WARNING.
+
+        Only evidence-section TODOs were escalated to ERROR. TODOs in the
+        classification YAML block should remain WARNING because they are
+        metadata guidance, not missing evidence.
+        """
+        body = MINIMAL_CLEAN_PACKET.replace(
+            'classification_rationale: "Test packet"',
+            'classification_rationale: "TODO: Describe why this tier was chosen"',
+        )
+        _write_packet(tmp_path, "VERIFICATION_PACKET_WARN.md", body)
+        auditor = PacketAuditor()
+        result = auditor.audit(tmp_path)
+        todo_findings = [
+            f for f in result.findings
+            if f.finding_type == "TODO_PRESENT"
+        ]
+        # Should have at least one WARNING (not ERROR) for the classification TODO
+        warning_todos = [f for f in todo_findings if f.severity == AuditSeverity.WARNING]
+        error_todos = [f for f in todo_findings if f.severity == AuditSeverity.ERROR]
+        assert len(warning_todos) >= 1, (
+            f"Expected WARNING for classification TODO, got findings: {todo_findings}"
+        )
+        assert len(error_todos) == 0, (
+            f"Classification TODO should NOT be ERROR, got: {error_todos}"
+        )
+
+
 class TestFixNoclassF:
     """Detect bug-fix claims without Class F provenance evidence."""
 
