@@ -953,7 +953,8 @@ class TestEvidenceAudit:
             result = auditor.audit(packets_dir, evidence_dir=evidence_dir)
 
         claim_findings = [
-            f for f in result.findings
+            f
+            for f in result.findings
             if f.finding_type in ("EVIDENCE_UNVERIFIED_CLAIM", "EVIDENCE_HIGH_UNVERIFIED", "EVIDENCE_MANUAL_REVIEW")
         ]
         assert len(claim_findings) == 0
