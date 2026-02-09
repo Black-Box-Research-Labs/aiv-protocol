@@ -194,6 +194,10 @@ def init(
 def audit(
     packets_dir: Path = typer.Argument(Path(".github/aiv-packets"), help="Directory containing verification packets"),
     fix: bool = typer.Option(False, "--fix", help="Auto-fix COMMIT_PENDING and CLASS_E_NO_URL where possible"),
+    commits: int = typer.Option(
+        0, "--commits", "-n",
+        help="Scan N recent commits for protocol violations (HOOK_BYPASS, ATOMIC_VIOLATION)",
+    ),
 ) -> None:
     """
     Audit all verification packets for quality issues.
@@ -202,15 +206,28 @@ def audit(
     commit SHA traceability, Class E link immutability, TODO remnants,
     missing Class F for bug-fix claims, and more.
 
+    With --commits N, also scans the last N git commits for protocol
+    violations: functional files without packets, multi-file bundles, etc.
+
     Examples:
         aiv audit
         aiv audit --fix
         aiv audit .github/aiv-packets --fix
+        aiv audit --commits 20
     """
     from aiv.lib.auditor import AuditSeverity, PacketAuditor
 
     auditor = PacketAuditor()
     result = auditor.audit(packets_dir, fix=fix)
+
+    # Optionally run git-history audit
+    if commits > 0:
+        commit_result = auditor.audit_commits(Path("."), num_commits=commits)
+        result.findings.extend(commit_result.findings)
+        result.packets_with_issues += commit_result.packets_with_issues
+        if commit_result.findings:
+            # Re-count errors/warnings since we merged results
+            pass  # error_count/warning_count are computed properties
 
     if not result.findings:
         console.print(
