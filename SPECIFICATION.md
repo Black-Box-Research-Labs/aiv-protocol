@@ -177,7 +177,7 @@ AIV requirements operate at two distinct scopes. Auditors and validators MUST un
 
 #### 1.6.1 Per-Change Requirements
 
-**Per-Change Requirements** are validated against individual AIV Packets. A single change (PR/MR) either satisfies these requirements or it does not.
+**Per-Change Requirements** are validated against individual AIV Packets. A single change either satisfies these requirements or it does not. A "change" is identified by a `pr_id` (for PR/MR workflows) or a `change_id` (for direct-to-main workflows). See §B.1 for identification requirements.
 
 | Characteristic        | Description                                                                            |
 | --------------------- | -------------------------------------------------------------------------------------- |
@@ -296,9 +296,11 @@ For clarity:
 | Term                   | Definition                                                                                                                                                                    |
 | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **AI-Assisted Change** | A change where code was authored or materially modified by an LLM, code generation tool, or autonomous agent, regardless of whether a human prompted or guided the generation |
-| **Change**             | A proposed modification to a repository submitted as a pull request (PR) or merge request (MR)                                                                                |
+| **Change**             | A proposed modification to a repository submitted as a pull request (PR), merge request (MR), or a logical grouping of commits pushed directly to a protected branch (identified by a `change_id`) |
+| **Change ID**          | A human-readable identifier for a logical change in direct-to-main workflows (e.g., `enforcement-gap-fix`). Alternative to `pr_id` for teams not using PRs. See §B.1          |
 | **Commit SHA**         | The SHA-1 or SHA-256 cryptographic hash uniquely identifying a Git commit                                                                                                     |
-| **Head SHA**           | The commit SHA at the tip of the PR/MR branch at the time of verification                                                                                                     |
+| **Evidence File**      | A per-source-file evidence artifact containing raw verification data (Class A/B/C/F). Referenced BY packets but not itself an AIV Packet. See §6.11                           |
+| **Head SHA**           | The commit SHA at the tip of the PR/MR branch, or the last commit in a logical change, at the time of verification                                                            |
 
 ### 3.2 Artifact Terminology
 
@@ -1134,6 +1136,47 @@ Organizations MAY specify different retention periods in their AIV Policy (§15.
 **Finding (6.10-F2):** R3 artifacts not in immutable storage.
 **Finding (6.10-F3):** Retention override without documented policy.
 
+### 6.11 Evidence File References
+
+Verification packets MAY reference per-file evidence files stored in the repository. Evidence files are per-source-file artifacts containing raw verification data (e.g., test results, AST coverage, downstream impact analysis) that are auto-generated during the development workflow.
+
+#### 6.11.1 Referencing Requirements
+
+Evidence file references MUST include a commit SHA that pins the reference to a specific version of the evidence file, satisfying the immutability requirement of §3.3 via git's content-addressed storage. This ensures the reference resolves to the exact evidence that existed when the packet was created, even if the evidence file is subsequently overwritten.
+
+```yaml
+# Example evidence reference in packet identification (§B.1)
+evidence_refs:
+  - file: "EVIDENCE_LIB_AUDITOR.md"
+    commit_sha: "a0280c8"     # Pins this reference to a specific git blob
+    classes: [A, B, C]
+```
+
+To retrieve the referenced evidence:
+```bash
+git show a0280c8:.github/aiv-evidence/EVIDENCE_LIB_AUDITOR.md
+```
+
+#### 6.11.2 Evidence Files Are Not AIV Packets
+
+Evidence files are NOT AIV Packets. They are artifacts referenced BY packets. Validators MUST NOT validate evidence files against the packet schema (§B.1). Evidence files have their own lifecycle:
+
+- **Mutability:** Evidence files are overwritten each time the corresponding source file is committed. This is intentional — the evidence file always reflects the current state of the source file.
+- **History:** Previous versions are preserved in git history. Each version is an immutable git blob.
+- **Chain of custody:** Evidence files SHOULD include a `Previous:` header linking to the commit SHA of the prior version, making the evidence chain explicit.
+
+#### 6.11.3 Storage Location
+
+Evidence files SHOULD be stored in a dedicated directory separate from verification packets:
+
+- Evidence files: `.github/aiv-evidence/` (mutable, per-file)
+- Verification packets: `.github/aiv-packets/` (immutable, per-change)
+
+This separation makes the mutability contract explicit at the directory level.
+
+**Finding (6.11-F1):** Evidence reference missing commit SHA (not pinned).
+**Finding (6.11-F2):** Evidence file validated as packet (wrong schema applied).
+
 ---
 
 ## 7. Verification Process
@@ -1433,6 +1476,8 @@ Organizations MUST track exception metrics:
 ### 11.1 Purpose
 
 Evidence integrity controls prevent "verification theater" — situations where packets exist but do not actually prove claims. These controls operate as meta-verification of the verification process itself.
+
+For repositories using per-file evidence files (§6.11), the evidence file's git history constitutes an auditable chain of custody. Each version of the evidence file is an immutable git blob, retrievable via `git show <sha>:<path>`. This satisfies the Content Integrity and Reference Stability requirements of §3.3. Verification packets reference evidence files at specific commit SHAs, ensuring the reference is immutable even though the evidence file itself may be overwritten by subsequent commits.
 
 ### 11.2 Required Controls by Tier
 
@@ -1765,14 +1810,25 @@ packet_schema_version: "1.0.0" # REQUIRED - This schema version
 # ============================================================================
 identification:
   repository: string # REQUIRED - Canonical repo identifier (e.g., "github.com/org/repo")
-  pr_id: integer # REQUIRED - PR/MR number
-  pr_url: string # REQUIRED - PR URL as identifier (NOTE: PR content is mutable; evidence artifacts must be immutable per §3.3)
+
+  # Change identifier — exactly ONE of the following MUST be present:
+  pr_id: integer # REQUIRED for PR/MR workflows - PR/MR number
+  change_id: string # REQUIRED for direct-to-main workflows - Logical change identifier (e.g., "enforcement-gap-fix")
+
+  pr_url: string # REQUIRED if pr_id present - PR URL as identifier (NOTE: PR content is mutable; evidence artifacts must be immutable per §3.3)
   branch: string # REQUIRED - Source branch name
   base_branch: string # REQUIRED - Target branch name
   head_sha: string # REQUIRED - HEAD commit SHA (40 or 64 hex chars) - THIS is the immutable anchor
   base_sha: string # REQUIRED - Base commit SHA
+  commit_range: [string] # RECOMMENDED - All commit SHAs in this change, ordered chronologically
   created_at: ISO-8601 # REQUIRED - Packet creation timestamp
   created_by: string # REQUIRED - Identity creating packet
+
+  # Evidence layer references (§6.11)
+  evidence_refs: # RECOMMENDED - References to per-file evidence artifacts
+    - file: string # Evidence file name (e.g., "EVIDENCE_LIB_AUDITOR.md")
+      commit_sha: string # Commit SHA when evidence was generated (pins the reference per §3.3)
+      classes: [A, B, C, D, E, F] # Evidence classes present in this file
 
 # ============================================================================
 # CLASSIFICATION (§5)
