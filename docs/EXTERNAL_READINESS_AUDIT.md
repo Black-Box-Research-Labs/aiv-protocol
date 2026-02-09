@@ -211,12 +211,42 @@ discover this only by getting an error.
 
 ---
 
+### P0-3: No enforcement beyond pre-commit hook — `--no-verify` bypass
+
+**Problem:** The pre-commit hook is the **only** enforcement layer that
+validates "every functional commit has a paired verification packet." But
+`git commit --no-verify` is a built-in Git flag that skips all hooks entirely.
+The CI guard (`aiv-guard-python.yml`) only runs on `pull_request`, not on
+direct pushes to main. The CI pipeline (`ci.yml`) runs tests but never checks
+commit-packet pairing.
+
+This means: `--no-verify` + `git push` = zero validation.
+
+**Evidence:** Commits `e53f2c6` and `249ecde` both used `--no-verify` and
+pushed directly to main with no packet. Nothing caught this.
+
+**Root cause:** Single-layer enforcement. No defense-in-depth.
+
+**Fix (3 layers):**
+1. **Auditor upgrade:** `audit_commits()` scans git log for HOOK_BYPASS
+   (functional files without packet) and ATOMIC_VIOLATION (multi-file bundles)
+2. **CI push audit:** New `protocol-audit` job in `ci.yml` runs
+   `aiv audit --commits 20` on every push to main
+3. **Retroactive packets:** Created for `e53f2c6` and `249ecde` with full
+   evidence and explicit violation documentation
+
+**Recommended:** Enable GitHub branch protection requiring PRs to main +
+guard workflow pass. This makes direct push impossible.
+
+---
+
 ## Implementation Priority
 
 | # | Issue | Files | Risk | Effort | Status |
 |---|-------|-------|------|--------|--------|
 | P0-1 | Configurable functional prefixes | config.py, pre_commit.py, main.py | Medium | Medium | DONE (249ecde) |
 | P0-2 | Remove project-specific root files | pre_commit.py | Low | Small | DONE (249ecde) |
+| P0-3 | Enforcement gap (--no-verify bypass) | auditor.py, ci.yml, main.py | High | Medium | DONE |
 | P1-3 | Error code reference | docs/ERROR_CODES.md, README.md | None | Medium | DONE (917b23b) |
 | P1-4 | Fix Class F README example | README.md | None | Small | DONE (917b23b) |
 | P1-5 | Complete packet example | README.md | None | Small | DONE |
