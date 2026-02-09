@@ -192,7 +192,7 @@ def init(
                     hook_file.chmod(hook_file.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
                 except OSError:
                     pass
-                console.print(f"[green]Installed:[/green] pre-commit hook → {hook_file}")
+                console.print(f"[green]Installed:[/green] pre-commit hook -> {hook_file}")
 
             # Install pre-push hook (catches --no-verify bypass)
             push_hook_file = hooks_dir / "pre-push"
@@ -223,7 +223,7 @@ def init(
                     push_hook_file.chmod(push_hook_file.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
                 except OSError:
                     pass
-                console.print(f"[green]Installed:[/green] pre-push hook → {push_hook_file}")
+                console.print(f"[green]Installed:[/green] pre-push hook -> {push_hook_file}")
 
     console.print(f"[green][OK] AIV Protocol initialized in {path}[/green]")
     console.print(
@@ -1041,8 +1041,8 @@ Change '{ctx.name}': {len(ctx.commits)} commit(s) across {len(ctx.files_changed)
 
     if result.status == ValidationStatus.FAIL:
         console.print(f"[yellow]Packet has {len(result.errors)} validation error(s):[/yellow]")
-        for e in result.errors:
-            console.print(f"  [{e.rule_id}] {e.message}")
+        for err in result.errors:
+            console.print(f"  [{err.rule_id}] {err.message}")
         console.print("[dim]Packet saved but may need manual fixes before push.[/dim]")
 
     if dry_run:
@@ -1194,7 +1194,11 @@ def commit_cmd(
         help="REQUIRED. One-line summary of the change. "
         "Example: -s 'Handle expired JWT tokens with proper 401 response'",
     ),
-    skip_checks: bool = typer.Option(False, "--skip-checks", help="Skip running local checks (pytest/ruff/mypy)"),
+    skip_checks: bool = typer.Option(
+        False,
+        "--skip-checks",
+        help="Skip local checks (pytest/ruff/mypy). ONLY allowed for R0 (trivial) tier.",
+    ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Generate packet and validate but don't commit"),
     force: str = typer.Option("", "--force", help="Override R3 unverified-claim block (requires justification string)"),
 ) -> None:
@@ -1258,6 +1262,16 @@ def commit_cmd(
         for m in missing:
             console.print(f"  [bold]{m}[/bold]")
         console.print("\n[dim]You provide the intent; the tool collects the proof.[/dim]")
+        raise typer.Exit(1)
+
+    # --- Block --skip-checks for R1+ (systemic anti-theater gate) ---
+    if skip_checks and tier_upper not in ("R0",):
+        console.print(
+            f"[red]Error:[/red] --skip-checks is only allowed for R0 (trivial) tier.\n"
+            f"  You requested {tier_upper}, which REQUIRES execution evidence.\n"
+            f"  Evidence without proof is verification theater.\n"
+            f"  Remove --skip-checks or downgrade to --tier R0."
+        )
         raise typer.Exit(1)
 
     if not file.exists():
@@ -1329,9 +1343,19 @@ def commit_cmd(
     # file_posix_raw is already defined above (line ~1243)
 
     # Class E: user-provided (can't be auto-collected)
+    # Auto-pin mutable branch URLs to HEAD SHA (anti-theater: immutable links)
+    pinned_intent = intent
+    if head_sha:
+        for mutable_branch in ("main", "master", "develop"):
+            mutable_path = f"/blob/{mutable_branch}/"
+            pinned_path = f"/blob/{head_sha}/"
+            if mutable_path in pinned_intent:
+                pinned_intent = pinned_intent.replace(mutable_path, pinned_path)
+                console.print(f"  [yellow]Auto-pinned:[/yellow] /blob/{mutable_branch}/ -> /blob/{head_sha[:7]}.../")
+                break
     class_e_md = f"""### Class E (Intent Alignment)
 
-- **Link:** [{intent}]({intent})
+- **Link:** [{pinned_intent}]({pinned_intent})
 - **Requirements Verified:** {requirement}"""
 
     # Class B: COLLECTED from git diff line ranges
@@ -1489,6 +1513,29 @@ def commit_cmd(
             force_lines.append(f"- Claim {cv.claim_index}: UNVERIFIED — {cv.evidence_detail} (justification: {force})")
         force_section = "\n".join(force_lines)
 
+    # --- Build methodology text (must reflect reality) ---
+    if skip_checks:
+        methodology_text = (
+            "**R0 (trivial) — local checks skipped.**\n"
+            "Only git diff scope inventory was collected. No execution evidence."
+        )
+    else:
+        tools_run = ["git diff"]
+        if class_a_data:
+            tools_run.append(f"pytest ({class_a_data.total_passed} passed, {class_a_data.total_failed} failed)")
+            if class_a_data.ruff_clean is not None:
+                tools_run.append(f"ruff ({'clean' if class_a_data.ruff_clean else 'errors found'})")
+            if class_a_data.mypy_summary:
+                tools_run.append(f"mypy ({class_a_data.mypy_summary})")
+            if class_a_data.symbol_coverage:
+                tools_run.append(f"AST symbol-to-test binding ({len(class_a_data.symbol_coverage)} symbols)")
+        if tier_upper in ("R2", "R3"):
+            tools_run.append("anti-cheat scan")
+        methodology_text = (
+            "**Zero-Touch Mandate:** Verifier inspects artifacts only.\n"
+            f"Evidence collected by `aiv commit` running: {', '.join(tools_run)}."
+        )
+
     # --- Assemble evidence from collected artifacts ---
     evidence_parts = [class_e_md, class_b_md, class_a_md]
     if class_c_md:
@@ -1539,8 +1586,7 @@ classification:
 
 ## Verification Methodology
 
-**Zero-Touch Mandate:** Verifier inspects artifacts only.
-Evidence was collected by `aiv commit` running: git diff, pytest -v, ruff, mypy, anti-cheat scan.
+{methodology_text}
 
 ---
 
@@ -1565,8 +1611,8 @@ Evidence was collected by `aiv commit` running: git diff, pytest -v, ruff, mypy,
         # Evidence files may not pass full packet validation — that's expected.
         # Log warnings but don't block.
         console.print(f"[yellow]Evidence file has {len(result.errors)} validation note(s):[/yellow]")
-        for e in result.errors:
-            console.print(f"  [{e.rule_id}] {e.message}")
+        for err in result.errors:
+            console.print(f"  [{err.rule_id}] {err.message}")
         console.print("[dim]This is expected — evidence files are validated differently from packets.[/dim]")
     elif result.warnings:
         for w in result.warnings:
