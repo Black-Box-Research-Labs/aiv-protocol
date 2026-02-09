@@ -6,6 +6,7 @@ that the validation pipeline does not catch.
 """
 
 from pathlib import Path
+from unittest.mock import patch
 
 from aiv.lib.auditor import AuditSeverity, PacketAuditor
 
@@ -454,3 +455,176 @@ class TestAuditCLI:
             timeout=30,
         )
         assert result.returncode == 1
+
+
+# ---------------------------------------------------------------------------
+# Git-history audit tests
+# ---------------------------------------------------------------------------
+
+
+class TestIsPacketPath:
+    def test_standard_packet(self) -> None:
+        auditor = PacketAuditor()
+        assert auditor._is_packet_path(
+            ".github/aiv-packets/VERIFICATION_PACKET_FOO.md"
+        ) is True
+
+    def test_legacy_packet(self) -> None:
+        auditor = PacketAuditor()
+        assert auditor._is_packet_path(
+            ".github/VERIFICATION_PACKET_OLD.md"
+        ) is True
+
+    def test_not_a_packet(self) -> None:
+        auditor = PacketAuditor()
+        assert auditor._is_packet_path("README.md") is False
+        assert auditor._is_packet_path("src/main.py") is False
+
+
+class TestIsFunctionalPath:
+    def test_src_functional(self) -> None:
+        auditor = PacketAuditor()
+        assert auditor._is_functional_path("src/aiv/cli/main.py") is True
+
+    def test_tests_functional(self) -> None:
+        auditor = PacketAuditor()
+        assert auditor._is_functional_path("tests/unit/test_foo.py") is True
+
+    def test_root_file_functional(self) -> None:
+        auditor = PacketAuditor()
+        assert auditor._is_functional_path("pyproject.toml") is True
+
+    def test_docs_not_functional(self) -> None:
+        auditor = PacketAuditor()
+        assert auditor._is_functional_path("docs/guide.md") is False
+        assert auditor._is_functional_path("README.md") is False
+
+
+def _make_git_log_output(commits: list[tuple[str, list[str]]]) -> str:
+    """Build fake git log --format=%H --name-only output."""
+    parts = []
+    for sha, files in commits:
+        parts.append(sha)
+        for f in files:
+            parts.append(f)
+        parts.append("")  # blank line separator
+    return "\n".join(parts)
+
+
+class TestAuditCommitsHookBypass:
+    """Detect commits where functional files lack a verification packet."""
+
+    def test_hook_bypass_detected(self, tmp_path: Path) -> None:
+        fake_log = _make_git_log_output([
+            ("a" * 40, ["src/aiv/cli/main.py"]),
+        ])
+        auditor = PacketAuditor()
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value.returncode = 0
+            mock_run.return_value.stdout = fake_log
+            result = auditor.audit_commits(tmp_path, num_commits=5)
+
+        bypass = [f for f in result.findings if f.finding_type == "HOOK_BYPASS"]
+        assert len(bypass) == 1
+        assert bypass[0].severity == AuditSeverity.ERROR
+        assert "main.py" in bypass[0].message
+
+    def test_clean_commit_no_findings(self, tmp_path: Path) -> None:
+        fake_log = _make_git_log_output([
+            ("b" * 40, [
+                "src/aiv/cli/main.py",
+                ".github/aiv-packets/VERIFICATION_PACKET_CLI.md",
+            ]),
+        ])
+        auditor = PacketAuditor()
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value.returncode = 0
+            mock_run.return_value.stdout = fake_log
+            result = auditor.audit_commits(tmp_path, num_commits=5)
+
+        bypass = [f for f in result.findings if f.finding_type == "HOOK_BYPASS"]
+        assert len(bypass) == 0
+
+    def test_docs_only_skipped(self, tmp_path: Path) -> None:
+        fake_log = _make_git_log_output([
+            ("c" * 40, ["README.md", "docs/guide.md"]),
+        ])
+        auditor = PacketAuditor()
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value.returncode = 0
+            mock_run.return_value.stdout = fake_log
+            result = auditor.audit_commits(tmp_path, num_commits=5)
+
+        assert len(result.findings) == 0
+
+
+class TestAuditCommitsAtomicViolation:
+    """Detect commits that bundle multiple functional files."""
+
+    def test_multi_file_detected(self, tmp_path: Path) -> None:
+        fake_log = _make_git_log_output([
+            ("d" * 40, [
+                "src/aiv/cli/main.py",
+                "src/aiv/lib/config.py",
+                "tests/unit/test_config.py",
+                ".github/aiv-packets/VERIFICATION_PACKET_CONFIG.md",
+            ]),
+        ])
+        auditor = PacketAuditor()
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value.returncode = 0
+            mock_run.return_value.stdout = fake_log
+            result = auditor.audit_commits(tmp_path, num_commits=5)
+
+        atomic = [f for f in result.findings if f.finding_type == "ATOMIC_VIOLATION"]
+        assert len(atomic) == 1
+        assert atomic[0].severity == AuditSeverity.WARNING
+        assert "3 functional files" in atomic[0].message
+
+    def test_single_functional_no_violation(self, tmp_path: Path) -> None:
+        fake_log = _make_git_log_output([
+            ("e" * 40, [
+                "src/aiv/cli/main.py",
+                ".github/aiv-packets/VERIFICATION_PACKET_CLI.md",
+            ]),
+        ])
+        auditor = PacketAuditor()
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value.returncode = 0
+            mock_run.return_value.stdout = fake_log
+            result = auditor.audit_commits(tmp_path, num_commits=5)
+
+        atomic = [f for f in result.findings if f.finding_type == "ATOMIC_VIOLATION"]
+        assert len(atomic) == 0
+
+
+class TestAuditCommitsCombined:
+    """Test that both HOOK_BYPASS and ATOMIC_VIOLATION fire on the same commit."""
+
+    def test_bypass_and_violation_both_reported(self, tmp_path: Path) -> None:
+        fake_log = _make_git_log_output([
+            ("f" * 40, [
+                "src/aiv/cli/main.py",
+                "src/aiv/lib/evidence_collector.py",
+                "tests/unit/test_evidence_collector.py",
+            ]),
+        ])
+        auditor = PacketAuditor()
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value.returncode = 0
+            mock_run.return_value.stdout = fake_log
+            result = auditor.audit_commits(tmp_path, num_commits=5)
+
+        types = {f.finding_type for f in result.findings}
+        assert "HOOK_BYPASS" in types
+        assert "ATOMIC_VIOLATION" in types
+
+    def test_git_failure_returns_empty(self, tmp_path: Path) -> None:
+        auditor = PacketAuditor()
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value.returncode = 128
+            mock_run.return_value.stdout = ""
+            result = auditor.audit_commits(tmp_path, num_commits=5)
+
+        assert len(result.findings) == 0
+        assert result.packets_scanned == 0
