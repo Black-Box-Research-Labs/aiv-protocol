@@ -35,8 +35,9 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-PACKET_PREFIXES = (".github/aiv-packets/VERIFICATION_PACKET_", ".github/VERIFICATION_PACKET_")
+PACKET_PREFIXES = (".github/aiv-packets/VERIFICATION_PACKET_", ".github/VERIFICATION_PACKET_", ".github/aiv-packets/PACKET_")
 PACKET_SUFFIX = ".md"
+EVIDENCE_PREFIX = ".github/aiv-evidence/EVIDENCE_"
 
 # Defaults used when no .aiv.yml is present (kept in sync with HookConfig)
 _DEFAULT_FUNCTIONAL_PREFIXES = (
@@ -115,8 +116,12 @@ def _is_functional(path: str, prefixes: tuple[str, ...] | None = None,
     return path in _root_files
 
 
+def _is_evidence(path: str) -> bool:
+    return path.startswith(EVIDENCE_PREFIX) and path.endswith(PACKET_SUFFIX)
+
+
 def _is_gitkeep(path: str) -> bool:
-    return path == ".github/aiv-packets/.gitkeep"
+    return path in (".github/aiv-packets/.gitkeep", ".github/aiv-evidence/.gitkeep")
 
 
 def _get_submodule_paths() -> list[str]:
@@ -292,6 +297,25 @@ def _print_rubric(staged: list[str]) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _is_on_protected_branch() -> bool:
+    """Check if the current branch is a protected branch."""
+    try:
+        from aiv.lib.change import get_current_branch, is_protected_branch
+        branch = get_current_branch()
+        return is_protected_branch(branch)
+    except Exception:
+        return False
+
+
+def _has_active_change() -> bool:
+    """Check if there is an active change context."""
+    try:
+        from aiv.lib.change import load_change
+        return load_change() is not None
+    except Exception:
+        return False
+
+
 def main() -> int:
     """Run the AIV pre-commit hook. Returns 0 on success, 1 on rejection."""
     # Safety snapshot
@@ -311,6 +335,7 @@ def main() -> int:
 
     count = len(staged)
     packets = [f for f in staged if _is_packet(f)]
+    evidence = [f for f in staged if _is_evidence(f)]
     functional = [f for f in staged if _is_functional(f, func_prefixes, func_root_files)]
     has_gitkeep = any(_is_gitkeep(f) for f in staged)
 
@@ -319,14 +344,32 @@ def main() -> int:
     submodule_files = [f for f in staged if _is_submodule_path(f, submodule_paths)]
     has_gitmodules = ".gitmodules" in staged
 
+    # -----------------------------------------------------------------------
+    # Two-Layer Architecture: Change-context awareness (§8 of design doc)
+    # Evidence-only or packet-only commits always pass (both modes).
+    # -----------------------------------------------------------------------
+
+    all_aiv = all(_is_packet(f) or _is_evidence(f) or _is_gitkeep(f) for f in staged)
+    if all_aiv:
+        for p in packets:
+            if not _validate_packet(p):
+                return 1
+        return 0
+
+    # -----------------------------------------------------------------------
+    # Legacy atomic commit rules (still active for backward compatibility).
+    # These allow functional+packet pairs without needing a change context.
+    # -----------------------------------------------------------------------
+
     # Rule 1: Dependency pair exception
     if count == 2 and set(staged) == {"package.json", "package-lock.json"}:
         return 0
 
-    # Rule 2: AIV atomic unit (1 functional + 1 packet)
-    if count == 2 and len(packets) == 1 and len(functional) == 1:
-        if not _validate_packet(packets[0]):
-            return 1
+    # Rule 2: AIV atomic unit (1 functional + 1 packet or evidence)
+    if count == 2 and (len(packets) == 1 or len(evidence) == 1) and len(functional) == 1:
+        for p in packets:
+            if not _validate_packet(p):
+                return 1
         return 0
 
     # Rule 3: Packet + .gitkeep (packet directory tracking)
@@ -357,6 +400,36 @@ def main() -> int:
     if not functional:
         return 0
 
+    # -----------------------------------------------------------------------
+    # At this point we have functional files WITHOUT a matching packet.
+    # Two-Layer Architecture: if an active change context exists, allow
+    # the commit (the verification boundary is the change, not the commit).
+    # -----------------------------------------------------------------------
+    if _has_active_change():
+        return 0
+
+    # -----------------------------------------------------------------------
+    # No active change context and no packet. On a protected branch this is
+    # always blocked (direct mode requires `aiv begin` first). On a feature
+    # branch, fall through to legacy rules which print the rubric.
+    # -----------------------------------------------------------------------
+    if _is_on_protected_branch():
+        print()
+        print("[BLOCK] No active change context.")
+        print("=" * 79)
+        print("You are committing functional files to a protected branch")
+        print("without an active change context or a verification packet.")
+        print()
+        print("Option 1 (recommended): Use the change lifecycle:")
+        print("  aiv begin <name>")
+        print("  git commit ...")
+        print("  aiv close")
+        print()
+        print("Option 2 (legacy): Pair each file with a verification packet:")
+        print("  aiv commit <file> -m '<message>' ...")
+        print("=" * 79)
+        return 1
+
     # Rule 8: Too many files
     if count > 2:
         print(f"[BLOCK] REJECTION: Atomic Commit Policy Violated ({count} files staged).")
@@ -367,6 +440,7 @@ def main() -> int:
             print(f"  {f}")
         print()
         print("Split your changes into atomic commits: 1 file + 1 packet each.")
+        print("Or use `aiv begin <name>` to start a tracked change that allows multi-file commits.")
         return 1
 
     # Rule 9: Functional code without a packet
