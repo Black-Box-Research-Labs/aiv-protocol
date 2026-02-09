@@ -162,7 +162,7 @@ def init(
     if install_hook:
         git_dir = path / ".git"
         if not git_dir.is_dir():
-            console.print("[yellow]Warning:[/yellow] No .git directory found — skipping hook install.")
+            console.print("[yellow]Warning:[/yellow] No .git directory found -- skipping hook install.")
         else:
             hooks_dir = git_dir / "hooks"
             hooks_dir.mkdir(parents=True, exist_ok=True)
@@ -752,7 +752,7 @@ def _build_evidence_sections(
     if local_results:
         class_a_local = f"- **Local results:**\n{local_results}"
     else:
-        class_a_local = '- TODO: Paste test output here (e.g., "pytest — 454 passed in 38s") or link to CI run'
+        class_a_local = '- TODO: Paste test output here (e.g., "pytest -- 454 passed in 38s") or link to CI run'
 
     sections.append(f"""### Class A (Execution Evidence)
 
@@ -764,8 +764,8 @@ def _build_evidence_sections(
         sections.append("""### Class C (Negative Evidence)
 
 - TODO: Describe what you searched for and didn't find. Example:
-  "Searched all test files for deleted assertions or @pytest.mark.skip additions — none found.
-  Ran full regression suite (N tests) — no failures."
+  "Searched all test files for deleted assertions or @pytest.mark.skip additions -- none found.
+  Ran full regression suite (N tests) -- no failures."
 - Search scope: TODO (e.g., "all files in tests/", "grep for removed assert statements")""")
 
     # Class D — required for R3
@@ -896,7 +896,7 @@ def close(
         )
         console.print("\nUntracked commits:")
         for u in untracked:
-            console.print(f"  {u['sha'][:7]} — {u['message']}")
+            console.print(f"  {u['sha'][:7]} -- {u['message']}")
         console.print("\nOptions:")
         console.print("  1. Include them: `aiv close --include-untracked`")
         console.print("  2. Exclude them: `aiv close` (they will not be in the packet)")
@@ -969,7 +969,7 @@ def close(
 
     if packet_path.exists():
         console.print(f"[red]Error:[/red] {packet_path} already exists.")
-        console.print("Layer 2 packets are immutable — each change gets a unique packet.")
+        console.print("Layer 2 packets are immutable -- each change gets a unique packet.")
         console.print(f"If this is a new change, use a different name than '{ctx.name}'.")
         raise typer.Exit(1)
 
@@ -1054,7 +1054,7 @@ Change '{ctx.name}': {len(ctx.commits)} commit(s) across {len(ctx.files_changed)
         console.print("[dim]Packet saved but may need manual fixes before push.[/dim]")
 
     if dry_run:
-        console.print("[dim]Dry run — skipping git commit.[/dim]")
+        console.print("[dim]Dry run -- skipping git commit.[/dim]")
         raise typer.Exit(0)
 
     # Stage and commit the packet
@@ -1088,6 +1088,7 @@ Change '{ctx.name}': {len(ctx.commits)} commit(s) across {len(ctx.files_changed)
 @app.command()
 def abandon(
     force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation prompt"),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt (alias for --force)"),
 ) -> None:
     """
     Abandon the active change without generating a packet.
@@ -1098,6 +1099,7 @@ def abandon(
     Examples:
         aiv abandon
         aiv abandon --force
+        aiv abandon -y
     """
     from aiv.lib.change import abandon_change, load_change
 
@@ -1106,7 +1108,7 @@ def abandon(
         console.print("[yellow]No active change to abandon.[/yellow]")
         raise typer.Exit(0)
 
-    if not force:
+    if not (force or yes):
         console.print(f"Change: [bold]{ctx.name}[/bold]")
         console.print(f"Commits: {len(ctx.commits)}")
         console.print(f"Files changed: {len(ctx.files_changed)}")
@@ -1303,6 +1305,36 @@ def commit_cmd(
         console.print(f"[red]Error:[/red] File not found: {file}")
         raise typer.Exit(1)
 
+    # --- Early check: does this file have changes relative to HEAD? ---
+    import subprocess as _sp
+
+    _diff_check = _sp.run(
+        ["git", "diff", "HEAD", "--", str(file)],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    _staged_check = _sp.run(
+        ["git", "diff", "--cached", "--", str(file)],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    if not _diff_check.stdout.strip() and not _staged_check.stdout.strip():
+        # Also check if file is untracked (new file)
+        _status_check = _sp.run(
+            ["git", "status", "--porcelain", "--", str(file)],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if not _status_check.stdout.strip():
+            console.print(
+                f"[red]Error:[/red] {file} has no changes relative to HEAD.\n"
+                f"  Nothing to commit. Did you forget to save the file?"
+            )
+            raise typer.Exit(1)
+
     # --- Normalize name (Two-Layer Architecture: Layer 1 evidence file) ---
     # Use path-based naming to avoid collisions (§13.5 of design doc)
     file_posix_raw = str(file).replace("\\", "/")
@@ -1392,7 +1424,7 @@ def commit_cmd(
     # Class A: COLLECTED from running pytest, ruff, mypy
     class_a_data = None
     if not skip_checks:
-        console.print("[dim]Collecting Class A (execution) — running pytest, ruff, mypy...[/dim]")
+        console.print("[dim]Collecting Class A (execution) -- running pytest, ruff, mypy...[/dim]")
         class_a_data = collect_class_a(file_posix_raw)
         console.print(f"  pytest: {class_a_data.total_passed} passed, {class_a_data.total_failed} failed")
         console.print(f"  ruff: {'clean' if class_a_data.ruff_clean else 'errors'}")
@@ -1400,7 +1432,7 @@ def commit_cmd(
 
         # AST analysis: per-symbol test coverage (Python files only)
         if file_posix_raw.endswith(".py"):
-            console.print("[dim]Running AST analysis — symbol resolver + test graph...[/dim]")
+            console.print("[dim]Running AST analysis -- symbol resolver + test graph...[/dim]")
             # Parse hunks like "src/aiv/lib/foo.py#L42-L58" → (42, 58)
             line_ranges: list[tuple[int, int]] = []
             hunk_labels: list[str] = []
@@ -1437,7 +1469,7 @@ def commit_cmd(
     # Class C: COLLECTED from scanning diff for regression indicators (R2+)
     class_c_md = ""
     if tier_upper in ("R2", "R3"):
-        console.print("[dim]Collecting Class C (negative) — scanning diff for regressions...[/dim]")
+        console.print("[dim]Collecting Class C (negative) -- scanning diff for regressions...[/dim]")
         class_c_data = collect_class_c()
         if class_c_data.assertions_removed:
             console.print(f"  [yellow]WARNING:[/yellow] {len(class_c_data.assertions_removed)} assertion(s) removed")
@@ -1484,7 +1516,7 @@ def commit_cmd(
     # Class F: COLLECTED from git log chain-of-custody on covering test files (R2+)
     class_f_md = ""
     if tier_upper in ("R2", "R3"):
-        console.print("[dim]Collecting Class F (provenance) — git log chain-of-custody...[/dim]")
+        console.print("[dim]Collecting Class F (provenance) -- git log chain-of-custody...[/dim]")
         # Extract unique test file paths from Class A relevant tests
         covering_files: list[str] = []
         if not skip_checks and class_a_data and class_a_data.relevant_tests:
@@ -1525,7 +1557,7 @@ def commit_cmd(
     if tier_upper == "R3" and unverified and not force:
         console.print(f"\n[red]ERROR: R3 commit has {len(unverified)} unverified claim(s):[/red]")
         for cv in unverified:
-            console.print(f'  Claim {cv.claim_index}: "{cv.claim_text[:60]}" — {cv.evidence_detail}')
+            console.print(f'  Claim {cv.claim_index}: "{cv.claim_text[:60]}" -- {cv.evidence_detail}')
         console.print("\n[dim]Options:[/dim]")
         console.print("  1. Add tests that call the uncovered symbol(s)")
         console.print("  2. Reclassify to R2 if this is not a critical surface")
@@ -1536,7 +1568,7 @@ def commit_cmd(
     if force and unverified:
         force_lines = ["\n**Acknowledged gaps (--force override):**\n"]
         for cv in unverified:
-            force_lines.append(f"- Claim {cv.claim_index}: UNVERIFIED — {cv.evidence_detail} (justification: {force})")
+            force_lines.append(f"- Claim {cv.claim_index}: UNVERIFIED -- {cv.evidence_detail} (justification: {force})")
         force_section = "\n".join(force_lines)
 
     # --- Build methodology text (must reflect reality) ---
@@ -1640,7 +1672,7 @@ classification:
         console.print(f"[yellow]Evidence file has {len(result.errors)} validation note(s):[/yellow]")
         for err in result.errors:
             console.print(f"  [{err.rule_id}] {err.message}")
-        console.print("[dim]This is expected — evidence files are validated differently from packets.[/dim]")
+        console.print("[dim]This is expected -- evidence files are validated differently from packets.[/dim]")
     elif result.warnings:
         for w in result.warnings:
             console.print(f"  [yellow]WARN[/yellow] [{w.rule_id}] {w.message}")
@@ -1648,7 +1680,7 @@ classification:
         console.print("[green]Evidence file validation passed.[/green]")
 
     if dry_run:
-        console.print("[dim]Dry run — skipping git stage and commit.[/dim]")
+        console.print("[dim]Dry run -- skipping git stage and commit.[/dim]")
         raise typer.Exit(0)
 
     # --- Stage and commit ---

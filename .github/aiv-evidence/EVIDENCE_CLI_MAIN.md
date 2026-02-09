@@ -1,9 +1,9 @@
 # AIV Evidence File (v1.0)
 
 **File:** `src/aiv/cli/main.py`
-**Commit:** `3715874`
-**Previous:** `5e72d42`
-**Generated:** 2026-02-09T08:49:10Z
+**Commit:** `5bc211c`
+**Previous:** `24cd26a`
+**Generated:** 2026-02-09T09:07:51Z
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
 ---
@@ -16,16 +16,17 @@ classification:
   sod_mode: S0
   critical_surfaces: []
   blast_radius: "src/aiv/cli/main.py"
-  classification_rationale: "CLI behavior change for audit command -- standard R1"
+  classification_rationale: "User-facing CLI bug fixes from smoke test"
   classified_by: "ImmortalDemonGod"
-  classified_at: "2026-02-09T08:49:10Z"
+  classified_at: "2026-02-09T09:07:51Z"
 ```
 
 ## Claim(s)
 
-1. aiv audit scans .github/aiv-evidence/ by default alongside .github/aiv-packets/
-2. aiv audit --no-evidence skips Layer 1 evidence file scanning
-3. No existing tests were modified or deleted during this change.
+1. aiv abandon accepts --yes/-y as alias for --force to skip confirmation in non-interactive mode
+2. aiv commit detects unchanged files before evidence collection and exits with clear error
+3. Unicode em-dashes replaced with ASCII -- in all console.print output for Windows cp1252 compatibility
+4. No existing tests were modified or deleted during this change.
 
 ---
 
@@ -33,28 +34,50 @@ classification:
 
 ### Class E (Intent Alignment)
 
-- **Link:** [https://github.com/ImmortalDemonGod/aiv-protocol/blob/3715874d2b61deba585b4120c6bfdb95c2e1bf52/docs/TWO_LAYER_VERIFICATION_ARCHITECTURE.md](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3715874d2b61deba585b4120c6bfdb95c2e1bf52/docs/TWO_LAYER_VERIFICATION_ARCHITECTURE.md)
-- **Requirements Verified:** Two-Layer Architecture requires auditor to scan both layers
+- **Link:** [https://github.com/ImmortalDemonGod/aiv-protocol/blob/5bc211c69bd1ae13708bc7368e7bd9dbf7c1bbec/src/aiv/cli/main.py](https://github.com/ImmortalDemonGod/aiv-protocol/blob/5bc211c69bd1ae13708bc7368e7bd9dbf7c1bbec/src/aiv/cli/main.py)
+- **Requirements Verified:** CLI must work in non-interactive mode and on Windows cp1252 consoles
 
 ### Class B (Referential Evidence)
 
-**Scope Inventory** (SHA: [`3715874`](https://github.com/ImmortalDemonGod/aiv-protocol/tree/3715874d2b61deba585b4120c6bfdb95c2e1bf52))
+**Scope Inventory** (SHA: [`5bc211c`](https://github.com/ImmortalDemonGod/aiv-protocol/tree/5bc211c69bd1ae13708bc7368e7bd9dbf7c1bbec))
 
-- [`src/aiv/cli/main.py#L245-L249`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3715874d2b61deba585b4120c6bfdb95c2e1bf52/src/aiv/cli/main.py#L245-L249)
-- [`src/aiv/cli/main.py#L252`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3715874d2b61deba585b4120c6bfdb95c2e1bf52/src/aiv/cli/main.py#L252)
-- [`src/aiv/cli/main.py#L254-L255`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3715874d2b61deba585b4120c6bfdb95c2e1bf52/src/aiv/cli/main.py#L254-L255)
-- [`src/aiv/cli/main.py#L257`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3715874d2b61deba585b4120c6bfdb95c2e1bf52/src/aiv/cli/main.py#L257)
-- [`src/aiv/cli/main.py#L267`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3715874d2b61deba585b4120c6bfdb95c2e1bf52/src/aiv/cli/main.py#L267)
-- [`src/aiv/cli/main.py#L271`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3715874d2b61deba585b4120c6bfdb95c2e1bf52/src/aiv/cli/main.py#L271)
-- [`src/aiv/cli/main.py#L273`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3715874d2b61deba585b4120c6bfdb95c2e1bf52/src/aiv/cli/main.py#L273)
+- [`src/aiv/cli/main.py#L165`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/5bc211c69bd1ae13708bc7368e7bd9dbf7c1bbec/src/aiv/cli/main.py#L165)
+- [`src/aiv/cli/main.py#L755`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/5bc211c69bd1ae13708bc7368e7bd9dbf7c1bbec/src/aiv/cli/main.py#L755)
+- [`src/aiv/cli/main.py#L767-L768`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/5bc211c69bd1ae13708bc7368e7bd9dbf7c1bbec/src/aiv/cli/main.py#L767-L768)
+- [`src/aiv/cli/main.py#L899`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/5bc211c69bd1ae13708bc7368e7bd9dbf7c1bbec/src/aiv/cli/main.py#L899)
+- [`src/aiv/cli/main.py#L972`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/5bc211c69bd1ae13708bc7368e7bd9dbf7c1bbec/src/aiv/cli/main.py#L972)
+- [`src/aiv/cli/main.py#L1057`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/5bc211c69bd1ae13708bc7368e7bd9dbf7c1bbec/src/aiv/cli/main.py#L1057)
+- [`src/aiv/cli/main.py#L1091`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/5bc211c69bd1ae13708bc7368e7bd9dbf7c1bbec/src/aiv/cli/main.py#L1091)
+- [`src/aiv/cli/main.py#L1102`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/5bc211c69bd1ae13708bc7368e7bd9dbf7c1bbec/src/aiv/cli/main.py#L1102)
+- [`src/aiv/cli/main.py#L1111`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/5bc211c69bd1ae13708bc7368e7bd9dbf7c1bbec/src/aiv/cli/main.py#L1111)
+- [`src/aiv/cli/main.py#L1308-L1337`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/5bc211c69bd1ae13708bc7368e7bd9dbf7c1bbec/src/aiv/cli/main.py#L1308-L1337)
+- [`src/aiv/cli/main.py#L1427`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/5bc211c69bd1ae13708bc7368e7bd9dbf7c1bbec/src/aiv/cli/main.py#L1427)
+- [`src/aiv/cli/main.py#L1435`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/5bc211c69bd1ae13708bc7368e7bd9dbf7c1bbec/src/aiv/cli/main.py#L1435)
+- [`src/aiv/cli/main.py#L1472`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/5bc211c69bd1ae13708bc7368e7bd9dbf7c1bbec/src/aiv/cli/main.py#L1472)
+- [`src/aiv/cli/main.py#L1519`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/5bc211c69bd1ae13708bc7368e7bd9dbf7c1bbec/src/aiv/cli/main.py#L1519)
+- [`src/aiv/cli/main.py#L1560`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/5bc211c69bd1ae13708bc7368e7bd9dbf7c1bbec/src/aiv/cli/main.py#L1560)
+- [`src/aiv/cli/main.py#L1571`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/5bc211c69bd1ae13708bc7368e7bd9dbf7c1bbec/src/aiv/cli/main.py#L1571)
+- [`src/aiv/cli/main.py#L1675`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/5bc211c69bd1ae13708bc7368e7bd9dbf7c1bbec/src/aiv/cli/main.py#L1675)
+- [`src/aiv/cli/main.py#L1683`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/5bc211c69bd1ae13708bc7368e7bd9dbf7c1bbec/src/aiv/cli/main.py#L1683)
 
 ### Class A (Execution Evidence)
 
 **Per-symbol test coverage (AST analysis):**
 
-- **`audit`** (L245-L249): FAIL — WARNING: No tests import or call `audit`
+- **`init`** (L165): FAIL — WARNING: No tests import or call `init`
+- **`_build_evidence_sections`** (L755): PASS — 7 test(s) call `_build_evidence_sections` directly
+  - `tests/integration/test_e2e_compliance.py::test_generate_r3_includes_all_six_sections`
+  - `tests/integration/test_e2e_compliance.py::test_generate_r0_omits_non_required_sections`
+  - `tests/unit/test_coverage.py::test_r0_has_class_b_and_a`
+  - `tests/unit/test_coverage.py::test_r1_adds_class_e`
+  - `tests/unit/test_coverage.py::test_r2_adds_class_c_and_f`
+  - `tests/unit/test_coverage.py::test_r3_has_all_six_classes`
+  - `tests/unit/test_coverage.py::test_scope_lines_embedded`
+- **`close`** (L767-L768): FAIL — WARNING: No tests import or call `close`
+- **`abandon`** (L899): FAIL — WARNING: No tests import or call `abandon`
+- **`commit_cmd`** (L972): FAIL — WARNING: No tests import or call `commit_cmd`
 
-**Coverage summary:** 0/1 symbols verified by tests.
+**Coverage summary:** 1/5 symbols verified by tests.
 - **ruff:** All checks passed
 - **mypy:** Success: no issues found in 1 source file
 
@@ -62,21 +85,22 @@ classification:
 
 | # | Claim | Type | Evidence | Verdict |
 |---|-------|------|----------|---------|
-| 1 | aiv audit scans .github/aiv-evidence/ by default alongside .... | symbol | 0 tests call `audit` | FAIL UNVERIFIED |
-| 2 | aiv audit --no-evidence skips Layer 1 evidence file scanning | symbol | 0 tests call `audit` | FAIL UNVERIFIED |
-| 3 | No existing tests were modified or deleted during this chang... | structural | Class C not collected | REVIEW MANUAL REVIEW |
+| 1 | aiv abandon accepts --yes/-y as alias for --force to skip co... | symbol | 0 tests call `abandon` | FAIL UNVERIFIED |
+| 2 | aiv commit detects unchanged files before evidence collectio... | unresolved | No automatic binding available | REVIEW MANUAL REVIEW |
+| 3 | Unicode em-dashes replaced with ASCII -- in all console.prin... | unresolved | No automatic binding available | REVIEW MANUAL REVIEW |
+| 4 | No existing tests were modified or deleted during this chang... | structural | Class C not collected | REVIEW MANUAL REVIEW |
 
-**Verdict summary:** 0 verified, 2 unverified, 1 manual review.
+**Verdict summary:** 0 verified, 1 unverified, 3 manual review.
 
 ---
 
 ## Verification Methodology
 
 **Zero-Touch Mandate:** Verifier inspects artifacts only.
-Evidence collected by `aiv commit` running: git diff, pytest (677 passed, 10 failed), ruff (clean), mypy (Success: no issues found in 1 source file), AST symbol-to-test binding (1 symbols).
+Evidence collected by `aiv commit` running: git diff, pytest (677 passed, 10 failed), ruff (clean), mypy (Success: no issues found in 1 source file), AST symbol-to-test binding (5 symbols).
 
 ---
 
 ## Summary
 
-aiv audit now scans evidence files by default with --no-evidence opt-out
+Fix abandon prompt, nothing-to-commit guard, and Windows Unicode issues in main CLI
