@@ -727,6 +727,9 @@ def commit_cmd(
     tier: str = typer.Option("R1", "--tier", "-t", help="Risk tier: R0, R1, R2, R3"),
     claim: list[str] = typer.Option([], "--claim", "-c", help="Falsifiable claim (repeatable, required)"),
     intent: str = typer.Option("", "--intent", "-i", help="Class E: URL to spec/issue/directive (required)"),
+    requirement: str = typer.Option(
+        "", "--requirement", help="Class E: which specific requirement the intent URL satisfies (required)"
+    ),
     rationale: str = typer.Option("", "--rationale", "-r", help="Classification rationale (required)"),
     summary: str = typer.Option("", "--summary", "-s", help="One-line summary (required)"),
     skip_checks: bool = typer.Option(False, "--skip-checks", help="Skip running local checks (pytest/ruff/mypy)"),
@@ -773,6 +776,8 @@ def commit_cmd(
         missing.append("--rationale / -r (why this tier was chosen)")
     if not summary:
         missing.append("--summary / -s (one-line summary of the change)")
+    if not requirement:
+        missing.append("--requirement  (which section/requirement the intent URL satisfies)")
 
     if missing:
         console.print("[red]Error:[/red] Missing required flags:")
@@ -833,7 +838,7 @@ def commit_cmd(
     class_e_md = f"""### Class E (Intent Alignment)
 
 - **Link:** [{intent}]({intent})
-- **Requirements Verified:** See linked spec/issue."""
+- **Requirements Verified:** {requirement}"""
 
     # Class B: COLLECTED from git diff line ranges
     console.print("[dim]Collecting Class B (referential) from git diff...[/dim]")

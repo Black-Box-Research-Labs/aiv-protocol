@@ -1,6 +1,6 @@
 # AIV Verification Packet (v2.1)
 
-**Commit:** `e6ae981`
+**Commit:** `9547980`
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
 ---
@@ -13,18 +13,16 @@ classification:
   sod_mode: S1
   critical_surfaces: []
   blast_radius: "src/aiv/cli/main.py"
-  classification_rationale: "CLI rewire: aiv commit now uses evidence_collector module instead of string templates"
+  classification_rationale: "Class E was accepting a URL but emitting generic See linked spec — no verifier can trace that to a real requirement"
   classified_by: "ImmortalDemonGod"
-  classified_at: "2026-02-09T01:16:46Z"
+  classified_at: "2026-02-09T01:30:38Z"
 ```
 
 ## Claim(s)
 
-1. aiv commit collects Class B from git diff line ranges as SHA-pinned permalinks
-2. aiv commit collects Class A by running pytest and extracting test names covering the changed file
-3. aiv commit collects Class C by scanning the diff for deleted assertions and skip markers
-4. aiv commit collects Class F by scanning test file integrity from git diff
-5. No existing tests were modified or deleted during this change.
+1. aiv commit requires --requirement flag specifying which section/requirement the intent URL satisfies
+2. Class E evidence now includes the user-provided requirement text instead of generic See linked spec
+3. No existing tests were modified or deleted during this change.
 
 ---
 
@@ -32,38 +30,21 @@ classification:
 
 ### Class E (Intent Alignment)
 
-- **Link:** [https://github.com/ImmortalDemonGod/aiv-protocol/blob/cf3639c/SPECIFICATION.md](https://github.com/ImmortalDemonGod/aiv-protocol/blob/cf3639c/SPECIFICATION.md)
-- **Requirements Verified:** See linked spec/issue.
+- **Link:** [https://github.com/ImmortalDemonGod/aiv-protocol/blob/80014cd/SPECIFICATION.md](https://github.com/ImmortalDemonGod/aiv-protocol/blob/80014cd/SPECIFICATION.md)
+- **Requirements Verified:** SPECIFICATION.md Class E Intent Alignment: evidence must reference a specific requirement, not just link to a document
 
 ### Class B (Referential Evidence)
 
-**Scope Inventory** (SHA: [`e6ae981`](https://github.com/ImmortalDemonGod/aiv-protocol/tree/e6ae981d3984ec43417e2a669ea984dcc1a45256))
+**Scope Inventory** (SHA: [`9547980`](https://github.com/ImmortalDemonGod/aiv-protocol/tree/95479805a27cf80417fc6fad810420cef36ac2cc))
 
-- [`src/aiv/cli/main.py#L736`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/e6ae981d3984ec43417e2a669ea984dcc1a45256/src/aiv/cli/main.py#L736)
-- [`src/aiv/cli/main.py#L738-L741`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/e6ae981d3984ec43417e2a669ea984dcc1a45256/src/aiv/cli/main.py#L738-L741)
-- [`src/aiv/cli/main.py#L753-L759`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/e6ae981d3984ec43417e2a669ea984dcc1a45256/src/aiv/cli/main.py#L753-L759)
-- [`src/aiv/cli/main.py#L766`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/e6ae981d3984ec43417e2a669ea984dcc1a45256/src/aiv/cli/main.py#L766)
-- [`src/aiv/cli/main.py#L778`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/e6ae981d3984ec43417e2a669ea984dcc1a45256/src/aiv/cli/main.py#L778)
-- [`src/aiv/cli/main.py#L781`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/e6ae981d3984ec43417e2a669ea984dcc1a45256/src/aiv/cli/main.py#L781)
-- [`src/aiv/cli/main.py#L808`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/e6ae981d3984ec43417e2a669ea984dcc1a45256/src/aiv/cli/main.py#L808)
-- [`src/aiv/cli/main.py#L829`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/e6ae981d3984ec43417e2a669ea984dcc1a45256/src/aiv/cli/main.py#L829)
-- [`src/aiv/cli/main.py#L832-L833`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/e6ae981d3984ec43417e2a669ea984dcc1a45256/src/aiv/cli/main.py#L832-L833)
-- [`src/aiv/cli/main.py#L838-L842`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/e6ae981d3984ec43417e2a669ea984dcc1a45256/src/aiv/cli/main.py#L838-L842)
-- [`src/aiv/cli/main.py#L844-L854`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/e6ae981d3984ec43417e2a669ea984dcc1a45256/src/aiv/cli/main.py#L844-L854)
-- [`src/aiv/cli/main.py#L856`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/e6ae981d3984ec43417e2a669ea984dcc1a45256/src/aiv/cli/main.py#L856)
-- [`src/aiv/cli/main.py#L860-L861`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/e6ae981d3984ec43417e2a669ea984dcc1a45256/src/aiv/cli/main.py#L860-L861)
-- [`src/aiv/cli/main.py#L863-L875`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/e6ae981d3984ec43417e2a669ea984dcc1a45256/src/aiv/cli/main.py#L863-L875)
-- [`src/aiv/cli/main.py#L877-L878`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/e6ae981d3984ec43417e2a669ea984dcc1a45256/src/aiv/cli/main.py#L877-L878)
-- [`src/aiv/cli/main.py#L880`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/e6ae981d3984ec43417e2a669ea984dcc1a45256/src/aiv/cli/main.py#L880)
-- [`src/aiv/cli/main.py#L882`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/e6ae981d3984ec43417e2a669ea984dcc1a45256/src/aiv/cli/main.py#L882)
-- [`src/aiv/cli/main.py#L884-L885`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/e6ae981d3984ec43417e2a669ea984dcc1a45256/src/aiv/cli/main.py#L884-L885)
-- [`src/aiv/cli/main.py#L887-L898`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/e6ae981d3984ec43417e2a669ea984dcc1a45256/src/aiv/cli/main.py#L887-L898)
-- [`src/aiv/cli/main.py#L937`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/e6ae981d3984ec43417e2a669ea984dcc1a45256/src/aiv/cli/main.py#L937)
+- [`src/aiv/cli/main.py#L730-L732`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/95479805a27cf80417fc6fad810420cef36ac2cc/src/aiv/cli/main.py#L730-L732)
+- [`src/aiv/cli/main.py#L779-L780`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/95479805a27cf80417fc6fad810420cef36ac2cc/src/aiv/cli/main.py#L779-L780)
+- [`src/aiv/cli/main.py#L841`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/95479805a27cf80417fc6fad810420cef36ac2cc/src/aiv/cli/main.py#L841)
 
 ### Class A (Execution Evidence)
 
-- **pytest:** 503 passed, 0 failed in 36.43s
-- **Tests covering changed file** (134):
+- **pytest:** 528 passed, 0 failed in 35.04s
+- **Tests covering changed file** (119):
   - `tests/conftest.py::test_process_payment_success`
   - `tests/conftest.py::test_login`
   - `tests/conftest.py::test_refresh_token`
@@ -111,4 +92,4 @@ Evidence was collected by `aiv commit` running: git diff, pytest -v, ruff, mypy,
 
 ## Summary
 
-aiv commit rewired from template generation to tool-based evidence collection
+aiv commit --requirement forces specific section/requirement text into Class E evidence
