@@ -184,24 +184,37 @@ def main() -> int:
     print("[BLOCK] AIV Pre-Push Hook: Protocol Violation Detected")
     print("=" * 79)
     print()
-    print(f"Found {len(violations)} commit(s) with functional files but NO verification packet.")
-    print("These commits likely used `git commit --no-verify` to bypass the pre-commit hook.")
+    print("WHAT HAPPENED:")
+    print(f"  {len(violations)} commit(s) contain functional files without a verification packet.")
+    print("  This means `git commit --no-verify` was used to bypass the pre-commit hook.")
+    print()
+    print("WHY THIS IS BLOCKED:")
+    print("  Every functional file change MUST have a paired verification packet.")
+    print("  The `--no-verify` flag skips the pre-commit hook, but this pre-push hook")
+    print("  catches the violation before it reaches the remote repository.")
     print()
 
+    print("VIOLATING COMMITS:")
     for short_sha, func_files in violations:
-        print(f"  Commit {short_sha}:")
+        print(f"  {short_sha}:")
         for f in func_files[:5]:
             print(f"    - {f}")
         if len(func_files) > 5:
             print(f"    ... and {len(func_files) - 5} more")
-        print()
-
-    print("FIX: For each violating commit, use `aiv commit` to create proper atomic commits:")
-    print("  1. git reset --soft HEAD~N  (undo the bad commits)")
-    print("  2. git reset HEAD -- .  (unstage everything)")
-    print("  3. aiv commit <file> -m '...' -t R1 -c '...' ...  (one file at a time)")
     print()
-    print("Or use `git push --no-verify` to bypass (CI will still catch it).")
+
+    num = sum(len(f) for _, f in violations)
+    print("HOW TO FIX:")
+    print(f"  1. git reset --soft HEAD~{len(violations)}")
+    print("  2. git reset HEAD -- .")
+    print("  3. For EACH functional file, run:")
+    print("       aiv commit <file> -m '<message>' -t R1 -c '<claim>' \\")
+    print("         -i '<intent-url>' --requirement '<req>' \\")
+    print("         -r '<rationale>' -s '<summary>'")
+    print("  4. git push")
+    print()
+    print("DO NOT use `--no-verify` on git commit or git push.")
+    print("DO NOT hand-write verification packets. Use `aiv commit`.")
     print("=" * 79)
 
     return 1
