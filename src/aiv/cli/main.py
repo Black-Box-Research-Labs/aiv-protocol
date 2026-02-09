@@ -1627,17 +1627,30 @@ def commit_cmd(
             else:
                 console.print(f"  [green]PASS[/green] Claim {cv.claim_index}: {cv.evidence_detail}")
 
-    # --- Phase 7: R3 blocking on unverified claims ---
+    # --- Phase 7: Block when too many claims are UNVERIFIED ---
     unverified = [cv for cv in claim_verifications if cv.verdict == "UNVERIFIED"]
-    if tier_upper == "R3" and unverified and not force:
-        console.print(f"\n[red]ERROR: R3 commit has {len(unverified)} unverified claim(s):[/red]")
-        for cv in unverified:
-            console.print(f'  Claim {cv.claim_index}: "{cv.claim_text[:60]}" -- {cv.evidence_detail}')
-        console.print("\n[dim]Options:[/dim]")
-        console.print("  1. Add tests that call the uncovered symbol(s)")
-        console.print("  2. Reclassify to R2 if this is not a critical surface")
-        console.print('  3. Use --force "justification" to override (recorded in packet)')
-        raise typer.Exit(1)
+    total_bindable = [cv for cv in claim_verifications if cv.verdict != "MANUAL REVIEW"]
+    unverified_pct = (len(unverified) / len(total_bindable) * 100) if total_bindable else 0
+
+    if tier_upper != "R0" and unverified and not force:
+        # R1+: block when >50% of bindable claims are unverified
+        # R3: block on ANY unverified claim (stricter)
+        should_block = (tier_upper == "R3" and len(unverified) > 0) or (
+            tier_upper in ("R1", "R2") and unverified_pct > 50
+        )
+        if should_block:
+            console.print(
+                f"\n[red]ERROR: {tier_upper} commit has {len(unverified)}/{len(total_bindable)} "
+                f"claims unverified ({unverified_pct:.0f}%):[/red]"
+            )
+            for cv in unverified:
+                console.print(f'  Claim {cv.claim_index}: "{cv.claim_text[:60]}" -- {cv.evidence_detail}')
+            console.print("\n[dim]Options:[/dim]")
+            console.print("  1. Add tests that call the uncovered symbol(s)")
+            if tier_upper != "R0":
+                console.print("  2. Downgrade to R0 (--tier R0 --skip-checks) if truly trivial")
+            console.print('  3. Use --force "justification" to override (recorded in evidence)')
+            raise typer.Exit(1)
 
     force_section = ""
     if force and unverified:
@@ -1654,24 +1667,30 @@ def commit_cmd(
             "Only git diff scope inventory was collected. No execution evidence."
         )
     else:
-        tools_run = ["git diff"]
+        tools_run = ["git diff (scope inventory)"]
         if class_a_data:
-            tools_run.append(f"pytest ({class_a_data.total_passed} passed, {class_a_data.total_failed} failed)")
-            if class_a_data.ruff_clean is not None:
-                tools_run.append(f"ruff ({'clean' if class_a_data.ruff_clean else 'errors found'})")
-            if class_a_data.mypy_summary:
-                tools_run.append(f"mypy ({class_a_data.mypy_summary})")
             if class_a_data.symbol_coverage:
-                tools_run.append(f"AST symbol-to-test binding ({len(class_a_data.symbol_coverage)} symbols)")
+                covered = sum(1 for sc in class_a_data.symbol_coverage if sc.calling_tests)
+                total_syms = len(class_a_data.symbol_coverage)
+                tools_run.append(f"AST symbol-to-test binding ({covered}/{total_syms} symbols verified)")
+            elif class_a_data.relevant_tests:
+                tools_run.append(f"file-level test discovery ({len(class_a_data.relevant_tests)} tests)")
+            else:
+                tools_run.append("pytest (no claim-specific tests found)")
         if tier_upper in ("R2", "R3"):
             tools_run.append("anti-cheat scan")
         methodology_text = (
             "**Zero-Touch Mandate:** Verifier inspects artifacts only.\n"
-            f"Evidence collected by `aiv commit` running: {', '.join(tools_run)}."
+            f"Evidence collected by `aiv commit` running: {', '.join(tools_run)}.\n"
+            "Ruff/mypy results are in Code Quality (not Class A) because they prove "
+            "syntax/types, not behavior."
         )
 
     # --- Assemble evidence from collected artifacts ---
     evidence_parts = [class_e_md, class_b_md, class_a_md]
+    # Code Quality (ruff/mypy) is separate from Class A — it proves syntax, not behavior
+    if class_a_data and not skip_checks:
+        evidence_parts.append(class_a_data.code_quality_markdown())
     if class_c_md:
         evidence_parts.append(class_c_md)
     if class_d_md:
