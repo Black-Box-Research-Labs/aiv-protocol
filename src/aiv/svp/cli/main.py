@@ -125,12 +125,24 @@ def predict(
     repo: str = typer.Option("owner/repo", help="Repository"),
     verifier: str = typer.Option(..., help="Verifier GitHub ID"),
     test_file: str = typer.Option(..., help="Test file path analyzed"),
-    approach: str = typer.Option(..., help="Predicted implementation approach (≥50 chars)"),
+    approach: str = typer.Option(..., help="Predicted implementation approach (>=50 chars)"),
     complexity: str = typer.Option("Unknown", help="Predicted complexity: O(1), O(n), etc."),
-    edge_cases: list[str] = typer.Option(..., help="Expected edge cases (≥2)"),
+    edge_cases: list[str] = typer.Option(..., help="Expected edge cases (>=2)"),
     packet_ref: str = typer.Option("", help="Verification packet filename this session verifies"),
 ) -> None:
-    """Record a Black Box Prediction (Phase 1)."""
+    """Record a Black Box Prediction (Phase 1).
+
+    Before reading the diff, predict how the change was implemented.
+    This tests whether you understand the codebase well enough to
+    anticipate what changed.
+
+    Examples:
+        aiv svp predict 42 --verifier alice --test-file tests/test_auth.py \\
+            --approach "Add expiry check in TokenValidator.validate() before\n"
+            "returning the decoded payload. Raise HTTP 401 on expiry." \\
+            --edge-cases "token exactly at boundary" \\
+            --edge-cases "clock skew between servers"
+    """
     session = _load_session(pr)
     if session is None:
         session = SVPSession(
@@ -172,8 +184,8 @@ def trace(
     repo: str = typer.Option("owner/repo", help="Repository"),
     verifier: str = typer.Option(..., help="Verifier GitHub ID"),
     function: str = typer.Option(..., help="Function path (e.g., src/auth.py::login)"),
-    notes: str = typer.Option(..., help="Trace notes (≥100 chars)"),
-    edge_case: str = typer.Option(..., help="Edge case tested (≥10 chars)"),
+    notes: str = typer.Option(..., help="Trace notes (>=100 chars)"),
+    edge_case: str = typer.Option(..., help="Edge case tested (>=10 chars)"),
     predicted_output: str = typer.Option(..., help="Predicted output for edge case"),
     confidence: str = typer.Option("medium", help="Confidence: high/medium/low"),
     transition_var: list[str] = typer.Option([], help="Variable name for state transition (repeatable)"),
@@ -182,9 +194,22 @@ def trace(
 ) -> None:
     """Record a Mental Trace (Phase 2).
 
-    Supports state transitions via repeated options:
-        --transition-var result --transition-before None
-        --transition-after "FAIL"
+    Simulate execution of a specific function through an edge case
+    WITHOUT running the code. Record what you expect to happen at
+    each step. Multiple traces per session are expected (>=3 recommended).
+
+    Examples:
+        aiv svp trace 42 --verifier alice \\
+            --function src/auth.py::validate \\
+            --notes "Token arrives as JWT string. decode() splits header.payload.sig.\n"
+            "Checks exp claim against datetime.utcnow(). If exp < now, raises\n"
+            "AuthError(401). Otherwise returns decoded payload dict." \\
+            --edge-case "token with exp exactly equal to current time" \\
+            --predicted-output "Should return 401 since exp==now means expired" \\
+            --confidence medium
+
+    State transitions (optional, repeatable):
+        --transition-var result --transition-before None --transition-after FAIL
     """
     session = _load_session(pr)
     if session is None:
@@ -241,8 +266,8 @@ def probe(
     pr: int = typer.Argument(..., help="PR number"),
     repo: str = typer.Option("owner/repo", help="Repository"),
     verifier: str = typer.Option(..., help="Verifier GitHub ID"),
-    assessment: str = typer.Option(..., help="Overall assessment (≥20 chars)"),
-    why_question: str = typer.Option(..., help="A 'Why?' question (≥10 chars)"),
+    assessment: str = typer.Option(..., help="Overall assessment (>=20 chars)"),
+    why_question: str = typer.Option(..., help="A 'Why?' question (>=10 chars)"),
     why_context: str = typer.Option("", help="Context for the Why question"),
     falsify_claim: list[str] = typer.Option([], help="Claim ID for falsification scenario (repeatable)"),
     falsify_scenario: list[str] = typer.Option(
@@ -255,12 +280,25 @@ def probe(
 ) -> None:
     """Submit an Adversarial Probe checklist (Phase 3).
 
-    Supports multiple falsification scenarios via repeated options:
-        --falsify-claim C-001 --falsify-scenario "If X then false"
+    Hunt for bugs, hallucinations, and edge cases. Your primary
+    deliverable is the adversarial report (findings), not approval.
+    At least one falsification scenario per claim is REQUIRED (S014).
 
-    Supports structured probe findings via repeated options:
-        --finding-type magic_numbers --finding-file src/x.py
-        --finding-desc "Hardcoded value" --finding-severity low
+    Examples:
+        aiv svp probe 42 --verifier alice \\
+            --assessment "Auth module handles basic expiry but no clock skew" \\
+            --why-question "Why is there no tolerance window for clock skew?" \\
+            --falsify-claim C-001 \\
+            --falsify-scenario "Send token with exp=now+1s from server with 2s clock drift" \\
+            --finding-type missing_edge_case --finding-file src/auth.py \\
+            --finding-desc "No clock skew tolerance" --finding-severity medium
+
+    Falsification scenarios (REQUIRED, repeatable):
+        --falsify-claim <claim-id> --falsify-scenario "<scenario text >=25 chars>"
+
+    Structured findings (optional, repeatable):
+        --finding-type <type> --finding-file <path>
+        --finding-desc <description> --finding-severity <low|medium|high|critical>
 
     If a probe already exists, new scenarios and findings are merged.
     """
@@ -365,12 +403,22 @@ def ownership(
     rename_from: str = typer.Option("", help="Original name"),
     rename_to: str = typer.Option("", help="New name"),
     rename_type: str = typer.Option("function", help="Change type: variable/function/class/parameter"),
-    rename_reason: str = typer.Option("", help="Justification for rename (≥10 chars)"),
+    rename_reason: str = typer.Option("", help="Justification for rename (>=10 chars)"),
 ) -> None:
     """Record an Ownership Lock commit (Phase 4).
 
-    The verifier must push a commit with semantic renames or docstrings
-    to prove cognitive ownership of the code.
+    The verifier must push a real commit with semantic renames or
+    docstring additions to prove cognitive ownership of the code.
+    This commit must be authored by the verifier (not the implementer).
+
+    Examples:
+        aiv svp ownership 42 --verifier alice \\
+            --commit-sha abc1234def5678 \\
+            --message "ownership: rename token_check to validate_jwt_expiry" \\
+            --rename-file src/auth.py \\
+            --rename-from token_check --rename-to validate_jwt_expiry \\
+            --rename-type function \\
+            --rename-reason "Original name was vague; new name reflects JWT-specific validation"
     """
     session = _load_session(pr)
     if session is None:
