@@ -186,6 +186,37 @@ def init(
                     pass
                 console.print(f"[green]Installed:[/green] pre-commit hook → {hook_file}")
 
+            # Install pre-push hook (catches --no-verify bypass)
+            push_hook_file = hooks_dir / "pre-push"
+            push_hook_shim = (
+                "#!/usr/bin/env python3\n"
+                '"""AIV Protocol pre-push hook. Installed by `aiv init`.\n'
+                "\n"
+                "Catches commits that bypassed the pre-commit hook via --no-verify.\n"
+                'git commit --no-verify skips pre-commit, but NOT pre-push."""\n'
+                "import sys\n"
+                "from aiv.hooks.pre_push import main\n"
+                "sys.exit(main())\n"
+            )
+            if push_hook_file.exists():
+                existing = push_hook_file.read_text(encoding="utf-8", errors="replace")
+                if "aiv" in existing.lower():
+                    console.print(f"[yellow]Warning:[/yellow] {push_hook_file} already contains AIV hook, skipping.")
+                else:
+                    console.print(
+                        f"[yellow]Warning:[/yellow] {push_hook_file} exists (non-AIV). "
+                        "Use [bold]--no-hook[/bold] to skip, or remove it manually first."
+                    )
+            else:
+                push_hook_file.write_text(push_hook_shim, encoding="utf-8")
+                try:
+                    import stat
+
+                    push_hook_file.chmod(push_hook_file.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+                except OSError:
+                    pass
+                console.print(f"[green]Installed:[/green] pre-push hook → {push_hook_file}")
+
     console.print(f"[green][OK] AIV Protocol initialized in {path}[/green]")
     console.print("[dim]Tip: Use [bold]aiv generate <name>[/bold] to create a verification packet.[/dim]")
 
