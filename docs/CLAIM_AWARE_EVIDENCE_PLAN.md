@@ -1,420 +1,546 @@
 # Claim-Aware Evidence Routing — Design Plan
 
-**Status:** V2 — Revised after critique of keyword-matching approach.
+**Status:** V3 — Post-implementation audit. Phases 0–4 shipped. Three remaining
+forms of theater identified and designed for elimination.
+
+**History:**
+- V1: Keyword matching proposed → **REJECTED** (false positives, false negatives, gameable)
+- V2: AST-based semantic analysis designed → **IMPLEMENTED** (Phases 0–4)
+- V3: Honest audit of shipped output → **3 remaining gaps identified**
 
 ---
 
-## Problem Statement
+## 1. Original Problem Statement
 
-The evidence collector runs the **same scan for every commit** regardless of what
-was claimed. This produces three forms of residual verification theater:
+The evidence collector ran the **same scan for every commit** regardless of what
+was claimed. This produced three forms of verification theater:
 
 1. **Class F = Class C + Class A restated.** "No test files deleted" is already in
-   Class C. "Full test suite passes" is already in Class A. Class F contributes
+   Class C. "Full test suite passes" is already in Class A. Class F contributed
    zero new information.
 
-2. **Class A lists tests but doesn't tie them to claims.** If you claim "xdist
-   import activates correctly," the packet lists 17 tests but doesn't say which
-   one verifies *that specific claim*. A verifier must read all 17 to figure it out.
+2. **Class A listed tests but didn't tie them to claims.** If you claim "xdist
+   import activates correctly," the packet listed 17 tests but didn't say which
+   one verifies *that specific claim*.
 
-3. **Class C is claim-blind.** It runs the same 4 structural indicators (assertion
-   deletions, test file deletions, skip markers, test modifications) on every
-   commit. It never searches for anything specific to what was claimed.
-
----
-
-## Retro-Test: Would Each Proposed Approach Have Caught Our Bugs?
-
-### Bug 1: `import pytest_xdist` (wrong module name, parallel never activated)
-
-**Claim:** "Parallel test execution activates correctly via pytest-xdist"
-
-| Approach | What it would do | Catches bug? |
-|----------|------------------|--------------|
-| **Current** | List 17 test names. No connection to claim. | NO |
-| **Keyword matching** | Search tests for keywords ["xdist", "import", "activates"]. `import xdist as _` uses `_` — idiomatic but keyword-blind. Test named `test_parallel_execution_is_activated` uses synonyms. | UNRELIABLY — depends on naming luck |
-| **AST analysis** | Parse `evidence_collector.py` AST. Identify that lines 254-259 are inside `collect_class_a`. Find all tests that import AND call `collect_class_a`. Check whether any test exercises the `import xdist` branch. | YES — deterministically finds tests covering the changed function |
-
-### Bug 2: `git grep pyproject` matching 41 unrelated pre-commit hook tests
-
-**Claim:** "pytest-xdist>=3.0 added to dev dependencies"
-
-| Approach | What it would do | Catches bug? |
-|----------|------------------|--------------|
-| **Current** | `git grep pyproject tests/` → 41 matches in test_pre_commit_hook.py | NO — 41 false positives |
-| **Keyword matching** | Search 41 tests for ["xdist", "dependencies", "dev"]. Would correctly report 0 keyword matches. | YES — but for the wrong reason (keyword absence ≠ proven irrelevance) |
-| **AST analysis** | `pyproject.toml` is not a `.py` file. No Python symbol to trace. Report: "Non-Python target — no import graph available. 0 tests directly exercise this file." | YES — correctly identifies the gap with a structural explanation, not a heuristic |
-
-### Bug 3: Class F restating Class C + Class A
-
-| Approach | What it would do | Catches bug? |
-|----------|------------------|--------------|
-| **Current** | "No test files deleted. No assertions removed. Full test suite passes." | NO — pure redundancy |
-| **Keyword/AST** | Neither keyword nor AST needed. Fix is independent: replace Class F content with `git log --follow` chain-of-custody data. | YES — architectural fix, not algorithmic |
+3. **Class C was claim-blind.** It ran the same 4 structural indicators on every
+   commit. It never searched for anything specific to what was claimed.
 
 ---
 
-## V1 Approach: Keyword Matching — REJECTED
+## 2. What V2 Fixed (Phases 0–4, shipped `e58b81c..6e05404`)
 
-The initial V1 plan proposed "NLP-lite" keyword extraction from claim strings.
-This approach is rejected for three reasons identified in review:
+### Phase 0: Distinct Class F ✅
 
-### 1. False Negatives (Semantic Gaps)
+**Before:** "No test files deleted. Full test suite passes."
+**After:** `git log --follow` chain-of-custody per covering test file:
 
-Keywords miss synonyms. Claim says "activates"; test says "is_activated".
-Claim says "detects"; test calls the function without using the word "detect".
-Code uses idiomatic patterns (`import xdist as _`) that strip meaningful names.
+| File | Commits | Created By | Last Modified By | Assertions |
+|------|---------|------------|------------------|------------|
+| `test_evidence_collector.py` | 2 | ImmortalDemonGod (2985156) | ImmortalDemonGod (f81b6e6) | 100 |
 
-The fundamental problem: **prose and code use different vocabularies for the same
-concepts.** Keyword matching cannot bridge this gap without becoming an NLP system,
-which is out of scope and unreliable.
+**Verdict:** No longer theater. Provides information Class C and A don't.
 
-### 2. False Positives (Noise)
+### Phase 1–2: AST Symbol Resolver + Test Graph ✅
 
-The `pyproject` → 41 tests bug already proved this. Keywords match mentions, not
-meaning. A test that contains the string `"pyproject.toml"` as a test fixture is
-not a test that verifies `pyproject.toml` changes.
+- `resolve_changed_symbols()` maps diff line ranges → enclosing Python functions/classes
+- `build_test_graph()` parses all test files for imports + calls using `ast.NodeVisitor`
+- Both use stdlib `ast` — zero external dependencies, deterministic
 
-### 3. Gameable
+### Phase 3: Per-Symbol Class A ✅
 
-Keyword matching creates perverse incentives: stuff claims with keywords the
-machine recognizes. Or worse: the AI generates claims that happen to match test
-names without actually verifying the claim substance. This is a **new form of
-verification theater** — machine-optimized theater.
+**Before:** "551 passed, 0 failed" + flat list of 39 test names.
+**After:** Per-symbol breakdown:
+
+```
+- `ClassAEvidence` (changed at L62):
+  - 6 test(s) call `ClassAEvidence` directly
+  - tests/unit/test_evidence_collector.py::test_renders_per_symbol_coverage
+  - ...
+- `ClassAEvidence.to_markdown` (changed at L67-L69):
+  - WARNING: No tests import or call `to_markdown`
+```
+
+**Verdict:** The WARNING on `to_markdown` is genuinely anti-theater — the old
+system would have said "39 tests covering changed file" and hidden this gap.
+
+### Phase 4: Downstream Class C ✅
+
+**Before:** "No test files deleted. No assertions removed."
+**After:** Same structural scan PLUS:
+
+```
+Downstream impact analysis (AST):
+- `find_downstream_callers` is called by:
+  - `src/aiv/cli/main.py::commit_cmd`
+```
+
+**Verdict:** Downstream callers are new information about blast radius.
 
 ---
 
-## V2 Approach: AST-Based Semantic Analysis
-
-The fundamental insight: **don't derive structure from unstructured strings.
-Start with structure.** Python's `ast` module gives us deterministic,
-compiler-level code analysis with zero external dependencies.
-
-### Key Design Decision: Auto-Extract Verification Targets
-
-The AST critique proposed requiring `--claim-json` with explicit verification
-targets. This is correct in principle but wrong on UX — it adds too much
-friction to every commit.
-
-**Better approach: auto-detect verification targets from the diff itself.**
-
-The diff already tells us which functions/classes were modified:
-- `git diff --cached -U0` gives us changed line ranges (Class B already has this)
-- AST parsing of the changed file maps line ranges → function/class symbols
-
-This means ZERO additional user input. The system can:
-1. Parse the changed file's AST
-2. Map each changed hunk (from Class B) to the enclosing function/class
-3. Use those symbols as verification targets automatically
-
-```
-git diff --cached -U0
-        │
-        ▼
-┌───────────────────────────┐
-│  Changed Line Ranges       │  ← Already collected by Class B
-│  L254-L259, L281-L329     │
-└───────────┬───────────────┘
-            │
-            ▼
-┌───────────────────────────┐
-│  AST Symbol Resolver       │  ← NEW: Python ast module
-│  Parses changed file       │
-│  Maps line ranges to       │
-│  enclosing functions:      │
-│  L254-259 → collect_class_a│
-│  L281-329 → collect_class_a│
-└───────────┬───────────────┘
-            │
-            ▼
-   Changed symbols:
-   ["collect_class_a"]
-            │
-            ▼
-┌───────────────────────────────────────────────────────┐
-│  AST Import/Call Graph (test files)                    │
-│                                                       │
-│  For each test file in tests/:                        │
-│    1. Parse AST                                       │
-│    2. Extract imports: which symbols from which files  │
-│    3. Extract calls: which functions call which symbols│
-│                                                       │
-│  Result: test_evidence_collector.py                   │
-│    imports: collect_class_a, collect_class_b, ...     │
-│    test_collect_parses_diff_hunks calls: collect_class_b │
-│    test_to_markdown_includes_test_names uses: ClassAEvidence │
-└───────────────────────────────────────────────────────┘
-            │
-            ▼
-┌───────────────────────────────────────────────────────┐
-│  Semantic Evidence Collectors                          │
-│                                                       │
-│  Class A: For each changed symbol, find tests that    │
-│    IMPORT and CALL it. Report per-symbol coverage.    │
-│    Cross-reference against claims.                    │
-│                                                       │
-│  Class C: Structural scan (existing) PLUS             │
-│    downstream callers of changed symbols across       │
-│    the entire src/ tree. Impact analysis.             │
-│                                                       │
-│  Class F: DISTINCT from C. git log --follow on        │
-│    covering test files. Chain-of-custody history.     │
-│    NOT "tests pass" or "no deletions."                │
-└───────────────────────────────────────────────────────┘
-```
-
-### Architecture: Three New Components
-
-#### 1. `ASTSymbolResolver` — Map diff hunks to symbols
-
-```python
-def resolve_symbols(file_path: str, line_ranges: list[tuple[int, int]]) -> list[str]:
-    """Parse a Python file's AST and map line ranges to enclosing symbols.
-
-    Example:
-        resolve_symbols("evidence_collector.py", [(254, 259)])
-        → ["collect_class_a"]
-    """
-```
-
-Uses `ast.parse()` + `ast.walk()` to find `FunctionDef`/`ClassDef`/`AsyncFunctionDef`
-nodes whose `lineno..end_lineno` range contains the changed lines.
-
-#### 2. `ASTTestGraph` — Build import + call graph for test files
-
-```python
-@dataclass
-class TestGraph:
-    """Maps test files to the symbols they import and call."""
-    imports: dict[str, set[str]]      # test_file → {imported_symbols}
-    calls: dict[str, dict[str, set[str]]]  # test_file → {test_func → {called_symbols}}
-
-def build_test_graph(test_dir: str = "tests/") -> TestGraph:
-    """Parse all test files and build import + call relationships."""
-```
-
-Uses `ast.ImportFrom` visitor to build the import map, then `ast.Call` +
-`ast.Name`/`ast.Attribute` visitor to build the call map within each `test_*`
-function.
-
-#### 3. Upgraded Collectors
-
-**Class A (Semantic):**
-```markdown
-### Class A (Execution Evidence)
-
-- **pytest:** 530 passed, 0 failed in 19.21s
-
-**Per-symbol test coverage:**
-
-- **`collect_class_a`** (changed at L254-259, L281-329):
-  - Imported by: `tests/unit/test_evidence_collector.py`
-  - Called by 4 tests:
-    - `test_to_markdown_includes_test_names` (calls ClassAEvidence)
-    - `test_to_markdown_warns_no_tests` (calls ClassAEvidence)
-    - `test_to_markdown_ruff_errors` (calls ClassAEvidence)
-    - `test_to_markdown_clean` (calls ClassAEvidence)
-  - NOTE: 4 tests exercise the dataclass, but 0 tests call `collect_class_a`
-    directly. The function's subprocess logic is untested.
-
-**Claim cross-reference:**
-
-- Claim 1: "xdist import activates correctly"
-  → Changed symbol: `collect_class_a` → 0 tests call this function directly
-  → WARNING: Claim references behavior inside `collect_class_a` but no test
-    invokes the function. Verification gap.
-```
-
-**Class C (Semantic):**
-```markdown
-### Class C (Negative Evidence)
-
-**Structural scan:** 0 assertion deletions, 0 skip markers, 0 test file deletions.
-
-**Downstream impact analysis:**
-- `collect_class_a` is called by:
-  - `src/aiv/cli/main.py::commit_cmd` (line 853)
-  - No other callers in src/ or tests/
-- `_run` (internal helper, also modified) is called by:
-  - `collect_class_a` (3 call sites)
-  - `collect_class_c` (0 — uses `_run_git` instead)
-  - `collect_class_f` (0 — uses `_run_git` instead)
-- Downstream impact is contained to `commit_cmd` via `collect_class_a`.
-```
-
-**Class F (Provenance — distinct from C):**
-```markdown
-### Class F (Provenance Evidence)
-
-**Test file chain-of-custody:**
-
-| File | Created | Commits | Last Modified By | Assertions |
-|------|---------|---------|------------------|------------|
-| `tests/unit/test_evidence_collector.py` | 2h ago (e6ae981) | 2 | cascade | 42 |
-
-**git log --oneline -5 -- tests/unit/test_evidence_collector.py:**
-```
-c144769 fix(lib): correct xdist import check
-e6ae981 test(lib): 18 tests for evidence collector module
-```
-
-No test files renamed or deleted in the last 10 commits.
-```
-
----
-
-## Retro-Test: Does V2 Catch the Bugs?
+## 3. Retro-Test Results (Verified by Automated Tests)
 
 ### Bug 1: `import pytest_xdist` (wrong module name)
 
-1. AST Symbol Resolver: changed lines 254-259 → enclosing symbol: `collect_class_a`
-2. AST Test Graph: scan all test files for imports of `collect_class_a`
-   → `test_evidence_collector.py` imports `ClassAEvidence` (the dataclass)
-   → but 0 test functions actually CALL `collect_class_a` (they construct
-     `ClassAEvidence` directly with mock data)
-3. Class A output: "0 tests call `collect_class_a` directly. The function's
-   subprocess logic (including xdist detection) is untested."
-4. Claim cross-reference: Claim says "activates correctly" but the function
-   is never invoked in tests.
-
-**VERDICT: YES — V2 catches this deterministically.** Not by keyword luck but by
-proving no test calls the function that contains the bug.
+`test_retro_xdist_bug` in `test_evidence_collector.py` proves:
+- AST finds tests import `ClassAEvidence` but 0 tests call `collect_class_a`
+- System emits: `WARNING: No tests import or call collect_class_a`
+- **CAUGHT** — deterministically, not by keyword luck
 
 ### Bug 2: `pyproject` false-positive (41 unrelated tests)
 
-1. AST Symbol Resolver: `pyproject.toml` is not a `.py` file → no AST available
-2. AST Test Graph: no Python symbol to search for → 0 imports, 0 calls
-3. Class A output: "Non-Python target. AST analysis not available. 0 tests
-   directly exercise this configuration file."
-4. No false positives possible — AST analysis is structurally impossible for
-   non-Python files, so the system correctly reports the gap.
-
-**VERDICT: YES — V2 eliminates false positives entirely for non-Python files.**
+- `pyproject.toml` is not a `.py` file → AST analysis not available
+- System reports 0 tests instead of 41 false positives
+- **CAUGHT** — structural impossibility, not heuristic
 
 ### Bug 3: Class F redundancy
 
-Class F no longer says "no tests deleted" (that's Class C) or "tests pass"
-(that's Class A). It shows `git log --follow` history of covering test files.
-
-**VERDICT: YES — V2 makes Class F structurally distinct.**
+- Class F now shows git log chain-of-custody, not "tests pass"
+- **FIXED** — architecturally distinct
 
 ---
 
-## Risks and Trade-offs
+## 4. Post-Implementation Theater Audit
 
-### Complexity
+**Methodology:** Compared the actual packet output from
+`VERIFICATION_PACKET_EVIDENCE_COLLECTOR.md` (commit `e58b81c`, R3) and
+`VERIFICATION_PACKET_MAIN.md` (commit `e405110`, R2) against a pre-AST packet
+(`VERIFICATION_PACKET_AUDITOR.md`, commit `ed1639b`) using the definition:
 
-AST analysis is significantly more complex than grep. But Python's `ast` module
-is stdlib (zero dependencies), well-documented, and deterministic. The call graph
-doesn't need to be perfect — it's a best-effort analysis that's strictly better
-than both grep and keyword matching.
+> **Verification theater** = evidence that looks plausible but is not
+> claim-specific. A verifier cannot determine if the claims are actually
+> verified by reading the evidence.
 
-### Language Specificity
+### Scorecard
 
-The AST analyzer only works for Python. Non-Python files (`pyproject.toml`,
-`.yml`, `.md`) cannot be analyzed. The system should honestly report "AST analysis
-not available for non-Python targets" rather than faking relevance.
+| Class | Pre-AST | Post-AST | Still Theater? |
+|-------|---------|----------|----------------|
+| **E** | "See linked spec" | SHA-pinned link + specific requirement text | **No** |
+| **B** | Bare filename | SHA-pinned line-range permalinks | **No** |
+| **A** | "499 passed" | Per-symbol AST coverage + WARNINGs for gaps | **Partially** |
+| **C** | "tests pass, nothing deleted" | Structural scan + downstream callers | **Partially** |
+| **D** | N/A | "See Class B" | **Yes** |
+| **F** | "No test files deleted. Tests pass." | Git log chain-of-custody table | **No** |
 
-Future extension: TypeScript support via `ts-morph` (separate concern).
+### Three Remaining Forms of Theater
 
-### Call Graph Accuracy
+#### Theater Gap 1: "N passed, 0 failed" is still "CI green"
 
-Python's dynamic dispatch means static call graph analysis will have false
-negatives (e.g., `getattr(obj, method_name)()`). This is acceptable because:
-- False negatives in the call graph mean we UNDERCOUNT covering tests
-- Undercounting is conservative (surfaces gaps rather than hiding them)
-- Better to miss a test than to falsely claim coverage
+The global pytest summary line `551 passed, 0 failed in 29.19s` appears in every
+packet regardless of what was changed. It proves nothing about any specific claim.
+It would be **identical for a no-op commit.** This is the textbook definition of
+verification theater — evidence that looks reassuring but carries zero
+claim-specific information.
 
-### Performance
+**Evidence from actual packet:**
+```
+- **pytest:** 551 passed, 0 failed in 29.19s
+```
 
-Parsing ~50 Python files takes <1 second. For large repos (>500 files), we can
-cache the AST graph and invalidate on file change. Not needed now.
+A verifier reading this learns nothing about whether `ClassAEvidence.to_markdown`
+renders per-symbol coverage (Claim 1) or whether `find_downstream_callers` excludes
+the committed file (Claim 3).
 
----
+#### Theater Gap 2: No Claim→Evidence Binding
 
-## Implementation Plan
+The packet lists 5 claims and lists per-symbol evidence, but **never says which
+evidence verifies which claim.** The verifier must mentally match:
 
-### Phase 0: Distinct Class F (no AST needed)
+- Claim 1: "ClassAEvidence.to_markdown renders per-symbol AST coverage..."
+- Evidence: "`ClassAEvidence.to_markdown` — WARNING: No tests import or call `to_markdown`"
 
-Replace current Class F (restates C + A) with `git log --follow` chain-of-custody.
-Independent of all other phases. Fixes redundancy immediately.
+These two facts together mean **Claim 1 is unverified** — but the packet still
+passes validation. Worse: the evidence *correctly identifies the gap* but the
+system doesn't *connect it to the claim it invalidates.*
 
-**Changes:**
-- `evidence_collector.py`: rewrite `collect_class_f()` to run `git log --follow`
-  and `git log --oneline` on test files, count assertions via AST or grep
-- No new dependencies, no new models
+This is the **structural root cause** of the other two gaps. Without claim→evidence
+binding, the system cannot know that a WARNING makes a specific claim unverified,
+which means it cannot enforce blocking behavior.
 
-### Phase 1: AST Symbol Resolver
+#### Theater Gap 3: WARNINGs Don't Block
 
-New function: given a file path and line ranges, return the enclosing symbols.
-Pure function, easy to test, no side effects.
+The AST analysis correctly identifies:
+- `commit_cmd` — WARNING: 0 tests call this function
+- `to_markdown` — WARNING: 0 tests call this method
 
-**Changes:**
-- `evidence_collector.py`: add `resolve_changed_symbols(file_path, hunks)`
-- Uses `ast.parse()` + walk for `FunctionDef`/`ClassDef` nodes
-- Tests: mock file content, verify line-to-symbol mapping
+But the commit goes through anyway. The system **documents** the gap but doesn't
+**act** on it. This is honest — which is better than the old system — but it means
+a packet can pass validation while containing evidence that explicitly says its
+claims are unverified.
 
-### Phase 2: AST Test Graph
+**Evidence from actual packet (MAIN.md):**
+```
+- `commit_cmd` (changed at L753):
+  - WARNING: No tests import or call `commit_cmd`
+```
 
-New function: parse all test files, build import map and call graph.
-
-**Changes:**
-- `evidence_collector.py`: add `build_test_graph(test_dir)`
-- Import visitor: `ast.ImportFrom` → map symbol to source module
-- Call visitor: `ast.Call` + `ast.Name`/`ast.Attribute` → map test func to called symbols
-- Tests: mock test files, verify graph construction
-
-### Phase 3: Semantic Class A
-
-Wire the symbol resolver + test graph into `collect_class_a`.
-Per-symbol coverage report. Claim cross-reference.
-
-**Changes:**
-- `collect_class_a` gains `claims` parameter
-- For each changed symbol: find importing test files, find calling test functions
-- Cross-reference claims against changed symbols
-- Emit WARNING for claims with 0 covering tests
-
-### Phase 4: Semantic Class C
-
-Add downstream caller analysis to `collect_class_c`.
-
-**Changes:**
-- `collect_class_c` gains `changed_symbols` parameter
-- For each changed symbol: find all callers across `src/` (not just tests)
-- Report downstream impact scope
-- Existing structural scan (assertion deletions, skip markers) unchanged
+This commit claimed "aiv commit now runs resolve_changed_symbols + build_test_graph
++ find_covering_tests for Python files" and the evidence says 0 tests verify this.
+The commit shipped anyway.
 
 ---
 
-## Success Criteria
+## 5. V1 Approach: Keyword Matching — REJECTED
 
-After full implementation, re-run the three retro-test scenarios:
+The initial V1 plan proposed "NLP-lite" keyword extraction from claim strings.
+Rejected for three reasons:
 
-1. **xdist bug:** Class A must report "0 tests call `collect_class_a` directly"
-   and emit a WARNING that the claim is unverified by tests.
-2. **pyproject false-positive:** Class A must report "Non-Python target, 0 tests"
-   instead of 41 false matches.
-3. **Class F redundancy:** Class F must contain ONLY `git log` chain-of-custody
-   data. No overlap with Class C (diff scan) or Class A (test results).
-4. **No false confidence:** The system must never report a test as "covering"
-   a claim unless the test demonstrably imports and calls the claimed symbol.
+1. **False Negatives:** Keywords miss synonyms. Claim says "activates"; test says
+   "is_activated". Code uses `import xdist as _` — idiomatic but keyword-blind.
+
+2. **False Positives:** The `pyproject` → 41 tests bug proved keywords match
+   mentions, not meaning.
+
+3. **Gameable:** AI generates claims that match test names without verifying
+   substance. Machine-optimized theater.
 
 ---
 
-## Open Questions
+## 6. Design for Remaining Gaps (V3)
 
-- **Should uncovered claims block commit at R2+?**
-  Recommendation: Advisory WARNING for R0-R2. Blocking ERROR for R3.
-  Rationale: R3 commits touch critical surfaces — unverified claims at R3
-  are verification gaps that should not pass silently.
+### Gap 1 Fix: Replace Global Metric with Per-Symbol Verdicts
 
-- **How to handle method-level resolution?**
-  `ast.FunctionDef` inside `ast.ClassDef` produces `ClassName.method_name`.
-  The call graph must handle `self.method()` calls by resolving the class.
-  Start simple: treat methods as `ClassName.method_name` and match on method
-  name only if class resolution fails.
+**Problem:** `551 passed, 0 failed` is claim-blind.
 
-- **Should the test graph be cached?**
-  Not for now. Our test suite is <50 files. Re-parsing on every commit is <1s.
-  Add caching if performance becomes an issue (>500 test files).
+**Design:** Remove the global summary line from Class A when per-symbol coverage
+is available. Instead, each symbol gets a verdict:
+
+```markdown
+### Class A (Execution Evidence)
+
+**Per-symbol test coverage (AST analysis):**
+
+- **`ClassAEvidence`** (L62): ✅ 6 tests call directly
+- **`ClassAEvidence.to_markdown`** (L67-L69): ❌ 0 tests call — UNVERIFIED
+- **`DownstreamCaller`** (L73-L90): ✅ 1 test calls directly
+- **`find_downstream_callers`** (L102-L110): ✅ 3 tests call directly
+
+**Overall:** 4/6 symbols covered. 2 symbols lack direct test coverage.
+**Linter/type checks:** ruff clean, mypy 1 error
+```
+
+The global "551 passed" provides no signal. The per-symbol verdicts do.
+When AST coverage is not available (non-Python files), fall back to the global
+metric with an honest annotation: "Global metric only — no per-symbol analysis
+available for non-Python files."
+
+**Changes:**
+- `ClassAEvidence.to_markdown()`: suppress global metric when `symbol_coverage`
+  is populated; emit per-symbol verdict summary
+- Keep global metric only as fallback for non-Python or `--skip-checks`
+
+### Gap 2 Fix: Claim→Evidence Binding
+
+**Problem:** Claims and evidence live in separate sections with no cross-reference.
+
+**Design:** After the per-symbol evidence, add a **Claim Verification Matrix**
+that explicitly maps each claim to the evidence that supports or refutes it:
+
+```markdown
+## Claim Verification Matrix
+
+| # | Claim | Changed Symbol(s) | Tests Calling Symbol | Verdict |
+|---|-------|-------------------|---------------------|---------|
+| 1 | ClassAEvidence.to_markdown renders per-symbol AST coverage... | `ClassAEvidence.to_markdown` | 0 | ❌ UNVERIFIED |
+| 2 | ClassCEvidence.to_markdown renders downstream impact... | `ClassCEvidence.to_markdown` | 0 | ❌ UNVERIFIED |
+| 3 | find_downstream_callers scans src/ AST... | `find_downstream_callers` | 3 | ✅ VERIFIED |
+| 4 | DownstreamCaller dataclass groups callers... | `DownstreamCaller` | 1 | ✅ VERIFIED |
+| 5 | No existing tests modified or deleted | — | Class C: clean | ✅ VERIFIED |
+```
+
+**How it works:**
+1. For each claim, use NLP-free heuristic: find the changed symbol whose name
+   appears in the claim text (substring match on symbol names, not keywords)
+2. Look up the symbol in the per-symbol coverage results
+3. If a symbol has ≥1 calling test → VERIFIED
+4. If a symbol has 0 calling tests → UNVERIFIED
+5. For structural claims ("no tests deleted") → cross-reference Class C
+6. For non-Python files → mark as "NO AST AVAILABLE"
+
+**Why this isn't keyword matching:** We're matching **symbol names** (which are
+exact identifiers from the AST) against claim text, not extracting semantic
+keywords. `find_downstream_callers` is a function name, not a keyword. If the
+claim doesn't contain the symbol name, the binding is marked "MANUAL REVIEW."
+
+**Changes:**
+- New dataclass `ClaimVerification` with fields: claim_index, claim_text,
+  matched_symbols, test_count, verdict
+- New function `bind_claims_to_evidence(claims, symbol_coverage, class_c)`
+- Emit matrix in packet between Evidence and Verification Methodology sections
+- `commit_cmd` passes `--claim` strings to the binding function
+
+### Gap 3 Fix: WARNING Enforcement at R3
+
+**Problem:** WARNINGs are informational only. Commits pass with unverified claims.
+
+**Design:** At R3, if the Claim Verification Matrix shows ANY claim as UNVERIFIED,
+the commit is blocked with an actionable error:
+
+```
+ERROR: R3 commit has 2 unverified claims:
+  Claim 1: "ClassAEvidence.to_markdown renders..." — 0 tests call `to_markdown`
+  Claim 2: "ClassCEvidence.to_markdown renders..." — 0 tests call `to_markdown`
+
+Options:
+  1. Add tests that call the uncovered symbol(s)
+  2. Reclassify to R2 if this is not a critical surface
+  3. Use --force to override (recorded in packet as an acknowledged gap)
+```
+
+**Enforcement tiers:**
+
+| Tier | Unverified Claim Behavior |
+|------|--------------------------|
+| R0 | No AST analysis (trivial commits) |
+| R1 | Advisory: WARNINGs in packet, no block |
+| R2 | Advisory: WARNINGs + Claim Verification Matrix |
+| R3 | **Blocking:** UNVERIFIED claims fail validation |
+
+**`--force` escape hatch:** At R3, the user can pass `--force` to override. The
+packet records this as:
+
+```markdown
+**Acknowledged gaps (--force override):**
+- Claim 1: UNVERIFIED — `to_markdown` has 0 test callers (user accepted risk)
+```
+
+This preserves the audit trail. The gap is documented, not hidden.
+
+**Changes:**
+- `commit_cmd`: after generating packet, if R3 and any claim is UNVERIFIED,
+  block unless `--force` flag is set
+- Add `--force` flag to `commit_cmd`
+- Packet template includes "Acknowledged gaps" section when `--force` is used
+
+### Gap 4: Class D Is Pure Theater
+
+**Problem:** Class D says "See Class B scope inventory for line-range change details."
+This is a pointer to existing evidence. It adds zero new information.
+
+**Design:** Two options:
+
+**Option A (recommended):** Remove Class D from the packet when no differential
+analysis is available. An empty section is more honest than a pointer that
+pretends to be evidence.
+
+**Option B:** If Class D is required by the spec, populate it with actual
+differential data — e.g., `git diff --stat` summary showing lines added/removed
+per hunk, or a before/after comparison of changed function signatures.
+
+---
+
+## 7. Risks and Trade-offs
+
+### AST Complexity (Addressed)
+
+AST analysis is more complex than grep. But Python's `ast` module is stdlib
+(zero dependencies), well-documented, and deterministic. 39 tests verify the
+implementation. The call graph is best-effort and conservative (undercounts
+rather than overcounts).
+
+### Language Specificity (Accepted)
+
+The AST analyzer only works for Python. Non-Python files get an honest report:
+"AST analysis not available for non-Python targets." No false confidence.
+
+### Call Graph Accuracy (Accepted)
+
+Python's dynamic dispatch means false negatives (e.g., `getattr(obj, name)()`).
+This is conservative: undercounting surfaces gaps rather than hiding them.
+
+### Claim→Symbol Binding Accuracy (New Risk)
+
+The proposed claim binding uses substring matching of symbol names in claim text.
+This has failure modes:
+
+- **Claim doesn't mention the symbol name:** "Improved test rendering" doesn't
+  contain `to_markdown`. Binding falls back to "MANUAL REVIEW."
+- **Symbol name is common:** `run` matches many claims. Mitigated by matching
+  fully-qualified names first (`ClassC.to_markdown` before `to_markdown`).
+
+This is strictly better than no binding. The "MANUAL REVIEW" fallback is honest
+about what the system can't determine automatically.
+
+### R3 Blocking (New Risk)
+
+Blocking commits at R3 could slow development if the AST analysis has false
+negatives (misses a test that actually covers the symbol). Mitigated by:
+- `--force` escape hatch with audit trail
+- Conservative AST analysis already surfaces false negatives as WARNINGs
+
+---
+
+## 8. Implementation Plan
+
+### Completed Phases
+
+| Phase | Description | Status | Commit |
+|-------|-------------|--------|--------|
+| 0 | Distinct Class F (git log chain-of-custody) | ✅ Shipped | `e58b81c` |
+| 1 | AST Symbol Resolver (`resolve_changed_symbols`) | ✅ Shipped | `e58b81c` |
+| 2 | AST Test Graph (`build_test_graph`) | ✅ Shipped | `e58b81c` |
+| 3 | Per-Symbol Class A (`find_covering_tests`) | ✅ Shipped | `6e05404` |
+| 4 | Downstream Class C (`find_downstream_callers`) | ✅ Shipped | `6e05404` |
+
+### Remaining Phases
+
+#### Phase 5: Remove Global Metric from Class A
+
+Replace `551 passed, 0 failed` with per-symbol verdicts when AST is available.
+Keep global metric only as non-Python fallback.
+
+**Changes:**
+- `ClassAEvidence.to_markdown()`: suppress global line when `symbol_coverage`
+  is non-empty; add symbol verdict summary
+- Tests: verify global metric absent when AST available, present when not
+
+#### Phase 6: Claim Verification Matrix
+
+Add explicit claim→evidence binding to the packet.
+
+**Changes:**
+- New `ClaimVerification` dataclass
+- New `bind_claims_to_evidence()` function
+- `commit_cmd` passes claims to binding function
+- Packet template includes matrix section
+- Tests: verify binding for exact match, substring match, no match
+
+#### Phase 7: R3 Blocking + `--force`
+
+Block R3 commits with unverified claims. Add `--force` override with audit trail.
+
+**Changes:**
+- `commit_cmd`: post-validation check of claim matrix at R3
+- New `--force` flag
+- Packet template includes "Acknowledged gaps" section
+- Tests: verify R3 blocks, R2 warns, R1 advisory, `--force` overrides
+
+#### Phase 8: Class D Cleanup
+
+Remove Class D "See Class B" pointer or replace with actual differential data.
+
+**Changes:**
+- `commit_cmd`: omit Class D section when no differential analysis available
+- Or: populate with `git diff --stat` summary
+- Tests: verify Class D absent or contains real data
+
+---
+
+## 9. Success Criteria (Updated)
+
+The original 4 criteria are met. New criteria for V3:
+
+1. **No global metric as primary evidence.** Class A must show per-symbol verdicts
+   when AST is available. "N passed, 0 failed" must not be the first thing a
+   verifier reads.
+
+2. **Every claim bound to evidence.** The Claim Verification Matrix must map each
+   claim to specific test coverage or explicitly mark it UNVERIFIED/MANUAL REVIEW.
+
+3. **R3 commits with unverified claims are blocked.** Unless `--force` is used,
+   in which case the gap is recorded in the packet.
+
+4. **No pointer-only evidence classes.** Class D must contain real data or be omitted.
+
+5. **Retro-test: all 3 original bugs still caught.** The 39 existing tests must
+   continue to pass, including `test_retro_xdist_bug`.
+
+---
+
+## 10. Resolved Questions
+
+- **Should the Claim Verification Matrix be a new packet section or part of
+  Class A?** → **DECIDED: Own section.** It lives between Evidence and
+  Verification Methodology. It cross-references multiple classes (A, C, F) so
+  it doesn't belong inside any single class.
+
+- **Should `--force` at R3 require a justification string?** → **DECIDED: Yes.**
+  `--force "to_markdown is tested indirectly via integration tests"`. The
+  justification is recorded in the packet. Without a justification string,
+  `--force` is rejected — no silent escape hatches.
+
+- **Should the test graph be cached?** → **DECIDED: Not yet.** Our test suite
+  is <50 files. Re-parsing on every commit is <1s. Revisit at >500 test files.
+
+---
+
+## 11. Non-Code Claims — Best-Effort Binding
+
+> **⚠️ REVIEW NOTE:** This section describes a best-effort heuristic for claims
+> that don't reference Python symbols. The approach works for the common patterns
+> we've seen, but edge cases may need manual review. Flag any concerns.
+
+**Problem:** Not all claims reference code symbols. Examples:
+- "No existing tests were modified or deleted" (structural, verified by Class C)
+- "All ruff and mypy checks pass" (tooling, verified by Class A linter output)
+- "Documentation updated to reflect new API" (non-Python file)
+
+The Claim Verification Matrix must handle these without forcing everything
+through the AST symbol pathway.
+
+**Design: Claim Classification Heuristics**
+
+Before attempting symbol binding, classify each claim into one of four types:
+
+| Type | Detection Heuristic | Evidence Source | Example |
+|------|--------------------|-----------------|---------|
+| **Symbol** | Claim text contains a changed symbol name | AST per-symbol coverage | "find_downstream_callers scans src/" |
+| **Structural** | Claim matches structural patterns: "no tests deleted", "no assertions removed", "no modifications" | Class C structural scan | "No existing tests were modified or deleted" |
+| **Tooling** | Claim matches tooling patterns: "ruff", "mypy", "lint", "type check" | Class A linter/mypy output | "All ruff checks pass" |
+| **Unresolved** | None of the above match | Mark as MANUAL REVIEW | "Improved developer experience" |
+
+**Classification rules (applied in order):**
+
+1. **Symbol match (highest priority):** If any changed symbol name is a
+   substring of the claim text (case-insensitive, longest match first to avoid
+   `run` matching before `commit_cmd`), classify as Symbol. Bind to that
+   symbol's coverage data.
+
+2. **Structural match:** If the claim text matches any of these patterns
+   (case-insensitive regex):
+   - `no.*(test|assertion|file).*(delet|modif|remov|chang)`
+   - `no.*(regression|breaking)`
+   - `existing.*(test|suite).*(pass|green|intact)`
+
+   → Classify as Structural. Verdict is VERIFIED if Class C structural scan
+   shows all-clean, UNVERIFIED if any indicator fires.
+
+3. **Tooling match:** If the claim text contains any of:
+   `ruff`, `mypy`, `lint`, `type.?check`, `format`
+
+   → Classify as Tooling. Verdict is VERIFIED if the corresponding tool
+   reported clean in Class A, UNVERIFIED if errors were found.
+
+4. **Unresolved (fallback):** No match. Verdict is MANUAL REVIEW. The matrix
+   renders this honestly:
+
+   ```
+   | 6 | Improved developer experience | — | MANUAL REVIEW | ⚠️ |
+   ```
+
+   This is not theater — it explicitly flags that the system cannot
+   automatically verify this claim. A human must decide.
+
+**Example Claim Verification Matrix with mixed claim types:**
+
+```markdown
+## Claim Verification Matrix
+
+| # | Claim | Type | Evidence | Verdict |
+|---|-------|------|----------|---------|
+| 1 | find_downstream_callers scans src/ AST... | Symbol | 3 tests call `find_downstream_callers` | ✅ VERIFIED |
+| 2 | No existing tests modified or deleted | Structural | Class C: 0 deletions, 0 modifications | ✅ VERIFIED |
+| 3 | All ruff checks pass | Tooling | Class A: ruff clean | ✅ VERIFIED |
+| 4 | ClassAEvidence.to_markdown renders... | Symbol | 0 tests call `to_markdown` | ❌ UNVERIFIED |
+| 5 | Improved developer experience | Unresolved | — | ⚠️ MANUAL REVIEW |
+```
+
+**Verdict summary:** 3/5 verified, 1 unverified, 1 manual review.
+At R3, claim 4 would block. Claim 5 (MANUAL REVIEW) does NOT block — the
+system is honest that it can't verify, but doesn't assume the worst.
+
+> **⚠️ REVIEW NOTE:** The structural and tooling patterns above are based on
+> the claim texts we've seen across 43 packets. If you encounter a claim type
+> that doesn't fit these four categories, we should add a new classification
+> rule rather than stretching the existing ones.
