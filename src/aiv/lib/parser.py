@@ -302,6 +302,9 @@ class PacketParser:
 
         Only counts a section as present if its content is substantive —
         headings with only placeholder text (TODO, TBD, N/A, etc.) are ignored.
+
+        Also parses ## Evidence References tables (Layer 2 packets) to extract
+        classes from the Classes column (e.g., "A, B").
         """
         found: set[EvidenceClass] = set()
         for s in sections:
@@ -314,6 +317,48 @@ class PacketParser:
                             found.add(ev_class)
                     except ValueError:
                         pass
+
+            # Layer 2: ## Evidence References table with Classes column
+            if s.level == 2 and "evidence references" in s.title.lower():
+                found.update(self._parse_evidence_refs_table(s.content))
+
+        return found
+
+    _EVIDENCE_REF_CLASS_RE = re.compile(r"[ABCDEF]")
+
+    def _parse_evidence_refs_table(self, content: list[str]) -> set[EvidenceClass]:
+        """Extract evidence classes from a markdown table's Classes column."""
+        found: set[EvidenceClass] = set()
+        header_idx: int | None = None
+
+        for line in content:
+            stripped = line.strip()
+            if not stripped.startswith("|"):
+                continue
+
+            cells = [c.strip() for c in stripped.split("|") if c.strip()]
+
+            # Find the Classes column in the header row
+            if header_idx is None:
+                for i, cell in enumerate(cells):
+                    if cell.lower() in ("classes", "class"):
+                        header_idx = i
+                        break
+                continue
+
+            # Skip separator row
+            if all(c.replace("-", "").replace(":", "").strip() == "" for c in cells):
+                continue
+
+            # Extract classes from the identified column
+            if header_idx is not None and header_idx < len(cells):
+                class_cell = cells[header_idx]
+                for letter in self._EVIDENCE_REF_CLASS_RE.findall(class_cell):
+                    try:
+                        found.add(EvidenceClass.from_string(letter))
+                    except ValueError:
+                        pass
+
         return found
 
     def _is_substantive(self, content: list[str]) -> bool:
