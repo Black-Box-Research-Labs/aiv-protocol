@@ -126,17 +126,32 @@ Use `aiv init --no-hook` to skip the pre-commit hook if you prefer manual enforc
 
 ### 3. The Workflow (Every Commit)
 
+**Recommended: `aiv commit`** — one command that collects evidence by running real tools (git diff, pytest, ruff, mypy, anti-cheat scan) and assembles the packet from their output:
+
 ```bash
-# 1. Write your code change (one file at a time)
-vim src/auth.py
+aiv commit src/auth.py \
+    -m "fix(auth): handle expired tokens" \
+    -t R1 \
+    -c "TokenValidator rejects expired tokens with 401" \
+    -i "https://github.com/org/repo/issues/42" \
+    -r "Standard bug fix in auth module" \
+    -s "Handle expired JWT tokens with proper 401 response"
+```
 
-# 2. Generate a verification packet scaffold
+This generates a packet with:
+- **Class B:** SHA-pinned line-range permalinks from `git diff --cached`
+- **Class A:** pytest results + specific test names covering the changed file
+- **Class C (R2+):** Anti-cheat scan — deleted assertions, deleted test files, added skip markers
+- **Class F (R2+):** Test file integrity scan from `git diff`
+
+You provide: claims (`-c`), intent URL (`-i`), rationale (`-r`), summary (`-s`).
+The tool collects: the proof.
+
+**Manual alternative: `aiv generate`** — if you need more control:
+
+```bash
 aiv generate auth-fix --tier R1
-
-# 3. Fill in the TODO sections (claims, evidence links, test output)
-vim .github/aiv-packets/VERIFICATION_PACKET_AUTH_FIX.md
-
-# 4. Stage both files and commit
+# Edit the generated packet, then:
 git add src/auth.py .github/aiv-packets/VERIFICATION_PACKET_AUTH_FIX.md
 git commit -m "fix(auth): handle expired tokens"
 # → Pre-commit hook validates the packet automatically
