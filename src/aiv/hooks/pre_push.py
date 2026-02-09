@@ -137,21 +137,53 @@ def _get_commit_files(sha: str) -> list[str]:
     return []
 
 
+def _is_evidence(path: str) -> bool:
+    return path.startswith(EVIDENCE_PREFIX) and path.endswith(PACKET_SUFFIX)
+
+
 def check_commits(commits: list[str]) -> list[tuple[str, list[str]]]:
     """Check a list of commit SHAs for protocol violations.
 
     Returns a list of (short_sha, functional_files) tuples for violating commits.
+
+    Two-Layer Architecture aware: if the push range contains any Layer 2
+    packet (PACKET_*.md) or Layer 1 evidence file (EVIDENCE_*.md), functional
+    commits in the same range are considered covered by aggregate evidence.
     """
     violations: list[tuple[str, list[str]]] = []
 
+    # Cache files per commit (single query each).
+    files_by_sha: dict[str, list[str]] = {}
     for sha in commits:
-        files = _get_commit_files(sha)
+        files_by_sha[sha] = _get_commit_files(sha)
+
+    # Scan the entire push range for Layer 2 packets and evidence files.
+    # If present, functional-only commits are covered by the aggregate.
+    range_has_evidence = any(
+        _is_packet(f) or _is_evidence(f)
+        for files in files_by_sha.values()
+        for f in files
+    )
+
+    for sha in commits:
+        files = files_by_sha[sha]
         functional = [f for f in files if _is_functional(f)]
         packets = [f for f in files if _is_packet(f)]
+        evidence = [f for f in files if _is_evidence(f)]
 
-        # Functional files without a paired packet = HOOK_BYPASS
-        if functional and not packets:
-            violations.append((sha[:7], functional))
+        if not functional:
+            continue
+
+        # Covered by same-commit packet or evidence → OK
+        if packets or evidence:
+            continue
+
+        # Covered by a Layer 2 packet elsewhere in the push range → OK
+        if range_has_evidence:
+            continue
+
+        # No coverage at all → violation
+        violations.append((sha[:7], functional))
 
     return violations
 
