@@ -134,6 +134,7 @@ aiv commit src/auth.py \
     -t R1 \
     -c "TokenValidator rejects expired tokens with 401" \
     -i "https://github.com/org/repo/issues/42" \
+    --requirement "Issue #42 requires expired tokens return 401" \
     -r "Standard bug fix in auth module" \
     -s "Handle expired JWT tokens with proper 401 response"
 ```
@@ -143,6 +144,8 @@ This generates a packet with:
 - **Class A:** pytest results + specific test names covering the changed file
 - **Class C (R2+):** Anti-cheat scan — deleted assertions, deleted test files, added skip markers
 - **Class F (R2+):** Test file integrity scan from `git diff`
+
+> **Note:** Per-symbol test coverage analysis (AST-based) works for **Python files only**. Non-Python files get grep-based test discovery. The rest of `aiv commit` (Class B permalinks, anti-cheat, provenance) works for any language.
 
 You provide: claims (`-c`), intent URL (`-i`), rationale (`-r`), summary (`-s`).
 The tool collects: the proof.
@@ -566,6 +569,30 @@ Create `.aiv.yml` in your repository root (or run `aiv init`):
 # AIV Protocol Configuration
 version: "1.0"
 strict_mode: true
+```
+
+### Hook Configuration (Important for Non-Standard Layouts)
+
+The pre-commit hook classifies files as "functional" (requiring a verification packet) based on path prefixes. The defaults are:
+
+```
+src/  lib/  app/  pkg/  cmd/  internal/  engine/  infrastructure/  scripts/  tests/  .github/workflows/  .husky/
+```
+
+Plus root files: `pyproject.toml`, `setup.py`, `package.json`, `.gitignore`, etc.
+
+**If your project uses a different layout** (e.g., `mypackage/` or `backend/`), the hook won't recognize those files as functional and will silently allow commits without packets. Add a `hook:` section to `.aiv.yml`:
+
+```yaml
+hook:
+  functional_prefixes:
+    - "src/"
+    - "mypackage/"
+    - "backend/"
+    - "tests/"
+  functional_root_files:
+    - "pyproject.toml"
+    - "Dockerfile"
 ```
 
 ## Design Principles
