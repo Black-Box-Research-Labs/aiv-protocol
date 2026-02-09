@@ -110,8 +110,12 @@ def init(
 
     Creates:
     - .aiv.yml configuration file
-    - .github/aiv-packets/ directory for verification packets
+    - .github/aiv-packets/ directory for Layer 2 verification packets
+    - .github/aiv-evidence/ directory for Layer 1 evidence files
     - .git/hooks/pre-commit hook (atomic commit enforcement)
+    - .git/hooks/pre-push hook (catches --no-verify bypass)
+
+    Use --no-hook to skip hook installation.
     """
     # 1. Create .aiv.yml
     aiv_yml = path / ".aiv.yml"
@@ -229,6 +233,98 @@ def init(
     console.print(
         "[dim]Tip: Use [bold]aiv begin <name>[/bold] to start a tracked change,"
         " then [bold]aiv commit[/bold] for each file.[/dim]"
+    )
+
+
+@app.command()
+def quickstart() -> None:
+    """
+    Print the complete AIV workflow -- from init to push.
+
+    This is a self-contained reference for new users and LLM coding
+    assistants. Run `aiv quickstart` to see the full workflow without
+    reading the README.
+    """
+    console.print(
+        Panel(
+            "[bold]AIV Protocol -- Complete Workflow Reference[/bold]\n\n"
+            "AIV generates auditable evidence that code changes were verified.\n"
+            "You provide claims about what changed; the tool collects the proof.",
+            border_style="blue",
+        )
+    )
+    console.print(
+        "\n[bold cyan]Step 0: Initialize (once per repo)[/bold cyan]\n"
+        "  aiv init\n"
+        "  # Creates .aiv.yml, .github/aiv-packets/, .github/aiv-evidence/,\n"
+        "  # and git hooks (pre-commit + pre-push)\n"
+    )
+    console.print(
+        "[bold cyan]Step 1: Start a tracked change[/bold cyan]\n"
+        '  aiv begin <name> --description "<what this change does>"\n'
+        "  # Example:\n"
+        '  aiv begin auth-fix --description "Handle expired JWT tokens"\n'
+    )
+    console.print(
+        "[bold cyan]Step 2: Commit files with evidence collection[/bold cyan]\n"
+        "  aiv commit <file> \\\n"
+        '    -m "fix(auth): handle expired tokens" \\\n'
+        "    -t R1 \\\n"
+        '    -c "TokenValidator rejects expired tokens with 401" \\\n'
+        '    -i "https://github.com/org/repo/issues/42" \\\n'
+        '    --requirement "Issue #42 requires expired tokens return 401" \\\n'
+        '    -r "Standard bug fix in auth module" \\\n'
+        '    -s "Handle expired JWT tokens with proper 401 response"\n'
+    )
+    console.print(
+        "  [bold]Required flags:[/bold]\n"
+        "    -m   Git commit message\n"
+        "    -c   Falsifiable claim (repeatable). Format: '[Component] [verb] [result] under [condition]'\n"
+        "         GOOD: 'TokenValidator rejects expired tokens with HTTP 401'\n"
+        "         BAD:  'Fixed the authentication bug'\n"
+        "    -i   Intent URL -- link to the spec, issue, or directive (must be a URL)\n"
+        "    --requirement  Which specific requirement the URL satisfies\n"
+        "    -r   Rationale for the risk tier choice\n"
+        "    -s   One-line summary of the change\n"
+    )
+    console.print(
+        "  [bold]Risk tiers:[/bold]\n"
+        "    R0 -- Trivial (docs, comments, formatting). Can use --skip-checks.\n"
+        "    R1 -- Low risk (bug fixes, minor refactors). Default. Blocks if >50% claims unverified.\n"
+        "    R2 -- Medium (API changes, config). Adds Class C (anti-cheat) + Class F (provenance).\n"
+        "    R3 -- High (auth, crypto, payments). Blocks on ANY unverified claim.\n"
+    )
+    console.print("[bold cyan]Step 3: Check progress[/bold cyan]\n  aiv status\n")
+    console.print(
+        "[bold cyan]Step 4: Close the change (generates Layer 2 packet)[/bold cyan]\n"
+        '  aiv close --requirement "Issue #42 requires expired tokens return 401"\n'
+    )
+    console.print("[bold cyan]Step 5: Push[/bold cyan]\n  git push\n")
+    console.print(
+        "[bold yellow]What aiv commit collects automatically:[/bold yellow]\n"
+        "  Class B -- SHA-pinned line-range permalinks from git diff\n"
+        "  Class A -- Per-symbol test coverage (AST analysis, Python only)\n"
+        "  Code Quality -- ruff + mypy results (separate from Class A)\n"
+        "  Class C (R2+) -- Anti-cheat scan (deleted assertions, test files, skip markers)\n"
+        "  Class F (R2+) -- Test file provenance (git log chain-of-custody)\n"
+        "  Claim Verification Matrix -- Binds each claim to evidence, shows PASS/FAIL/REVIEW\n"
+    )
+    console.print(
+        "[bold yellow]Enforcement:[/bold yellow]\n"
+        "  - R1+ commits blocked when >50% of claims are UNVERIFIED (use --force to override)\n"
+        "  - R3 commits blocked on ANY unverified claim\n"
+        "  - --skip-checks only allowed for R0\n"
+        "  - Class E intent URLs must be real URLs, not plain text\n"
+        "  - All GitHub links must be SHA-pinned (no /blob/main/ allowed)\n"
+    )
+    console.print(
+        "[bold yellow]Other commands:[/bold yellow]\n"
+        "  aiv check <packet.md>   Validate a verification packet (8-stage pipeline)\n"
+        "  aiv audit               Audit all packets + evidence files for quality issues\n"
+        "  aiv audit --fix         Auto-fix common issues (backfill SHAs, pin URLs)\n"
+        "  aiv generate <name>     Scaffold a packet template (manual workflow)\n"
+        "  aiv abandon             Discard active change without generating a packet\n"
+        "  aiv svp ...             SVP cognitive verification (optional)\n"
     )
 
 
@@ -859,7 +955,7 @@ def close(
     requirement: str = typer.Option(
         "",
         "--requirement",
-        help="Class E intent — which spec/issue/directive this change satisfies",
+        help="Class E intent -- which spec/issue/directive this change satisfies",
     ),
     skip_tests: bool = typer.Option(False, "--skip-tests", help="Skip running the full test suite"),
     include_untracked: bool = typer.Option(
@@ -879,7 +975,7 @@ def close(
     and commits it.
 
     Examples:
-        aiv close --requirement "§9.1 enforcement gap identified in audit"
+        aiv close --requirement "Section 9.1 enforcement gap identified in audit"
         aiv close --tier R2 --rationale "Auth module changes"
         aiv close --include-untracked
     """
@@ -1355,6 +1451,17 @@ def commit_cmd(
         for m in missing:
             console.print(f"  [bold]{m}[/bold]")
         console.print("\n[dim]You provide the intent; the tool collects the proof.[/dim]")
+        raise typer.Exit(1)
+
+    # --- Validate --intent is a URL, not plain text ---
+    if intent and not intent.strip().startswith(("http://", "https://")):
+        console.print(
+            "[red]Error:[/red] --intent / -i must be a URL, not plain text.\n"
+            f"  You provided: {intent[:80]}\n"
+            "  Example: -i 'https://github.com/org/repo/issues/42'\n"
+            "  The intent URL is your Class E (Intent Alignment) evidence --\n"
+            "  it links to the spec, issue, or directive that motivated this change."
+        )
         raise typer.Exit(1)
 
     # --- Block --skip-checks for R1+ (systemic anti-theater gate) ---
