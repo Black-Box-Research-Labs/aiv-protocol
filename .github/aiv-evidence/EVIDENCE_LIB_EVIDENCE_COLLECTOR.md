@@ -1,9 +1,9 @@
 # AIV Evidence File (v1.0)
 
 **File:** `src/aiv/lib/evidence_collector.py`
-**Commit:** `bd8f866`
-**Previous:** `3e19f30`
-**Generated:** 2026-02-09T18:41:09Z
+**Commit:** `2b42705`
+**Previous:** `d5ede86`
+**Generated:** 2026-02-09T19:30:48Z
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
 ---
@@ -16,18 +16,17 @@ classification:
   sod_mode: S0
   critical_surfaces: []
   blast_radius: "src/aiv/lib/evidence_collector.py"
-  classification_rationale: "Anti-verification-theater enforcement in evidence collector"
+  classification_rationale: "AST binding fix eliminates false negatives that caused all --force usage"
   classified_by: "ImmortalDemonGod"
-  classified_at: "2026-02-09T18:41:09Z"
+  classified_at: "2026-02-09T19:30:48Z"
 ```
 
 ## Claim(s)
 
-1. ClassAEvidence.to_markdown no longer includes global N passed count (theater: identical for no-op commit)
-2. ClassAEvidence.to_markdown no longer includes ruff/mypy (they prove syntax, not behavior)
-3. New code_quality_markdown() method renders ruff/mypy as separate Code Quality section
-4. Non-Python fallback path shows only file-relevant tests, not global count
-5. No existing tests were modified or deleted during this change.
+1. _CallVisitor detects subprocess.run calls containing aiv CLI commands and maps them to function names
+2. build_test_graph resolves one level of helper indirection so test_foo calling _run_aiv_commit propagates commit_cmd
+3. find_covering_tests matches subprocess-detected CLI calls even when test file does not import the symbol
+4. No existing tests were modified or deleted during this change.
 
 ---
 
@@ -35,41 +34,49 @@ classification:
 
 ### Class E (Intent Alignment)
 
-- **Link:** [https://github.com/ImmortalDemonGod/aiv-protocol/blob/bd8f8662b430605dd8257236234f7eae6b932bfa/docs/CLAIM_AWARE_EVIDENCE_PLAN.md](https://github.com/ImmortalDemonGod/aiv-protocol/blob/bd8f8662b430605dd8257236234f7eae6b932bfa/docs/CLAIM_AWARE_EVIDENCE_PLAN.md)
-- **Requirements Verified:** Theater Gap 1: global N passed must not appear in Class A evidence
+- **Link:** [https://github.com/ImmortalDemonGod/aiv-protocol/blob/2b42705a903b8e7b3f31c03f37c1a4c987b949bd/docs/CLAIM_AWARE_EVIDENCE_PLAN.md](https://github.com/ImmortalDemonGod/aiv-protocol/blob/2b42705a903b8e7b3f31c03f37c1a4c987b949bd/docs/CLAIM_AWARE_EVIDENCE_PLAN.md)
+- **Requirements Verified:** Theater Gap 2: false UNVERIFIED verdicts on CLI entry points cause forced bypasses
 
 ### Class B (Referential Evidence)
 
-**Scope Inventory** (SHA: [`bd8f866`](https://github.com/ImmortalDemonGod/aiv-protocol/tree/bd8f8662b430605dd8257236234f7eae6b932bfa))
+**Scope Inventory** (SHA: [`2b42705`](https://github.com/ImmortalDemonGod/aiv-protocol/tree/2b42705a903b8e7b3f31c03f37c1a4c987b949bd))
 
-- [`src/aiv/lib/evidence_collector.py#L62`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/bd8f8662b430605dd8257236234f7eae6b932bfa/src/aiv/lib/evidence_collector.py#L62)
-- [`src/aiv/lib/evidence_collector.py#L66-L71`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/bd8f8662b430605dd8257236234f7eae6b932bfa/src/aiv/lib/evidence_collector.py#L66-L71)
-- [`src/aiv/lib/evidence_collector.py#L85`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/bd8f8662b430605dd8257236234f7eae6b932bfa/src/aiv/lib/evidence_collector.py#L85)
-- [`src/aiv/lib/evidence_collector.py#L94`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/bd8f8662b430605dd8257236234f7eae6b932bfa/src/aiv/lib/evidence_collector.py#L94)
-- [`src/aiv/lib/evidence_collector.py#L96`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/bd8f8662b430605dd8257236234f7eae6b932bfa/src/aiv/lib/evidence_collector.py#L96)
-- [`src/aiv/lib/evidence_collector.py#L98`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/bd8f8662b430605dd8257236234f7eae6b932bfa/src/aiv/lib/evidence_collector.py#L98)
-- [`src/aiv/lib/evidence_collector.py#L100-L103`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/bd8f8662b430605dd8257236234f7eae6b932bfa/src/aiv/lib/evidence_collector.py#L100-L103)
-- [`src/aiv/lib/evidence_collector.py#L105-L111`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/bd8f8662b430605dd8257236234f7eae6b932bfa/src/aiv/lib/evidence_collector.py#L105-L111)
+- [`src/aiv/lib/evidence_collector.py#L676-L689`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/2b42705a903b8e7b3f31c03f37c1a4c987b949bd/src/aiv/lib/evidence_collector.py#L676-L689)
+- [`src/aiv/lib/evidence_collector.py#L691-L696`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/2b42705a903b8e7b3f31c03f37c1a4c987b949bd/src/aiv/lib/evidence_collector.py#L691-L696)
+- [`src/aiv/lib/evidence_collector.py#L706-L708`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/2b42705a903b8e7b3f31c03f37c1a4c987b949bd/src/aiv/lib/evidence_collector.py#L706-L708)
+- [`src/aiv/lib/evidence_collector.py#L711-L728`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/2b42705a903b8e7b3f31c03f37c1a4c987b949bd/src/aiv/lib/evidence_collector.py#L711-L728)
+- [`src/aiv/lib/evidence_collector.py#L761-L762`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/2b42705a903b8e7b3f31c03f37c1a4c987b949bd/src/aiv/lib/evidence_collector.py#L761-L762)
+- [`src/aiv/lib/evidence_collector.py#L765-L779`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/2b42705a903b8e7b3f31c03f37c1a4c987b949bd/src/aiv/lib/evidence_collector.py#L765-L779)
+- [`src/aiv/lib/evidence_collector.py#L826-L827`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/2b42705a903b8e7b3f31c03f37c1a4c987b949bd/src/aiv/lib/evidence_collector.py#L826-L827)
+- [`src/aiv/lib/evidence_collector.py#L836-L843`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/2b42705a903b8e7b3f31c03f37c1a4c987b949bd/src/aiv/lib/evidence_collector.py#L836-L843)
 
 ### Class A (Execution Evidence)
 
 **Per-symbol test coverage (AST analysis):**
 
-- **`ClassAEvidence`** (L62): PASS -- 13 test(s) call `ClassAEvidence` directly
-  - `tests/unit/test_evidence_collector.py::test_to_markdown_includes_test_names`
-  - `tests/unit/test_evidence_collector.py::test_to_markdown_warns_no_tests`
-  - `tests/unit/test_evidence_collector.py::test_to_markdown_ruff_errors`
-  - `tests/unit/test_evidence_collector.py::test_renders_per_symbol_coverage`
-  - `tests/unit/test_evidence_collector.py::test_renders_warning_for_uncovered_symbol`
-  - `tests/unit/test_evidence_collector.py::test_falls_back_to_grep_when_no_ast`
-  - `tests/unit/test_evidence_collector.py::test_global_metric_suppressed_when_ast_available`
-  - `tests/unit/test_evidence_collector.py::test_global_metric_absent_when_no_ast`
-  - `tests/unit/test_evidence_collector.py::test_coverage_summary_counts_correctly`
-  - `tests/unit/test_evidence_collector.py::test_uncovered_symbol_shows_fail`
-- **`ClassAEvidence.to_markdown`** (L66-L71): FAIL -- WARNING: No tests import or call `to_markdown`
-- **`ClassAEvidence.code_quality_markdown`** (L85): FAIL -- WARNING: No tests import or call `code_quality_markdown`
+- **`_CallVisitor`** (L676-L689): FAIL -- WARNING: No tests import or call `_CallVisitor`
+- **`_CallVisitor.visit_Call`** (L691-L696): FAIL -- WARNING: No tests import or call `visit_Call`
+- **`_CallVisitor._extract_cli_command`** (L706-L708): FAIL -- WARNING: No tests import or call `_extract_cli_command`
+- **`build_test_graph`** (L711-L728): PASS -- 10 test(s) call `build_test_graph` directly
+  - `tests/unit/test_evidence_collector.py::test_builds_import_map`
+  - `tests/unit/test_evidence_collector.py::test_builds_call_map`
+  - `tests/unit/test_evidence_collector.py::test_empty_dir`
+  - `tests/unit/test_evidence_collector.py::test_nonexistent_dir`
+  - `tests/unit/test_evidence_collector.py::test_finds_direct_caller`
+  - `tests/unit/test_evidence_collector.py::test_import_without_call_warns`
+  - `tests/unit/test_evidence_collector.py::test_no_import_warns`
+  - `tests/unit/test_evidence_collector.py::test_subprocess_cli_test_detected`
+  - `tests/unit/test_evidence_collector.py::test_subprocess_cli_via_helper_detected`
+  - `tests/unit/test_evidence_collector.py::test_retro_xdist_bug`
+- **`find_covering_tests`** (L761-L762): PASS -- 6 test(s) call `find_covering_tests` directly
+  - `tests/unit/test_evidence_collector.py::test_finds_direct_caller`
+  - `tests/unit/test_evidence_collector.py::test_import_without_call_warns`
+  - `tests/unit/test_evidence_collector.py::test_no_import_warns`
+  - `tests/unit/test_evidence_collector.py::test_subprocess_cli_test_detected`
+  - `tests/unit/test_evidence_collector.py::test_subprocess_cli_via_helper_detected`
+  - `tests/unit/test_evidence_collector.py::test_retro_xdist_bug`
 
-**Coverage summary:** 1/3 symbols verified by tests.
+**Coverage summary:** 2/5 symbols verified by tests.
 
 ### Code Quality (Linting & Types)
 
@@ -80,27 +87,22 @@ classification:
 
 | # | Claim | Type | Evidence | Verdict |
 |---|-------|------|----------|---------|
-| 1 | ClassAEvidence.to_markdown no longer includes global N passe... | symbol | 13 test(s) call `ClassAEvidence.to_markdown`, `ClassAEvidence` | PASS VERIFIED |
-| 2 | ClassAEvidence.to_markdown no longer includes ruff/mypy (the... | symbol | 13 test(s) call `ClassAEvidence.to_markdown`, `ClassAEvidence` | PASS VERIFIED |
-| 3 | New code_quality_markdown() method renders ruff/mypy as sepa... | symbol | 0 tests call `ClassAEvidence.code_quality_markdown` | FAIL UNVERIFIED |
-| 4 | Non-Python fallback path shows only file-relevant tests, not... | unresolved | No automatic binding available | REVIEW MANUAL REVIEW |
-| 5 | No existing tests were modified or deleted during this chang... | structural | Class C not collected | REVIEW MANUAL REVIEW |
+| 1 | _CallVisitor detects subprocess.run calls containing aiv CLI... | symbol | 0 tests call `_CallVisitor` | FAIL UNVERIFIED |
+| 2 | build_test_graph resolves one level of helper indirection so... | symbol | 10 test(s) call `build_test_graph` | PASS VERIFIED |
+| 3 | find_covering_tests matches subprocess-detected CLI calls ev... | symbol | 6 test(s) call `find_covering_tests` | PASS VERIFIED |
+| 4 | No existing tests were modified or deleted during this chang... | structural | Class C not collected | REVIEW MANUAL REVIEW |
 
-**Verdict summary:** 2 verified, 1 unverified, 2 manual review.
-
-**Acknowledged gaps (--force override):**
-
-- Claim 3: UNVERIFIED -- 0 tests call `ClassAEvidence.code_quality_markdown` (justification: Anti-theater infrastructure change -- tests for to_markdown updated to enforce new behavior)
+**Verdict summary:** 2 verified, 1 unverified, 1 manual review.
 ---
 
 ## Verification Methodology
 
 **Zero-Touch Mandate:** Verifier inspects artifacts only.
-Evidence collected by `aiv commit` running: git diff (scope inventory), AST symbol-to-test binding (1/3 symbols verified).
+Evidence collected by `aiv commit` running: git diff (scope inventory), AST symbol-to-test binding (2/5 symbols verified).
 Ruff/mypy results are in Code Quality (not Class A) because they prove syntax/types, not behavior.
 
 ---
 
 ## Summary
 
-Class A now contains only claim-specific execution evidence; ruff/mypy moved to Code Quality
+AST now detects subprocess-based CLI tests through helper indirection

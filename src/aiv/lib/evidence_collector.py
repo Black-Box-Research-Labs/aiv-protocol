@@ -673,8 +673,27 @@ class _ImportVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
 
+_CLI_COMMAND_TO_FUNC: dict[str, str] = {
+    "commit": "commit_cmd",
+    "init": "init",
+    "close": "close",
+    "begin": "begin",
+    "quickstart": "quickstart",
+    "abandon": "abandon",
+    "audit": "audit",
+    "check": "check",
+    "status": "status",
+    "generate": "generate",
+}
+
+
 class _CallVisitor(ast.NodeVisitor):
-    """Extract all called names within a function body."""
+    """Extract all called names within a function body.
+
+    Also detects subprocess-based CLI invocations like:
+        subprocess.run([sys.executable, "-m", "aiv", "commit", ...])
+    and maps them to the corresponding CLI function name (e.g. "commit_cmd").
+    """
 
     def __init__(self) -> None:
         self.called: set[str] = set()
@@ -684,7 +703,28 @@ class _CallVisitor(ast.NodeVisitor):
             self.called.add(node.func.id)
         elif isinstance(node.func, ast.Attribute):
             self.called.add(node.func.attr)
+            # Detect subprocess.run / subprocess.call / subprocess.Popen
+            if node.func.attr in ("run", "call", "Popen") and node.args:
+                self._extract_cli_command(node.args[0])
         self.generic_visit(node)
+
+    def _extract_cli_command(self, arg_node: ast.expr) -> None:
+        """Extract CLI command from subprocess args like [sys.executable, '-m', 'aiv', 'commit', ...]."""
+        if not isinstance(arg_node, ast.List):
+            return
+        strings = []
+        for elt in arg_node.elts:
+            if isinstance(elt, ast.Constant) and isinstance(elt.value, str):
+                strings.append(elt.value)
+        # Look for pattern: ... "-m" "aiv" "<command>" ...
+        for i, s in enumerate(strings):
+            if s == "aiv" and i + 1 < len(strings):
+                cmd = strings[i + 1]
+                if cmd in _CLI_COMMAND_TO_FUNC:
+                    func_name = _CLI_COMMAND_TO_FUNC[cmd]
+                    self.called.add(func_name)
+                    self.called.add(cmd)
+                break
 
 
 def build_test_graph(test_dir: str = "tests/") -> TestGraph:
@@ -718,14 +758,25 @@ def build_test_graph(test_dir: str = "tests/") -> TestGraph:
         iv.visit(tree)
         graph.imports[rel_path] = iv.symbols
 
-        # Extract calls per test function
-        file_calls: dict[str, set[str]] = {}
+        # Phase 1: Scan ALL functions for calls (including helpers)
+        all_func_calls: dict[str, set[str]] = {}
         for node in ast.walk(tree):
             if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
-                if node.name.startswith("test_"):
-                    cv = _CallVisitor()
-                    cv.visit(node)
-                    file_calls[node.name] = cv.called
+                cv = _CallVisitor()
+                cv.visit(node)
+                all_func_calls[node.name] = cv.called
+
+        # Phase 2: For test functions, resolve one level of helper indirection.
+        # If test_foo calls _run_aiv_commit, and _run_aiv_commit calls commit_cmd
+        # (via subprocess), propagate commit_cmd to test_foo's called set.
+        file_calls: dict[str, set[str]] = {}
+        for func_name, called in all_func_calls.items():
+            if func_name.startswith("test_"):
+                resolved = set(called)
+                for helper_name in called:
+                    if helper_name in all_func_calls:
+                        resolved |= all_func_calls[helper_name]
+                file_calls[func_name] = resolved
         if file_calls:
             graph.calls[rel_path] = file_calls
 
@@ -772,14 +823,23 @@ def find_covering_tests(
         calling_tests: list[str] = []
 
         for test_file, imported_symbols in test_graph.imports.items():
+            file_calls = test_graph.calls.get(test_file, {})
+
             # Check if this test file imports the symbol (or any symbol from the module)
             if bare_name in imported_symbols or symbol in imported_symbols:
                 importing_files.append(test_file)
 
                 # Check which test functions in this file call the symbol
-                file_calls = test_graph.calls.get(test_file, {})
                 for test_name, called_symbols in file_calls.items():
                     if bare_name in called_symbols or symbol in called_symbols:
+                        calling_tests.append(f"{test_file}::{test_name}")
+            else:
+                # Subprocess-based CLI tests: file doesn't import the symbol
+                # but _CallVisitor detected it via subprocess.run([..., "aiv", "<cmd>", ...])
+                for test_name, called_symbols in file_calls.items():
+                    if bare_name in called_symbols or symbol in called_symbols:
+                        if test_file not in importing_files:
+                            importing_files.append(test_file)
                         calling_tests.append(f"{test_file}::{test_name}")
 
         if calling_tests:
