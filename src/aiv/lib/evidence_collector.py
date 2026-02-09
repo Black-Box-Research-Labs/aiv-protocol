@@ -622,17 +622,11 @@ def resolve_changed_symbols(
 
     matched: list[str] = []
     for hunk_start, hunk_end in line_ranges:
-        best_match: str | None = None
-        best_size = float("inf")
         for name, sym_start, sym_end in symbols:
-            # Check if any line in the hunk falls within this symbol
+            # Collect ALL symbols whose range overlaps with this hunk
             if sym_start <= hunk_end and sym_end >= hunk_start:
-                size = sym_end - sym_start
-                if size < best_size:
-                    best_size = size
-                    best_match = name
-        if best_match and best_match not in matched:
-            matched.append(best_match)
+                if name not in matched:
+                    matched.append(name)
 
     if not matched:
         matched.append("<module>")
