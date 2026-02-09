@@ -219,28 +219,53 @@ class PacketAuditor:
         packets_dir: Path,
         *,
         fix: bool = False,
+        evidence_dir: Path | None = None,
     ) -> AuditResult:
-        """Audit all VERIFICATION_PACKET_*.md and PACKET_*.md files in *packets_dir*.
+        """Audit all VERIFICATION_PACKET_*.md, PACKET_*.md, and EVIDENCE_*.md files.
 
+        Scans *packets_dir* for legacy and Layer 2 packets.
+        If *evidence_dir* is provided, also scans Layer 1 evidence files.
         If *fix* is True, auto-fixable issues are corrected in-place.
         """
         legacy = sorted(p for p in packets_dir.glob("VERIFICATION_PACKET_*.md") if "TEMPLATE" not in p.name)
         layer2 = sorted(p for p in packets_dir.glob("PACKET_*.md"))
         packets = legacy + layer2
 
-        result = AuditResult(packets_scanned=len(packets))
+        # Layer 1 evidence files
+        evidence_files: list[Path] = []
+        if evidence_dir is not None and evidence_dir.is_dir():
+            evidence_files = sorted(evidence_dir.glob("EVIDENCE_*.md"))
+
+        all_files = packets + evidence_files
+        result = AuditResult(packets_scanned=len(all_files))
         packets_with_findings: set[str] = set()
 
-        # Pre-compute commit SHAs for all packets (used by fix mode)
+        # Pre-compute commit SHAs for all files (used by fix mode)
         commit_map: dict[str, str | None] = {}
         if fix or True:  # Always compute; cheap enough and needed for checks
-            for p in packets:
+            for p in all_files:
                 commit_map[p.name] = _get_introducing_commit(p)
 
         for p in packets:
             body = p.read_text(encoding="utf-8")
             sha = commit_map.get(p.name)
             findings = self._check_packet(p.name, body, sha)
+
+            if findings:
+                packets_with_findings.add(p.name)
+                result.findings.extend(findings)
+
+            if fix:
+                new_body = self._apply_fixes(body, sha)
+                if new_body != body:
+                    p.write_text(new_body, encoding="utf-8")
+                    result.fixed.append(p.name)
+
+        # Audit evidence files with evidence-specific checks
+        for p in evidence_files:
+            body = p.read_text(encoding="utf-8")
+            sha = commit_map.get(p.name)
+            findings = self._check_evidence(p.name, body, sha)
 
             if findings:
                 packets_with_findings.add(p.name)
@@ -413,6 +438,152 @@ class PacketAuditor:
                         finding_type="FIX_NO_CLASS_F",
                         severity=AuditSeverity.ERROR,
                         message="Claims mention fix/bug but packet has no Class F section.",
+                    )
+                )
+
+        return findings
+
+    # ----- Evidence-specific checks -----
+
+    def _check_evidence(
+        self,
+        name: str,
+        body: str,
+        commit_sha: str | None,
+    ) -> list[AuditFinding]:
+        """Check a Layer 1 evidence file (EVIDENCE_*.md) for quality issues.
+
+        Evidence-specific checks beyond what _check_packet covers:
+        - EVIDENCE_THEATER: methodology claims tools ran but Class A says skipped
+        - EVIDENCE_TIER_SKIP: R1+ tier but --skip-checks was used
+        - EVIDENCE_NO_SKIP_REASON: --skip-checks without --skip-reason
+        - Plus: mutable links, TODO remnants, commit pending (reused)
+        """
+        findings: list[AuditFinding] = []
+
+        # --- Reuse common checks from _check_packet ---
+        # 1. COMMIT_PENDING
+        if re.search(r"\*\*Commit:\*\*\s*`pending`", body):
+            findings.append(
+                AuditFinding(
+                    packet_name=name,
+                    finding_type="COMMIT_PENDING",
+                    severity=AuditSeverity.ERROR,
+                    message="Commit SHA is still `pending` -- no traceability.",
+                    auto_fixable=commit_sha is not None,
+                )
+            )
+
+        # 2. Class E link checks (mutable branch, missing URL)
+        ce_match = re.search(r"- \*\*Link:\*\*\s*(.*?)\n", body)
+        if ce_match:
+            link_text = ce_match.group(1).strip()
+            if not link_text:
+                findings.append(
+                    AuditFinding(
+                        packet_name=name,
+                        finding_type="CLASS_E_EMPTY",
+                        severity=AuditSeverity.ERROR,
+                        message="Class E link is empty.",
+                    )
+                )
+            elif "http" not in link_text:
+                is_todo = bool(re.search(r"\bTODO\b", link_text, re.IGNORECASE))
+                findings.append(
+                    AuditFinding(
+                        packet_name=name,
+                        finding_type="CLASS_E_NO_URL",
+                        severity=AuditSeverity.ERROR if is_todo else AuditSeverity.WARNING,
+                        message=f"Class E link is {'TODO' if is_todo else 'plain text'}: {link_text[:80]}",
+                    )
+                )
+            elif "/blob/main/" in link_text or "/blob/master/" in link_text:
+                findings.append(
+                    AuditFinding(
+                        packet_name=name,
+                        finding_type="EVIDENCE_MUTABLE_LINK",
+                        severity=AuditSeverity.ERROR,
+                        message="Class E link uses mutable branch -- should be SHA-pinned.",
+                        auto_fixable=True,
+                    )
+                )
+
+        # --- Evidence-specific checks ---
+
+        # 3. Extract risk tier from classification YAML
+        tier_match = re.search(r"risk_tier:\s*(R[0-3])", body)
+        tier = tier_match.group(1) if tier_match else None
+
+        # 4. Detect if checks were skipped
+        checks_skipped = bool(re.search(r"Local checks skipped\s*\(--skip-checks\)", body))
+
+        # 5. EVIDENCE_TIER_SKIP: R1+ but checks were skipped
+        if tier and tier != "R0" and checks_skipped:
+            findings.append(
+                AuditFinding(
+                    packet_name=name,
+                    finding_type="EVIDENCE_TIER_SKIP",
+                    severity=AuditSeverity.ERROR,
+                    message=(
+                        f"Tier {tier} requires execution evidence but "
+                        f"--skip-checks was used. Re-run `aiv commit` without "
+                        f"--skip-checks to collect real Class A evidence."
+                    ),
+                )
+            )
+
+        # 6. EVIDENCE_NO_SKIP_REASON: skipped without a reason
+        if checks_skipped:
+            has_skip_reason = bool(re.search(r"\*\*Skip reason:\*\*\s*\S", body))
+            if not has_skip_reason:
+                findings.append(
+                    AuditFinding(
+                        packet_name=name,
+                        finding_type="EVIDENCE_NO_SKIP_REASON",
+                        severity=AuditSeverity.WARNING,
+                        message=(
+                            "--skip-checks was used without --skip-reason. Re-run with --skip-reason to document why."
+                        ),
+                    )
+                )
+
+        # 7. EVIDENCE_THEATER: methodology claims tools ran but Class A is empty
+        if checks_skipped:
+            methodology_match = re.search(
+                r"## Verification Methodology\s*\n(.*?)(?=\n---|\Z)",
+                body,
+                re.DOTALL,
+            )
+            if methodology_match:
+                meth_text = methodology_match.group(1)
+                claims_tools = bool(
+                    re.search(r"pytest|ruff|mypy|anti-cheat", meth_text) and "skipped" not in meth_text.lower()
+                )
+                if claims_tools:
+                    findings.append(
+                        AuditFinding(
+                            packet_name=name,
+                            finding_type="EVIDENCE_THEATER",
+                            severity=AuditSeverity.ERROR,
+                            message=(
+                                "Verification theater: methodology claims tools "
+                                "ran (pytest/ruff/mypy) but Class A says checks "
+                                "were skipped. Re-generate evidence file."
+                            ),
+                        )
+                    )
+
+        # 8. Summary still TODO
+        summary_match = re.search(r"## Summary\s*\n(.*?)$", body, re.DOTALL)
+        if summary_match:
+            sm = summary_match.group(1).strip()
+            if re.match(r"^TODO", sm, re.IGNORECASE):
+                findings.append(
+                    AuditFinding(
+                        packet_name=name,
+                        finding_type="SUMMARY_TODO",
+                        severity=AuditSeverity.ERROR,
+                        message="Summary section is still TODO.",
                     )
                 )
 
