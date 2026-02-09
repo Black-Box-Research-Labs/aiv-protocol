@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import typer
+from pydantic import ValidationError
 
 from ..lib.models import (
     AITellType,
@@ -67,6 +68,17 @@ def _save_session(session: SVPSession) -> None:
     )
 
 
+def _print_validation_errors(exc: ValidationError) -> None:
+    """Format Pydantic validation errors as friendly CLI output."""
+    typer.echo("Error: Input validation failed.", err=True)
+    for err in exc.errors():
+        loc = " -> ".join(str(x) for x in err["loc"])
+        typer.echo(f"  {loc}: {err['msg']}", err=True)
+        if err.get("ctx"):
+            for k, v in err["ctx"].items():
+                typer.echo(f"    {k}: {v}", err=True)
+
+
 # ------------------------------------------------------------------ #
 # svp status
 # ------------------------------------------------------------------ #
@@ -91,11 +103,11 @@ def status(
     typer.echo()
 
     phases = [
-        ("Phase 0 — Sanity Gate", result.phase_0_complete),
-        ("Phase 1 — Prediction", result.phase_1_complete),
-        ("Phase 2 — Trace", result.phase_2_complete),
-        ("Phase 3 — Probe", result.phase_3_complete),
-        ("Phase 4 — Ownership", result.phase_4_complete),
+        ("Phase 0 -- Sanity Gate", result.phase_0_complete),
+        ("Phase 1 -- Prediction", result.phase_1_complete),
+        ("Phase 2 -- Trace", result.phase_2_complete),
+        ("Phase 3 -- Probe", result.phase_3_complete),
+        ("Phase 4 -- Ownership", result.phase_4_complete),
     ]
     for name, done in phases:
         mark = "[PASS]" if done else "[FAIL]"
@@ -155,15 +167,19 @@ def predict(
 
     cx = Complexity(complexity) if complexity in [c.value for c in Complexity] else Complexity.UNKNOWN
 
-    pred = PredictionRecord(
-        pr_number=pr,
-        repository=repo,
-        verifier_id=verifier,
-        test_file_path=test_file,
-        predicted_approach=approach,
-        predicted_complexity=cx,
-        expected_edge_cases=edge_cases,
-    )
+    try:
+        pred = PredictionRecord(
+            pr_number=pr,
+            repository=repo,
+            verifier_id=verifier,
+            test_file_path=test_file,
+            predicted_approach=approach,
+            predicted_complexity=cx,
+            expected_edge_cases=edge_cases,
+        )
+    except ValidationError as exc:
+        _print_validation_errors(exc)
+        raise typer.Exit(1) from None
 
     session.prediction = pred
     _save_session(session)
@@ -235,17 +251,21 @@ def trace(
             )
         )
 
-    tr = TraceRecord(
-        pr_number=pr,
-        repository=repo,
-        verifier_id=verifier,
-        function_path=function,
-        trace_notes=notes,
-        state_transitions=transitions,
-        edge_case_tested=edge_case,
-        predicted_output=predicted_output,
-        confidence=conf,
-    )
+    try:
+        tr = TraceRecord(
+            pr_number=pr,
+            repository=repo,
+            verifier_id=verifier,
+            function_path=function,
+            trace_notes=notes,
+            state_transitions=transitions,
+            edge_case_tested=edge_case,
+            predicted_output=predicted_output,
+            confidence=conf,
+        )
+    except ValidationError as exc:
+        _print_validation_errors(exc)
+        raise typer.Exit(1) from None
 
     session.traces.append(tr)
     _save_session(session)
@@ -360,23 +380,27 @@ def probe(
             }
         )
     else:
-        pr_record = ProbeRecord(
-            pr_number=pr,
-            repository=repo,
-            verifier_id=verifier,
-            happy_path_bias_checked=True,
-            context_amnesia_checked=True,
-            fragile_assertions_checked=True,
-            why_questions=[
-                WhyQuestion(
-                    question=why_question,
-                    context=why_context or "Prompted by code review",
-                )
-            ],
-            falsification_scenarios=new_scenarios,
-            findings=new_findings,
-            overall_assessment=assessment,
-        )
+        try:
+            pr_record = ProbeRecord(
+                pr_number=pr,
+                repository=repo,
+                verifier_id=verifier,
+                happy_path_bias_checked=True,
+                context_amnesia_checked=True,
+                fragile_assertions_checked=True,
+                why_questions=[
+                    WhyQuestion(
+                        question=why_question,
+                        context=why_context or "Prompted by code review",
+                    )
+                ],
+                falsification_scenarios=new_scenarios,
+                findings=new_findings,
+                overall_assessment=assessment,
+            )
+        except ValidationError as exc:
+            _print_validation_errors(exc)
+            raise typer.Exit(1) from None
 
     session.probe = pr_record
     _save_session(session)
@@ -441,15 +465,19 @@ def ownership(
             )
         )
 
-    oc = OwnershipCommit(
-        pr_number=pr,
-        repository=repo,
-        commit_sha=commit_sha,
-        author_github_id=verifier,
-        commit_message=message,
-        committed_at=datetime.now(timezone.utc),
-        renames=renames,
-    )
+    try:
+        oc = OwnershipCommit(
+            pr_number=pr,
+            repository=repo,
+            commit_sha=commit_sha,
+            author_github_id=verifier,
+            commit_message=message,
+            committed_at=datetime.now(timezone.utc),
+            renames=renames,
+        )
+    except ValidationError as exc:
+        _print_validation_errors(exc)
+        raise typer.Exit(1) from None
 
     session.ownership_commit = oc
     _save_session(session)
