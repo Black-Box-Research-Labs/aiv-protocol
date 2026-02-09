@@ -856,6 +856,108 @@ class TestEvidenceAudit:
 
         assert result.packets_scanned == 0
 
+    def test_unverified_claim_flagged(self, tmp_path: Path) -> None:
+        """EVIDENCE_UNVERIFIED_CLAIM fires for each FAIL UNVERIFIED in the matrix."""
+        body = CLEAN_EVIDENCE.replace(
+            "---\n\n## Verification Methodology",
+            "## Claim Verification Matrix\n\n"
+            "| # | Claim | Type | Evidence | Verdict |\n"
+            "|---|-------|------|----------|---------|"
+            "\n| 1 | TokenValidator rejects expired tokens | symbol | 3 tests call validate | PASS VERIFIED |"
+            "\n| 2 | quickstart prints workflow | symbol | 0 tests call quickstart | FAIL UNVERIFIED |"
+            "\n\n---\n\n## Verification Methodology",
+        )
+        packets_dir = tmp_path / "packets"
+        packets_dir.mkdir()
+        evidence_dir = tmp_path / "evidence"
+        _write_evidence(evidence_dir, "EVIDENCE_AUTH.md", body)
+
+        auditor = PacketAuditor()
+        with patch("aiv.lib.auditor._get_introducing_commit", return_value="abc1234"):
+            result = auditor.audit(packets_dir, evidence_dir=evidence_dir)
+
+        unverified = [f for f in result.findings if f.finding_type == "EVIDENCE_UNVERIFIED_CLAIM"]
+        assert len(unverified) == 1
+        assert "Claim 2" in unverified[0].message
+
+    def test_high_unverified_flagged(self, tmp_path: Path) -> None:
+        """EVIDENCE_HIGH_UNVERIFIED fires when >50% of bindable claims are UNVERIFIED."""
+        body = CLEAN_EVIDENCE.replace(
+            "---\n\n## Verification Methodology",
+            "## Claim Verification Matrix\n\n"
+            "| # | Claim | Type | Evidence | Verdict |\n"
+            "|---|-------|------|----------|---------|"
+            "\n| 1 | init creates config | symbol | 0 tests call init | FAIL UNVERIFIED |"
+            "\n| 2 | close generates packet | symbol | 0 tests call close | FAIL UNVERIFIED |"
+            "\n| 3 | No tests deleted | structural | Class C clean | REVIEW MANUAL REVIEW |"
+            "\n\n---\n\n## Verification Methodology",
+        )
+        packets_dir = tmp_path / "packets"
+        packets_dir.mkdir()
+        evidence_dir = tmp_path / "evidence"
+        _write_evidence(evidence_dir, "EVIDENCE_AUTH.md", body)
+
+        auditor = PacketAuditor()
+        with patch("aiv.lib.auditor._get_introducing_commit", return_value="abc1234"):
+            result = auditor.audit(packets_dir, evidence_dir=evidence_dir)
+
+        types = {f.finding_type for f in result.findings}
+        assert "EVIDENCE_HIGH_UNVERIFIED" in types
+        high = [f for f in result.findings if f.finding_type == "EVIDENCE_HIGH_UNVERIFIED"][0]
+        assert "2/2" in high.message
+        assert "100%" in high.message
+
+    def test_manual_review_flagged(self, tmp_path: Path) -> None:
+        """EVIDENCE_MANUAL_REVIEW fires when claims need human review."""
+        body = CLEAN_EVIDENCE.replace(
+            "---\n\n## Verification Methodology",
+            "## Claim Verification Matrix\n\n"
+            "| # | Claim | Type | Evidence | Verdict |\n"
+            "|---|-------|------|----------|---------|"
+            "\n| 1 | TokenValidator rejects expired tokens | symbol | 3 tests | PASS VERIFIED |"
+            "\n| 2 | Blocking message updated | unresolved | No binding | REVIEW MANUAL REVIEW |"
+            "\n| 3 | No tests deleted | structural | Class C not collected | REVIEW MANUAL REVIEW |"
+            "\n\n---\n\n## Verification Methodology",
+        )
+        packets_dir = tmp_path / "packets"
+        packets_dir.mkdir()
+        evidence_dir = tmp_path / "evidence"
+        _write_evidence(evidence_dir, "EVIDENCE_AUTH.md", body)
+
+        auditor = PacketAuditor()
+        with patch("aiv.lib.auditor._get_introducing_commit", return_value="abc1234"):
+            result = auditor.audit(packets_dir, evidence_dir=evidence_dir)
+
+        manual = [f for f in result.findings if f.finding_type == "EVIDENCE_MANUAL_REVIEW"]
+        assert len(manual) == 1
+        assert "2 claim(s)" in manual[0].message
+
+    def test_all_verified_no_claim_findings(self, tmp_path: Path) -> None:
+        """All PASS VERIFIED claims should produce zero claim-level findings."""
+        body = CLEAN_EVIDENCE.replace(
+            "---\n\n## Verification Methodology",
+            "## Claim Verification Matrix\n\n"
+            "| # | Claim | Type | Evidence | Verdict |\n"
+            "|---|-------|------|----------|---------|"
+            "\n| 1 | TokenValidator rejects expired tokens | symbol | 3 tests | PASS VERIFIED |"
+            "\n| 2 | No tests deleted | structural | Class C clean | PASS VERIFIED |"
+            "\n\n---\n\n## Verification Methodology",
+        )
+        packets_dir = tmp_path / "packets"
+        packets_dir.mkdir()
+        evidence_dir = tmp_path / "evidence"
+        _write_evidence(evidence_dir, "EVIDENCE_AUTH.md", body)
+
+        auditor = PacketAuditor()
+        with patch("aiv.lib.auditor._get_introducing_commit", return_value="abc1234"):
+            result = auditor.audit(packets_dir, evidence_dir=evidence_dir)
+
+        claim_findings = [
+            f for f in result.findings
+            if f.finding_type in ("EVIDENCE_UNVERIFIED_CLAIM", "EVIDENCE_HIGH_UNVERIFIED", "EVIDENCE_MANUAL_REVIEW")
+        ]
+        assert len(claim_findings) == 0
+
     def test_commit_pending_in_evidence(self, tmp_path: Path) -> None:
         body = CLEAN_EVIDENCE.replace("`abc1234`", "`pending`")
         packets_dir = tmp_path / "packets"
