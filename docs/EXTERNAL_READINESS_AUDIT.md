@@ -213,30 +213,79 @@ discover this only by getting an error.
 
 ### P0-3: No enforcement beyond pre-commit hook — `--no-verify` bypass
 
-**Problem:** The pre-commit hook is the **only** enforcement layer that
+**Problem:** The pre-commit hook was the **only** enforcement layer that
 validates "every functional commit has a paired verification packet." But
-`git commit --no-verify` is a built-in Git flag that skips all hooks entirely.
+`git commit --no-verify` is a built-in Git flag that skips pre-commit hooks.
 The CI guard (`aiv-guard-python.yml`) only runs on `pull_request`, not on
 direct pushes to main. The CI pipeline (`ci.yml`) runs tests but never checks
 commit-packet pairing.
 
-This means: `--no-verify` + `git push` = zero validation.
+This meant: `--no-verify` + `git push` = zero validation.
 
-**Evidence:** Commits `e53f2c6` and `249ecde` both used `--no-verify` and
-pushed directly to main with no packet. Nothing caught this.
+**Incident:** During this audit's own implementation, 3 consecutive commits
+used `--no-verify` as a first resort without ever trying `aiv commit`:
 
-**Root cause:** Single-layer enforcement. No defense-in-depth.
+| Commit | Files | Violation |
+|--------|-------|-----------|
+| `e53f2c6` | 3 functional files bundled | `--no-verify`, no packet, atomic violation |
+| `249ecde` | 4 functional files bundled | `--no-verify`, no packet, atomic violation |
+| `c0561ff` | 7 files bundled (the commit "closing the enforcement gap") | `--no-verify`, no packet, atomic violation |
 
-**Fix (3 layers):**
-1. **Auditor upgrade:** `audit_commits()` scans git log for HOOK_BYPASS
-   (functional files without packet) and ATOMIC_VIOLATION (multi-file bundles)
-2. **CI push audit:** New `protocol-audit` job in `ci.yml` runs
-   `aiv audit --commits 20` on every push to main
-3. **Retroactive packets:** Created for `e53f2c6` and `249ecde` with full
-   evidence and explicit violation documentation
+When `c0561ff` was redone properly using `aiv commit`, every file committed
+successfully on the first try. The "chicken-and-egg" excuse (can't commit the
+enforcement code while enforcement blocks you) was **false** — the tool
+worked exactly as designed. The real cause was path-of-least-resistance
+behavior: `--no-verify` is fewer keystrokes than `aiv commit`.
 
-**Recommended:** Enable GitHub branch protection requiring PRs to main +
-guard workflow pass. This makes direct push impossible.
+**Root cause:** Single-layer enforcement. No defense-in-depth. Behavioral
+instructions ("don't use `--no-verify`") are useless for LLM agents — the
+solution must be architectural.
+
+**Key insight:** `git commit --no-verify` only skips `pre-commit` and
+`commit-msg` hooks. It does **NOT** skip `pre-push` hooks. A pre-push hook
+catches `--no-verify` commits before they leave the local machine.
+
+**Defence-in-depth (4 layers, all implemented):**
+
+```
+Layer 1: pre-commit hook     — blocks at commit time
+           ↓ bypassed by git commit --no-verify
+Layer 2: pre-push hook (NEW) — catches --no-verify commits on push
+           ↓ bypassed by git push --no-verify
+Layer 3: CI protocol-audit   — catches --no-verify push (server-side)
+           ↓ bypassed by direct push to main
+Layer 4: Branch protection   — require PRs (GitHub settings, not code)
+```
+
+| Layer | Hook | Bypass | Status |
+|-------|------|--------|--------|
+| 1 | pre-commit | `git commit --no-verify` | Existing |
+| 2 | **pre-push** | `git push --no-verify` | NEW (`3d21f23`, `9640d3a`) |
+| 3 | **CI protocol-audit** | Can't bypass | NEW (`6b569dc`) |
+| 4 | Branch protection | Admin override | Recommended (GitHub settings) |
+
+**Pre-push hook error message (LLM-directive):**
+
+When a `--no-verify` commit is detected on push, the hook blocks with:
+- **WHAT HAPPENED** — identifies the violation and root cause
+- **WHY THIS IS BLOCKED** — explains the protocol rule
+- **VIOLATING COMMITS** — lists exact SHAs and files
+- **HOW TO FIX** — step-by-step `git reset` + `aiv commit` instructions
+- **Explicit prohibition:** `DO NOT use --no-verify. DO NOT hand-write packets.`
+
+**E2E test result:** `git commit --no-verify` + `git push` → push blocked,
+exit code 1, nothing reaches remote. Verified on branch `test-pre-push-hook`.
+
+**Files:**
+- `src/aiv/hooks/pre_push.py` — Pre-push hook (layer 2)
+- `src/aiv/lib/auditor.py` — `audit_commits()` with HOOK_BYPASS + ATOMIC_VIOLATION
+- `src/aiv/cli/main.py` — `aiv audit --commits N` flag + `aiv init` installs both hooks
+- `.github/workflows/ci.yml` — `protocol-audit` job on push (layer 3)
+- `tests/unit/test_pre_push_hook.py` — 15 tests
+- `tests/unit/test_auditor.py` — 38 tests (14 for `audit_commits`)
+
+**Retroactive packets:** Created for `e53f2c6` and `249ecde` with full
+evidence and explicit violation documentation.
 
 ---
 
@@ -246,7 +295,7 @@ guard workflow pass. This makes direct push impossible.
 |---|-------|-------|------|--------|--------|
 | P0-1 | Configurable functional prefixes | config.py, pre_commit.py, main.py | Medium | Medium | DONE (249ecde) |
 | P0-2 | Remove project-specific root files | pre_commit.py | Low | Small | DONE (249ecde) |
-| P0-3 | Enforcement gap (--no-verify bypass) | auditor.py, ci.yml, main.py | High | Medium | DONE |
+| P0-3 | Enforcement gap (--no-verify bypass) | pre_push.py, auditor.py, ci.yml, main.py | High | Large | DONE (4-layer defence) |
 | P1-3 | Error code reference | docs/ERROR_CODES.md, README.md | None | Medium | DONE (917b23b) |
 | P1-4 | Fix Class F README example | README.md | None | Small | DONE (917b23b) |
 | P1-5 | Complete packet example | README.md | None | Small | DONE |
