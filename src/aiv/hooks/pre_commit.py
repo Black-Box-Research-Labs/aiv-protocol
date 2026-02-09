@@ -38,28 +38,53 @@ from pathlib import Path
 PACKET_PREFIXES = (".github/aiv-packets/VERIFICATION_PACKET_", ".github/VERIFICATION_PACKET_")
 PACKET_SUFFIX = ".md"
 
-FUNCTIONAL_PREFIXES = (
+# Defaults used when no .aiv.yml is present (kept in sync with HookConfig)
+_DEFAULT_FUNCTIONAL_PREFIXES = (
     "src/",
+    "lib/",
+    "app/",
+    "pkg/",
+    "cmd/",
+    "internal/",
     "engine/",
     "infrastructure/",
     "scripts/",
     "tests/",
     ".github/workflows/",
-    ".github/PULL_REQUEST_TEMPLATE.md",
     ".husky/",
 )
 
-FUNCTIONAL_ROOT_FILES = {
-    "package.json",
-    "package-lock.json",
+_DEFAULT_FUNCTIONAL_ROOT_FILES = {
     "pyproject.toml",
     "setup.py",
     "setup.cfg",
-    "astro.config.mjs",
-    "tailwind.config.js",
+    "package.json",
+    "package-lock.json",
     ".gitignore",
     ".env.example",
 }
+
+
+def _load_hook_config() -> tuple[tuple[str, ...], set[str]]:
+    """Load functional prefixes and root files from .aiv.yml if available."""
+    try:
+        config_path = Path(".aiv.yml")
+        if config_path.exists():
+            import yaml
+
+            with open(config_path) as f:
+                data = yaml.safe_load(f) or {}
+            hook_data = data.get("hook", {})
+            prefixes = tuple(
+                hook_data.get("functional_prefixes", _DEFAULT_FUNCTIONAL_PREFIXES)
+            )
+            root_files = set(
+                hook_data.get("functional_root_files", _DEFAULT_FUNCTIONAL_ROOT_FILES)
+            )
+            return prefixes, root_files
+    except Exception:
+        pass
+    return _DEFAULT_FUNCTIONAL_PREFIXES, _DEFAULT_FUNCTIONAL_ROOT_FILES
 
 
 def _run_git(*args: str) -> str:
@@ -81,10 +106,13 @@ def _is_packet(path: str) -> bool:
     return any(path.startswith(p) for p in PACKET_PREFIXES) and path.endswith(PACKET_SUFFIX)
 
 
-def _is_functional(path: str) -> bool:
-    if any(path.startswith(p) for p in FUNCTIONAL_PREFIXES):
+def _is_functional(path: str, prefixes: tuple[str, ...] | None = None,
+                   root_files: set[str] | None = None) -> bool:
+    _prefixes = prefixes or _DEFAULT_FUNCTIONAL_PREFIXES
+    _root_files = root_files or _DEFAULT_FUNCTIONAL_ROOT_FILES
+    if any(path.startswith(p) for p in _prefixes):
         return True
-    return path in FUNCTIONAL_ROOT_FILES
+    return path in _root_files
 
 
 def _is_gitkeep(path: str) -> bool:
@@ -278,9 +306,12 @@ def main() -> int:
     if not staged:
         return 0
 
+    # Load hook config from .aiv.yml (falls back to defaults)
+    func_prefixes, func_root_files = _load_hook_config()
+
     count = len(staged)
     packets = [f for f in staged if _is_packet(f)]
-    functional = [f for f in staged if _is_functional(f)]
+    functional = [f for f in staged if _is_functional(f, func_prefixes, func_root_files)]
     has_gitkeep = any(_is_gitkeep(f) for f in staged)
 
     # Submodule detection

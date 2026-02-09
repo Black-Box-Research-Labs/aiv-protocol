@@ -10,10 +10,13 @@ from __future__ import annotations
 from unittest.mock import patch
 
 from aiv.hooks.pre_commit import (
+    _DEFAULT_FUNCTIONAL_PREFIXES,
+    _DEFAULT_FUNCTIONAL_ROOT_FILES,
     _is_functional,
     _is_gitkeep,
     _is_packet,
     _is_submodule_path,
+    _load_hook_config,
     main,
 )
 
@@ -102,8 +105,10 @@ class TestIsSubmodulePath:
 # ---------------------------------------------------------------------------
 
 
-def _mock_main(staged: list[str], submodule_paths: list[str] | None = None) -> int:
+def _mock_main(staged: list[str], submodule_paths: list[str] | None = None,
+               hook_config: tuple | None = None) -> int:
     """Run main() with mocked staged files and no packet validation."""
+    cfg = hook_config or (_DEFAULT_FUNCTIONAL_PREFIXES, _DEFAULT_FUNCTIONAL_ROOT_FILES)
     with (
         patch("aiv.hooks.pre_commit._staged_files", return_value=staged),
         patch("aiv.hooks.pre_commit._write_safety_snapshot"),
@@ -113,6 +118,7 @@ def _mock_main(staged: list[str], submodule_paths: list[str] | None = None) -> i
             "aiv.hooks.pre_commit._get_submodule_paths",
             return_value=submodule_paths or [],
         ),
+        patch("aiv.hooks.pre_commit._load_hook_config", return_value=cfg),
     ):
         return main()
 
@@ -262,3 +268,97 @@ class TestRule10InvalidTwoFileCombination:
 class TestEmptyStaged:
     def test_nothing_staged_allowed(self) -> None:
         assert _mock_main([]) == 0
+
+
+# ---------------------------------------------------------------------------
+# P0-1: Configurable functional prefixes
+# ---------------------------------------------------------------------------
+
+
+class TestConfigurablePrefixes:
+    """Verify that _is_functional respects custom prefixes and root files."""
+
+    def test_lib_is_functional_by_default(self) -> None:
+        """P0-1 fix: lib/ should be functional with new defaults."""
+        assert _is_functional("lib/mycode.py") is True
+
+    def test_app_is_functional_by_default(self) -> None:
+        assert _is_functional("app/main.py") is True
+
+    def test_pkg_is_functional_by_default(self) -> None:
+        assert _is_functional("pkg/server.go") is True
+
+    def test_custom_prefix_overrides_defaults(self) -> None:
+        custom_prefixes = ("my_code/",)
+        custom_roots = set()
+        assert _is_functional("my_code/foo.py", custom_prefixes, custom_roots) is True
+        assert _is_functional("src/bar.py", custom_prefixes, custom_roots) is False
+
+    def test_custom_root_files(self) -> None:
+        custom_prefixes = ()
+        custom_roots = {"Makefile", "Dockerfile"}
+        assert _is_functional("Makefile", custom_prefixes, custom_roots) is True
+        assert _is_functional("Dockerfile", custom_prefixes, custom_roots) is True
+        assert _is_functional("pyproject.toml", custom_prefixes, custom_roots) is False
+
+    def test_project_specific_artifacts_removed(self) -> None:
+        """P0-2: astro.config.mjs and tailwind.config.js should NOT be in defaults."""
+        assert "astro.config.mjs" not in _DEFAULT_FUNCTIONAL_ROOT_FILES
+        assert "tailwind.config.js" not in _DEFAULT_FUNCTIONAL_ROOT_FILES
+
+    def test_hook_engine_uses_custom_config(self) -> None:
+        """Integration: main() should use custom prefixes from config."""
+        custom = (("backend/",), {"Makefile"})
+        # backend/app.py is functional with custom config → needs packet → rejected
+        assert _mock_main(["backend/app.py"], hook_config=custom) == 1
+        # src/app.py is NOT functional with custom config → docs-only → allowed
+        assert _mock_main(["src/app.py"], hook_config=custom) == 0
+
+
+class TestLoadHookConfig:
+    """Tests for _load_hook_config reading .aiv.yml."""
+
+    def test_returns_defaults_when_no_file(self, tmp_path, monkeypatch) -> None:
+        monkeypatch.chdir(tmp_path)
+        prefixes, root_files = _load_hook_config()
+        assert prefixes == _DEFAULT_FUNCTIONAL_PREFIXES
+        assert root_files == _DEFAULT_FUNCTIONAL_ROOT_FILES
+
+    def test_reads_custom_prefixes_from_yaml(self, tmp_path, monkeypatch) -> None:
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / ".aiv.yml").write_text(
+            'version: "1.0"\n'
+            "hook:\n"
+            "  functional_prefixes:\n"
+            '    - "backend/"\n'
+            '    - "frontend/"\n',
+            encoding="utf-8",
+        )
+        prefixes, root_files = _load_hook_config()
+        assert prefixes == ("backend/", "frontend/")
+        # root_files should fall back to defaults when not specified
+        assert root_files == _DEFAULT_FUNCTIONAL_ROOT_FILES
+
+    def test_reads_custom_root_files_from_yaml(self, tmp_path, monkeypatch) -> None:
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / ".aiv.yml").write_text(
+            'version: "1.0"\n'
+            "hook:\n"
+            "  functional_root_files:\n"
+            '    - "Makefile"\n'
+            '    - "Dockerfile"\n',
+            encoding="utf-8",
+        )
+        prefixes, root_files = _load_hook_config()
+        assert prefixes == _DEFAULT_FUNCTIONAL_PREFIXES
+        assert root_files == {"Makefile", "Dockerfile"}
+
+    def test_returns_defaults_for_empty_hook_section(self, tmp_path, monkeypatch) -> None:
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / ".aiv.yml").write_text(
+            'version: "1.0"\nhook: {}\n',
+            encoding="utf-8",
+        )
+        prefixes, root_files = _load_hook_config()
+        assert prefixes == _DEFAULT_FUNCTIONAL_PREFIXES
+        assert root_files == _DEFAULT_FUNCTIONAL_ROOT_FILES

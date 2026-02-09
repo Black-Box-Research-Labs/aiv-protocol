@@ -123,7 +123,21 @@ def init(
             "# See: https://github.com/ImmortalDemonGod/aiv-protocol\n"
             "\n"
             'version: "1.0"\n'
-            "strict_mode: true\n",
+            "strict_mode: true\n"
+            "\n"
+            "# Pre-commit hook settings\n"
+            "# Customize which files require a verification packet.\n"
+            "# Uncomment and edit for your project layout:\n"
+            "#\n"
+            "# hook:\n"
+            "#   functional_prefixes:\n"
+            '#     - "src/"\n'
+            '#     - "lib/"\n'
+            '#     - "app/"\n'
+            '#     - "tests/"\n'
+            "#   functional_root_files:\n"
+            '#     - "pyproject.toml"\n'
+            '#     - "package.json"\n',
             encoding="utf-8",
         )
         console.print(f"[green]Created:[/green] {aiv_yml}")

@@ -131,6 +131,45 @@ class MutableBranchConfig(BaseModel):
     min_sha_length: int = Field(default=7, ge=7, le=40)
 
 
+class HookConfig(BaseModel):
+    """Configuration for the pre-commit hook.
+
+    Controls which files are treated as "functional" (requiring a verification
+    packet) vs "non-functional" (docs, config — no packet required).
+    """
+
+    functional_prefixes: list[str] = Field(
+        default=[
+            "src/",
+            "lib/",
+            "app/",
+            "pkg/",
+            "cmd/",
+            "internal/",
+            "engine/",
+            "infrastructure/",
+            "scripts/",
+            "tests/",
+            ".github/workflows/",
+            ".husky/",
+        ],
+        description="Directory prefixes that mark files as functional code",
+    )
+
+    functional_root_files: list[str] = Field(
+        default=[
+            "pyproject.toml",
+            "setup.py",
+            "setup.cfg",
+            "package.json",
+            "package-lock.json",
+            ".gitignore",
+            ".env.example",
+        ],
+        description="Root-level files that are treated as functional code",
+    )
+
+
 class AIVConfig(BaseSettings):
     """
     Main configuration for the AIV Protocol Suite.
@@ -147,6 +186,7 @@ class AIVConfig(BaseSettings):
     zero_touch: ZeroTouchConfig = Field(default_factory=ZeroTouchConfig)
     anti_cheat: AntiCheatConfig = Field(default_factory=AntiCheatConfig)
     mutable_branches: MutableBranchConfig = Field(default_factory=MutableBranchConfig)
+    hook: HookConfig = Field(default_factory=HookConfig)
 
     # Fast-track configuration
     fast_track_patterns: list[str] = Field(
