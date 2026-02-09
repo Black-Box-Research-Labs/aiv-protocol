@@ -249,8 +249,15 @@ def collect_class_a(file_path: str) -> ClassAEvidence:
     """
     import sys
 
-    # 1. Run pytest -v to get individual test results
-    r = _run([sys.executable, "-m", "pytest", "--tb=no", "-q", "--no-header"], timeout=120)
+    # 1. Run pytest in parallel (-n auto via pytest-xdist, fallback to serial)
+    pytest_cmd = [sys.executable, "-m", "pytest", "--tb=no", "-q", "--no-header"]
+    try:
+        import pytest_xdist as _  # noqa: F401
+
+        pytest_cmd.extend(["-n", "auto"])
+    except ImportError:
+        pass  # xdist not installed — run serial
+    r = _run(pytest_cmd, timeout=180)
     last_line = r.stdout.strip().split("\n")[-1] if r.stdout.strip() else ""
 
     # Parse "N passed, M failed, K warnings in Xs"
