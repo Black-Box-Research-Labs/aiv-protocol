@@ -327,7 +327,7 @@ def collect_class_a(file_path: str) -> ClassAEvidence:
     # 1. Run pytest in parallel (-n auto via pytest-xdist, fallback to serial)
     pytest_cmd = [sys.executable, "-m", "pytest", "--tb=no", "-q", "--no-header"]
     try:
-        import xdist as _  # noqa: F401
+        import xdist as _  # noqa: F401  # type: ignore[import-untyped]
 
         pytest_cmd.extend(["-n", "auto"])
     except ImportError:
