@@ -35,7 +35,11 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-PACKET_PREFIXES = (".github/aiv-packets/VERIFICATION_PACKET_", ".github/VERIFICATION_PACKET_", ".github/aiv-packets/PACKET_")
+PACKET_PREFIXES = (
+    ".github/aiv-packets/VERIFICATION_PACKET_",
+    ".github/VERIFICATION_PACKET_",
+    ".github/aiv-packets/PACKET_",
+)
 PACKET_SUFFIX = ".md"
 EVIDENCE_PREFIX = ".github/aiv-evidence/EVIDENCE_"
 
@@ -76,12 +80,8 @@ def _load_hook_config() -> tuple[tuple[str, ...], set[str]]:
             with open(config_path) as f:
                 data = yaml.safe_load(f) or {}
             hook_data = data.get("hook", {})
-            prefixes = tuple(
-                hook_data.get("functional_prefixes", _DEFAULT_FUNCTIONAL_PREFIXES)
-            )
-            root_files = set(
-                hook_data.get("functional_root_files", _DEFAULT_FUNCTIONAL_ROOT_FILES)
-            )
+            prefixes = tuple(hook_data.get("functional_prefixes", _DEFAULT_FUNCTIONAL_PREFIXES))
+            root_files = set(hook_data.get("functional_root_files", _DEFAULT_FUNCTIONAL_ROOT_FILES))
             return prefixes, root_files
     except Exception:
         pass
@@ -107,8 +107,7 @@ def _is_packet(path: str) -> bool:
     return any(path.startswith(p) for p in PACKET_PREFIXES) and path.endswith(PACKET_SUFFIX)
 
 
-def _is_functional(path: str, prefixes: tuple[str, ...] | None = None,
-                   root_files: set[str] | None = None) -> bool:
+def _is_functional(path: str, prefixes: tuple[str, ...] | None = None, root_files: set[str] | None = None) -> bool:
     _prefixes = prefixes or _DEFAULT_FUNCTIONAL_PREFIXES
     _root_files = root_files or _DEFAULT_FUNCTIONAL_ROOT_FILES
     if any(path.startswith(p) for p in _prefixes):
@@ -301,6 +300,7 @@ def _is_on_protected_branch() -> bool:
     """Check if the current branch is a protected branch."""
     try:
         from aiv.lib.change import get_current_branch, is_protected_branch
+
         branch = get_current_branch()
         return is_protected_branch(branch)
     except Exception:
@@ -311,6 +311,7 @@ def _has_active_change() -> bool:
     """Check if there is an active change context."""
     try:
         from aiv.lib.change import load_change
+
         return load_change() is not None
     except Exception:
         return False

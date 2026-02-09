@@ -39,10 +39,7 @@ class ClassBEvidence:
             f"(https://github.com/{self.owner}/{self.repo}/tree/{self.head_sha}))\n",
         ]
         for hunk in self.hunks:
-            lines.append(
-                f"- [`{hunk}`]"
-                f"(https://github.com/{self.owner}/{self.repo}/blob/{self.head_sha}/{hunk})"
-            )
+            lines.append(f"- [`{hunk}`](https://github.com/{self.owner}/{self.repo}/blob/{self.head_sha}/{hunk})")
         return "\n".join(lines)
 
 
@@ -241,9 +238,7 @@ def _run_git(*args: str) -> str:
 
     Returns empty string on failure or timeout (never raises).
     """
-    result = subprocess.run(
-        ["git", *args], capture_output=True, text=True, timeout=30
-    )
+    result = subprocess.run(["git", *args], capture_output=True, text=True, timeout=30)
     return result.stdout.strip()
 
 
@@ -584,9 +579,7 @@ def collect_class_f(covering_test_files: list[str] | None = None) -> ClassFEvide
 # ---------------------------------------------------------------------------
 
 
-def resolve_changed_symbols(
-    file_path: str, line_ranges: list[tuple[int, int]]
-) -> list[str]:
+def resolve_changed_symbols(file_path: str, line_ranges: list[tuple[int, int]]) -> list[str]:
     """Parse a Python file's AST and map line ranges to enclosing function/class names.
 
     For each line range, finds the innermost ``FunctionDef``, ``AsyncFunctionDef``,
@@ -779,20 +772,19 @@ def find_covering_tests(
         if calling_tests:
             verdict = f"{len(calling_tests)} test(s) call `{bare_name}` directly"
         elif importing_files:
-            verdict = (
-                f"WARNING: {len(importing_files)} file(s) import `{bare_name}` "
-                f"but 0 tests call it directly"
-            )
+            verdict = f"WARNING: {len(importing_files)} file(s) import `{bare_name}` but 0 tests call it directly"
         else:
             verdict = f"WARNING: No tests import or call `{bare_name}`"
 
-        results.append(SymbolCoverage(
-            symbol=symbol,
-            line_range=line_range,
-            importing_test_files=importing_files,
-            calling_tests=calling_tests,
-            coverage_verdict=verdict,
-        ))
+        results.append(
+            SymbolCoverage(
+                symbol=symbol,
+                line_range=line_range,
+                importing_test_files=importing_files,
+                calling_tests=calling_tests,
+                coverage_verdict=verdict,
+            )
+        )
 
     return results
 
@@ -852,11 +844,13 @@ def find_downstream_callers(
                 for symbol in changed_symbols:
                     bare = symbol.split(".")[-1] if "." in symbol else symbol
                     if bare in cv.called and bare in imported:
-                        callers.append(DownstreamCaller(
-                            file=rel_path,
-                            function=node.name,
-                            symbol_called=symbol,
-                        ))
+                        callers.append(
+                            DownstreamCaller(
+                                file=rel_path,
+                                function=node.name,
+                                symbol_called=symbol,
+                            )
+                        )
 
     return callers
 
@@ -943,41 +937,41 @@ def bind_claims_to_evidence(
             else:
                 detail = f"0 tests call {', '.join(f'`{s}`' for s in matched_syms)}"
                 verdict = "UNVERIFIED"
-            results.append(ClaimVerification(
-                claim_index=idx,
-                claim_text=claim_text,
-                claim_type="symbol",
-                matched_symbols=matched_syms,
-                evidence_detail=detail,
-                verdict=verdict,
-            ))
+            results.append(
+                ClaimVerification(
+                    claim_index=idx,
+                    claim_text=claim_text,
+                    claim_type="symbol",
+                    matched_symbols=matched_syms,
+                    evidence_detail=detail,
+                    verdict=verdict,
+                )
+            )
             continue
 
         # 2. Structural match: verified by Class C
         if any(p.search(claim_text) for p in _STRUCTURAL_PATTERNS):
             if class_c:
                 is_clean = (
-                    not class_c.test_files_deleted
-                    and not class_c.assertions_removed
-                    and not class_c.skip_markers_added
+                    not class_c.test_files_deleted and not class_c.assertions_removed and not class_c.skip_markers_added
                 )
                 detail = (
-                    "Class C: all structural indicators clean"
-                    if is_clean
-                    else "Class C: regression indicators found"
+                    "Class C: all structural indicators clean" if is_clean else "Class C: regression indicators found"
                 )
                 verdict = "VERIFIED" if is_clean else "UNVERIFIED"
             else:
                 detail = "Class C not collected"
                 verdict = "MANUAL REVIEW"
-            results.append(ClaimVerification(
-                claim_index=idx,
-                claim_text=claim_text,
-                claim_type="structural",
-                matched_symbols=[],
-                evidence_detail=detail,
-                verdict=verdict,
-            ))
+            results.append(
+                ClaimVerification(
+                    claim_index=idx,
+                    claim_text=claim_text,
+                    claim_type="structural",
+                    matched_symbols=[],
+                    evidence_detail=detail,
+                    verdict=verdict,
+                )
+            )
             continue
 
         # 3. Tooling match: verified by Class A linter/mypy output
@@ -1002,25 +996,29 @@ def bind_claims_to_evidence(
             else:
                 detail = "Class A not collected"
                 verdict = "MANUAL REVIEW"
-            results.append(ClaimVerification(
-                claim_index=idx,
-                claim_text=claim_text,
-                claim_type="tooling",
-                matched_symbols=[],
-                evidence_detail=detail,
-                verdict=verdict,
-            ))
+            results.append(
+                ClaimVerification(
+                    claim_index=idx,
+                    claim_text=claim_text,
+                    claim_type="tooling",
+                    matched_symbols=[],
+                    evidence_detail=detail,
+                    verdict=verdict,
+                )
+            )
             continue
 
         # 4. Unresolved fallback
-        results.append(ClaimVerification(
-            claim_index=idx,
-            claim_text=claim_text,
-            claim_type="unresolved",
-            matched_symbols=[],
-            evidence_detail="No automatic binding available",
-            verdict="MANUAL REVIEW",
-        ))
+        results.append(
+            ClaimVerification(
+                claim_index=idx,
+                claim_text=claim_text,
+                claim_type="unresolved",
+                matched_symbols=[],
+                evidence_detail="No automatic binding available",
+                verdict="MANUAL REVIEW",
+            )
+        )
 
     return results
 

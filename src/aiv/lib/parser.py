@@ -14,6 +14,7 @@ Handles the standard template format used in .github/aiv-packets/:
 
 from __future__ import annotations
 
+import contextlib
 import re
 from dataclasses import dataclass, field
 
@@ -354,10 +355,8 @@ class PacketParser:
             if header_idx is not None and header_idx < len(cells):
                 class_cell = cells[header_idx]
                 for letter in self._EVIDENCE_REF_CLASS_RE.findall(class_cell):
-                    try:
+                    with contextlib.suppress(ValueError):
                         found.add(EvidenceClass.from_string(letter))
-                    except ValueError:
-                        pass
 
         return found
 

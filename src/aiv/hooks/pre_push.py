@@ -66,9 +66,7 @@ FUNCTIONAL_ROOT_FILES = {
 
 
 def _is_packet(path: str) -> bool:
-    return any(path.startswith(p) for p in PACKET_PREFIXES) and path.endswith(
-        PACKET_SUFFIX
-    )
+    return any(path.startswith(p) for p in PACKET_PREFIXES) and path.endswith(PACKET_SUFFIX)
 
 
 def _is_functional(path: str) -> bool:
@@ -159,11 +157,7 @@ def check_commits(commits: list[str]) -> list[tuple[str, list[str]]]:
 
     # Scan the entire push range for Layer 2 packets and evidence files.
     # If present, functional-only commits are covered by the aggregate.
-    range_has_evidence = any(
-        _is_packet(f) or _is_evidence(f)
-        for files in files_by_sha.values()
-        for f in files
-    )
+    range_has_evidence = any(_is_packet(f) or _is_evidence(f) for files in files_by_sha.values() for f in files)
 
     for sha in commits:
         files = files_by_sha[sha]
@@ -195,6 +189,7 @@ def _check_unclosed_change() -> tuple[bool, str, int]:
     """
     try:
         from aiv.lib.change import load_change
+
         ctx = load_change()
         if ctx is not None and ctx.commits:
             return True, ctx.name, len(ctx.commits)
@@ -207,6 +202,7 @@ def _is_on_protected_branch() -> bool:
     """Check if the current branch is a protected branch."""
     try:
         from aiv.lib.change import get_current_branch, is_protected_branch
+
         branch = get_current_branch()
         return is_protected_branch(branch)
     except Exception:
@@ -284,7 +280,6 @@ def main() -> int:
             print(f"    ... and {len(func_files) - 5} more")
     print()
 
-    num = sum(len(f) for _, f in violations)
     print("HOW TO FIX:")
     print(f"  1. git reset --soft HEAD~{len(violations)}")
     print("  2. git reset HEAD -- .")

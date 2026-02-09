@@ -6,10 +6,12 @@ Tests for the change lifecycle module (aiv begin / close / abandon / status).
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 from aiv.lib.change import (
     ChangeContext,
@@ -35,7 +37,7 @@ def tmp_repo(tmp_path: Path) -> Path:
 @pytest.fixture
 def active_change(tmp_repo: Path) -> ChangeContext:
     """Create and return an active change with one commit."""
-    ctx = begin_change(name="test-change", description="A test change", repo_root=tmp_repo)
+    begin_change(name="test-change", description="A test change", repo_root=tmp_repo)
     record_commit(
         sha="abc1234def5678",
         message="feat: add something",

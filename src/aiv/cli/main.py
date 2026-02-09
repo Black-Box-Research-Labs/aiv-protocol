@@ -226,7 +226,10 @@ def init(
                 console.print(f"[green]Installed:[/green] pre-push hook → {push_hook_file}")
 
     console.print(f"[green][OK] AIV Protocol initialized in {path}[/green]")
-    console.print("[dim]Tip: Use [bold]aiv begin <name>[/bold] to start a tracked change, then [bold]aiv commit[/bold] for each file.[/dim]")
+    console.print(
+        "[dim]Tip: Use [bold]aiv begin <name>[/bold] to start a tracked change,"
+        " then [bold]aiv commit[/bold] for each file.[/dim]"
+    )
 
 
 @app.command()
@@ -234,7 +237,9 @@ def audit(
     packets_dir: Path = typer.Argument(Path(".github/aiv-packets"), help="Directory containing verification packets"),
     fix: bool = typer.Option(False, "--fix", help="Auto-fix COMMIT_PENDING and CLASS_E_NO_URL where possible"),
     commits: int = typer.Option(
-        0, "--commits", "-n",
+        0,
+        "--commits",
+        "-n",
         help="Scan N recent commits for protocol violations (HOOK_BYPASS, ATOMIC_VIOLATION)",
     ),
 ) -> None:
@@ -794,7 +799,11 @@ def _display_findings(findings: list[ValidationFinding], title: str, color: str)
 def begin(
     name: str = typer.Argument(..., help="Identifier for this change (lowercase, alphanumeric + hyphens)"),
     description: str = typer.Option("", "--description", "-d", help="Human-readable description of the change"),
-    mode: str = typer.Option("direct", "--mode", help="Workflow mode: 'direct' (push to main) or 'pr' (feature branches)"),
+    mode: str = typer.Option(
+        "direct",
+        "--mode",
+        help="Workflow mode: 'direct' (push to main) or 'pr' (feature branches)",
+    ),
 ) -> None:
     """
     Open a new change context.
@@ -814,7 +823,7 @@ def begin(
         ctx = begin_change(name=name, description=description, mode=mode)
     except ValueError as e:
         console.print(f"[red]Error:[/red] {e}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
     console.print(f"[green]Change '{ctx.name}' started.[/green]")
     console.print(f"  Mode: {ctx.mode}")
@@ -827,12 +836,14 @@ def begin(
 @app.command()
 def close(
     requirement: str = typer.Option(
-        "", "--requirement",
+        "",
+        "--requirement",
         help="Class E intent — which spec/issue/directive this change satisfies",
     ),
     skip_tests: bool = typer.Option(False, "--skip-tests", help="Skip running the full test suite"),
     include_untracked: bool = typer.Option(
-        False, "--include-untracked",
+        False,
+        "--include-untracked",
         help="Include commits made with --no-verify that are not in the change context",
     ),
     tier: str = typer.Option("R1", "--tier", "-t", help="Risk tier: R0, R1, R2, R3"),
@@ -866,7 +877,7 @@ def close(
         ctx = close_change()
     except ValueError as e:
         console.print(f"[red]Error:[/red] {e}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
     # Check for untracked commits (--no-verify bypass)
     untracked = detect_untracked_commits(ctx)
@@ -902,9 +913,7 @@ def close(
     # Auto-detect classified_by
     classified_by = "unknown"
     try:
-        r = subprocess.run(
-            ["git", "config", "user.name"], capture_output=True, text=True, timeout=5
-        )
+        r = subprocess.run(["git", "config", "user.name"], capture_output=True, text=True, timeout=5)
         if r.returncode == 0 and r.stdout.strip():
             classified_by = r.stdout.strip()
     except Exception:
@@ -915,23 +924,22 @@ def close(
     for i, commit in enumerate(ctx.commits):
         for ev in commit.evidence:
             classes = "A, B"  # Default; could be enriched by reading evidence files
-            evidence_ref_rows.append(
-                f"| {i + 1} | {ev} | `{commit.sha[:7]}` | {classes} |"
-            )
+            evidence_ref_rows.append(f"| {i + 1} | {ev} | `{commit.sha[:7]}` | {classes} |")
 
     evidence_refs_md = (
-        "| # | Evidence File | Commit SHA | Classes |\n"
-        "|---|---------------|------------|---------|\n"
-        + "\n".join(evidence_ref_rows)
-    ) if evidence_ref_rows else "No evidence files recorded."
+        (
+            "| # | Evidence File | Commit SHA | Classes |\n"
+            "|---|---------------|------------|---------|\n" + "\n".join(evidence_ref_rows)
+        )
+        if evidence_ref_rows
+        else "No evidence files recorded."
+    )
 
     # Build claims from evidence files (aggregate)
     claims_lines = []
     for i, f in enumerate(ctx.files_changed, 1):
         claims_lines.append(f"{i}. Changes to `{f}` are verified by collected evidence.")
-    claims_lines.append(
-        f"{len(ctx.files_changed) + 1}. No existing tests were modified or deleted during this change."
-    )
+    claims_lines.append(f"{len(ctx.files_changed) + 1}. No existing tests were modified or deleted during this change.")
     claims_md = "\n".join(claims_lines)
 
     # Build commit range
@@ -966,8 +974,8 @@ def close(
 | **Repository** | github.com/ImmortalDemonGod/aiv-protocol |
 | **Change ID** | {ctx.name} |
 | **Commits** | {commit_range_md} |
-| **Head SHA** | `{head_sha[:7] if head_sha else 'unknown'}` |
-| **Base SHA** | `{base_sha[:7] if base_sha else 'unknown'}` |
+| **Head SHA** | `{head_sha[:7] if head_sha else "unknown"}` |
+| **Base SHA** | `{base_sha[:7] if base_sha else "unknown"}` |
 | **Created** | {now} |
 
 ## Classification
@@ -978,7 +986,7 @@ classification:
   sod_mode: {sod}
   critical_surfaces: []
   blast_radius: component
-  classification_rationale: "{rationale or 'TODO: Describe why this tier was chosen'}"
+  classification_rationale: "{rationale or "TODO: Describe why this tier was chosen"}"
   classified_by: "{classified_by}"
   classified_at: "{now}"
 ```
@@ -1119,16 +1127,18 @@ def status() -> None:
         console.print("[dim]Run `aiv begin <name>` to start a tracked change.[/dim]")
         return
 
-    console.print(Panel(
-        f"[bold]{ctx.name}[/bold]\n"
-        f"Mode: {ctx.mode}\n"
-        f"Started: {ctx.started_at}\n"
-        f"Commits: {len(ctx.commits)}\n"
-        f"Files changed: {len(ctx.files_changed)}\n"
-        f"Evidence files: {len(ctx.evidence_files)}",
-        title="Active Change",
-        border_style="cyan",
-    ))
+    console.print(
+        Panel(
+            f"[bold]{ctx.name}[/bold]\n"
+            f"Mode: {ctx.mode}\n"
+            f"Started: {ctx.started_at}\n"
+            f"Commits: {len(ctx.commits)}\n"
+            f"Files changed: {len(ctx.files_changed)}\n"
+            f"Evidence files: {len(ctx.evidence_files)}",
+            title="Active Change",
+            border_style="cyan",
+        )
+    )
 
     if ctx.commits:
         table = Table(title="Commits", show_lines=False)
@@ -1151,30 +1161,38 @@ def commit_cmd(
     message: str = typer.Option(..., "--message", "-m", help="Git commit message"),
     tier: str = typer.Option("R1", "--tier", "-t", help="Risk tier: R0, R1, R2, R3"),
     claim: list[str] = typer.Option(
-        [], "--claim", "-c",
+        [],
+        "--claim",
+        "-c",
         help="Falsifiable claim about the change (REQUIRED, repeatable). "
-             "Format: '[Component] [verb: rejects/returns/ensures/prevents] [result] under [condition]'. "
-             "Example: -c 'TokenValidator rejects expired tokens with 401'",
+        "Format: '[Component] [verb: rejects/returns/ensures/prevents] [result] under [condition]'. "
+        "Example: -c 'TokenValidator rejects expired tokens with 401'",
     ),
     intent: str = typer.Option(
-        "", "--intent", "-i",
+        "",
+        "--intent",
+        "-i",
         help="REQUIRED. Class E intent URL -- link to the spec, issue, or directive that motivated this change. "
-             "Example: -i 'https://github.com/org/repo/issues/42'",
+        "Example: -i 'https://github.com/org/repo/issues/42'",
     ),
     requirement: str = typer.Option(
-        "", "--requirement",
+        "",
+        "--requirement",
         help="REQUIRED. Which specific requirement the --intent URL satisfies. "
-             "Example: --requirement 'Issue #42 requires expired tokens return 401'",
+        "Example: --requirement 'Issue #42 requires expired tokens return 401'",
     ),
     rationale: str = typer.Option(
-        "", "--rationale", "-r",
-        help="REQUIRED. Why this risk tier was chosen. "
-             "Example: -r 'Standard bug fix in auth module'",
+        "",
+        "--rationale",
+        "-r",
+        help="REQUIRED. Why this risk tier was chosen. Example: -r 'Standard bug fix in auth module'",
     ),
     summary: str = typer.Option(
-        "", "--summary", "-s",
+        "",
+        "--summary",
+        "-s",
         help="REQUIRED. One-line summary of the change. "
-             "Example: -s 'Handle expired JWT tokens with proper 401 response'",
+        "Example: -s 'Handle expired JWT tokens with proper 401 response'",
     ),
     skip_checks: bool = typer.Option(False, "--skip-checks", help="Skip running local checks (pytest/ruff/mypy)"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Generate packet and validate but don't commit"),
@@ -1253,13 +1271,11 @@ def commit_cmd(
     evidence_name = file_posix_raw
     for prefix in ("src/aiv/", "src/", "lib/", "app/"):
         if evidence_name.startswith(prefix):
-            evidence_name = evidence_name[len(prefix):]
+            evidence_name = evidence_name[len(prefix) :]
             break
     # Normalize: replace separators, remove extension, uppercase
     evidence_name = evidence_name.replace("/", "_").replace("\\", "_")
-    if evidence_name.endswith(".py"):
-        evidence_name = evidence_name[:-3]
-    elif evidence_name.endswith(".js") or evidence_name.endswith(".ts"):
+    if evidence_name.endswith(".py") or evidence_name.endswith(".js") or evidence_name.endswith(".ts"):
         evidence_name = evidence_name[:-3]
     safe_name = evidence_name.upper().replace("-", "_").replace(" ", "_")
 
@@ -1274,7 +1290,9 @@ def commit_cmd(
         try:
             prev_result = subprocess.run(
                 ["git", "log", "-1", "--format=%H", "--", str(packet_path)],
-                capture_output=True, text=True, timeout=5,
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             if prev_result.returncode == 0 and prev_result.stdout.strip():
                 previous_sha = prev_result.stdout.strip()[:7]
@@ -1301,9 +1319,7 @@ def commit_cmd(
     # --- Auto-detect classified_by ---
     classified_by = "unknown"
     try:
-        r = subprocess.run(
-            ["git", "config", "user.name"], capture_output=True, text=True, timeout=5
-        )
+        r = subprocess.run(["git", "config", "user.name"], capture_output=True, text=True, timeout=5)
         if r.returncode == 0 and r.stdout.strip():
             classified_by = r.stdout.strip()
     except Exception:
@@ -1329,9 +1345,7 @@ def commit_cmd(
     if not skip_checks:
         console.print("[dim]Collecting Class A (execution) — running pytest, ruff, mypy...[/dim]")
         class_a_data = collect_class_a(file_posix_raw)
-        console.print(
-            f"  pytest: {class_a_data.total_passed} passed, {class_a_data.total_failed} failed"
-        )
+        console.print(f"  pytest: {class_a_data.total_passed} passed, {class_a_data.total_failed} failed")
         console.print(f"  ruff: {'clean' if class_a_data.ruff_clean else 'errors'}")
         console.print(f"  mypy: {class_a_data.mypy_summary}")
 
@@ -1376,13 +1390,9 @@ def commit_cmd(
         console.print("[dim]Collecting Class C (negative) — scanning diff for regressions...[/dim]")
         class_c_data = collect_class_c()
         if class_c_data.assertions_removed:
-            console.print(
-                f"  [yellow]WARNING:[/yellow] {len(class_c_data.assertions_removed)} assertion(s) removed"
-            )
+            console.print(f"  [yellow]WARNING:[/yellow] {len(class_c_data.assertions_removed)} assertion(s) removed")
         if class_c_data.test_files_deleted:
-            console.print(
-                f"  [red]ALERT:[/red] {len(class_c_data.test_files_deleted)} test file(s) deleted"
-            )
+            console.print(f"  [red]ALERT:[/red] {len(class_c_data.test_files_deleted)} test file(s) deleted")
         if class_c_data.anti_cheat_clean:
             console.print("  No regression indicators found.")
 
@@ -1391,9 +1401,7 @@ def commit_cmd(
             console.print("[dim]Scanning downstream callers of changed symbols...[/dim]")
             from aiv.lib.evidence_collector import find_downstream_callers
 
-            downstream = find_downstream_callers(
-                changed_symbols, src_dir="src/", exclude_file=file_posix_raw
-            )
+            downstream = find_downstream_callers(changed_symbols, src_dir="src/", exclude_file=file_posix_raw)
             class_c_data.downstream_callers = downstream
             if downstream:
                 console.print(f"  {len(downstream)} downstream caller(s) found")
@@ -1408,7 +1416,9 @@ def commit_cmd(
         try:
             diff_stat_result = subprocess.run(
                 ["git", "diff", "--cached", "--stat", str(file)],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
             diff_stat = diff_stat_result.stdout.strip() if diff_stat_result.returncode == 0 else "(unavailable)"
         except Exception:
@@ -1465,7 +1475,7 @@ def commit_cmd(
     if tier_upper == "R3" and unverified and not force:
         console.print(f"\n[red]ERROR: R3 commit has {len(unverified)} unverified claim(s):[/red]")
         for cv in unverified:
-            console.print(f"  Claim {cv.claim_index}: \"{cv.claim_text[:60]}\" — {cv.evidence_detail}")
+            console.print(f'  Claim {cv.claim_index}: "{cv.claim_text[:60]}" — {cv.evidence_detail}')
         console.print("\n[dim]Options:[/dim]")
         console.print("  1. Add tests that call the uncovered symbol(s)")
         console.print("  2. Reclassify to R2 if this is not a critical surface")
@@ -1494,7 +1504,7 @@ def commit_cmd(
     packet_text = f"""# AIV Evidence File (v1.0)
 
 **File:** `{file_posix_raw}`
-**Commit:** `{head_sha[:7] if head_sha else 'pending'}`{previous_line}
+**Commit:** `{head_sha[:7] if head_sha else "pending"}`{previous_line}
 **Generated:** {now}
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
@@ -1595,10 +1605,13 @@ Evidence was collected by `aiv commit` running: git diff, pytest -v, ruff, mypy,
     # --- Update change context if active ---
     try:
         from aiv.lib.change import record_commit
+
         # Get the commit SHA that was just created
         new_sha_result = subprocess.run(
             ["git", "rev-parse", "HEAD"],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         new_sha = new_sha_result.stdout.strip() if new_sha_result.returncode == 0 else ""
         if new_sha:

@@ -8,7 +8,6 @@ that bypassed the pre-commit hook via ``git commit --no-verify``.
 from unittest.mock import patch
 
 from aiv.hooks.pre_push import (
-    _is_evidence,
     _is_functional,
     _is_packet,
     check_commits,

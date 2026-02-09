@@ -260,12 +260,10 @@ class TestEvidenceTodoSeverity:
         auditor = PacketAuditor()
         result = auditor.audit(tmp_path)
         evidence_todos = [
-            f for f in result.findings
-            if f.finding_type == "TODO_PRESENT" and f.severity == AuditSeverity.ERROR
+            f for f in result.findings if f.finding_type == "TODO_PRESENT" and f.severity == AuditSeverity.ERROR
         ]
         assert len(evidence_todos) >= 1, (
-            f"Expected at least 1 ERROR-severity TODO_PRESENT in evidence section, "
-            f"got findings: {result.findings}"
+            f"Expected at least 1 ERROR-severity TODO_PRESENT in evidence section, got findings: {result.findings}"
         )
 
     def test_class_e_todo_link_is_error(self, tmp_path: Path):
@@ -282,10 +280,7 @@ class TestEvidenceTodoSeverity:
         _write_packet(tmp_path, "VERIFICATION_PACKET_BAD.md", body)
         auditor = PacketAuditor()
         result = auditor.audit(tmp_path)
-        class_e_findings = [
-            f for f in result.findings
-            if f.finding_type == "CLASS_E_NO_URL"
-        ]
+        class_e_findings = [f for f in result.findings if f.finding_type == "CLASS_E_NO_URL"]
         assert len(class_e_findings) == 1
         assert class_e_findings[0].severity == AuditSeverity.ERROR, (
             f"Expected ERROR for TODO in Class E link, got {class_e_findings[0].severity}"
@@ -305,19 +300,12 @@ class TestEvidenceTodoSeverity:
         _write_packet(tmp_path, "VERIFICATION_PACKET_WARN.md", body)
         auditor = PacketAuditor()
         result = auditor.audit(tmp_path)
-        todo_findings = [
-            f for f in result.findings
-            if f.finding_type == "TODO_PRESENT"
-        ]
+        todo_findings = [f for f in result.findings if f.finding_type == "TODO_PRESENT"]
         # Should have at least one WARNING (not ERROR) for the classification TODO
         warning_todos = [f for f in todo_findings if f.severity == AuditSeverity.WARNING]
         error_todos = [f for f in todo_findings if f.severity == AuditSeverity.ERROR]
-        assert len(warning_todos) >= 1, (
-            f"Expected WARNING for classification TODO, got findings: {todo_findings}"
-        )
-        assert len(error_todos) == 0, (
-            f"Classification TODO should NOT be ERROR, got: {error_todos}"
-        )
+        assert len(warning_todos) >= 1, f"Expected WARNING for classification TODO, got findings: {todo_findings}"
+        assert len(error_todos) == 0, f"Classification TODO should NOT be ERROR, got: {error_todos}"
 
 
 class TestFixNoclassF:
@@ -465,15 +453,11 @@ class TestAuditCLI:
 class TestIsPacketPath:
     def test_standard_packet(self) -> None:
         auditor = PacketAuditor()
-        assert auditor._is_packet_path(
-            ".github/aiv-packets/VERIFICATION_PACKET_FOO.md"
-        ) is True
+        assert auditor._is_packet_path(".github/aiv-packets/VERIFICATION_PACKET_FOO.md") is True
 
     def test_legacy_packet(self) -> None:
         auditor = PacketAuditor()
-        assert auditor._is_packet_path(
-            ".github/VERIFICATION_PACKET_OLD.md"
-        ) is True
+        assert auditor._is_packet_path(".github/VERIFICATION_PACKET_OLD.md") is True
 
     def test_not_a_packet(self) -> None:
         auditor = PacketAuditor()
@@ -515,9 +499,11 @@ class TestAuditCommitsHookBypass:
     """Detect commits where functional files lack a verification packet."""
 
     def test_hook_bypass_detected(self, tmp_path: Path) -> None:
-        fake_log = _make_git_log_output([
-            ("a" * 40, ["src/aiv/cli/main.py"]),
-        ])
+        fake_log = _make_git_log_output(
+            [
+                ("a" * 40, ["src/aiv/cli/main.py"]),
+            ]
+        )
         auditor = PacketAuditor()
         with patch("subprocess.run") as mock_run:
             mock_run.return_value.returncode = 0
@@ -530,12 +516,17 @@ class TestAuditCommitsHookBypass:
         assert "main.py" in bypass[0].message
 
     def test_clean_commit_no_findings(self, tmp_path: Path) -> None:
-        fake_log = _make_git_log_output([
-            ("b" * 40, [
-                "src/aiv/cli/main.py",
-                ".github/aiv-packets/VERIFICATION_PACKET_CLI.md",
-            ]),
-        ])
+        fake_log = _make_git_log_output(
+            [
+                (
+                    "b" * 40,
+                    [
+                        "src/aiv/cli/main.py",
+                        ".github/aiv-packets/VERIFICATION_PACKET_CLI.md",
+                    ],
+                ),
+            ]
+        )
         auditor = PacketAuditor()
         with patch("subprocess.run") as mock_run:
             mock_run.return_value.returncode = 0
@@ -546,9 +537,11 @@ class TestAuditCommitsHookBypass:
         assert len(bypass) == 0
 
     def test_docs_only_skipped(self, tmp_path: Path) -> None:
-        fake_log = _make_git_log_output([
-            ("c" * 40, ["README.md", "docs/guide.md"]),
-        ])
+        fake_log = _make_git_log_output(
+            [
+                ("c" * 40, ["README.md", "docs/guide.md"]),
+            ]
+        )
         auditor = PacketAuditor()
         with patch("subprocess.run") as mock_run:
             mock_run.return_value.returncode = 0
@@ -562,14 +555,19 @@ class TestAuditCommitsAtomicViolation:
     """Detect commits that bundle multiple functional files."""
 
     def test_multi_file_detected(self, tmp_path: Path) -> None:
-        fake_log = _make_git_log_output([
-            ("d" * 40, [
-                "src/aiv/cli/main.py",
-                "src/aiv/lib/config.py",
-                "tests/unit/test_config.py",
-                ".github/aiv-packets/VERIFICATION_PACKET_CONFIG.md",
-            ]),
-        ])
+        fake_log = _make_git_log_output(
+            [
+                (
+                    "d" * 40,
+                    [
+                        "src/aiv/cli/main.py",
+                        "src/aiv/lib/config.py",
+                        "tests/unit/test_config.py",
+                        ".github/aiv-packets/VERIFICATION_PACKET_CONFIG.md",
+                    ],
+                ),
+            ]
+        )
         auditor = PacketAuditor()
         with patch("subprocess.run") as mock_run:
             mock_run.return_value.returncode = 0
@@ -582,12 +580,17 @@ class TestAuditCommitsAtomicViolation:
         assert "3 functional files" in atomic[0].message
 
     def test_single_functional_no_violation(self, tmp_path: Path) -> None:
-        fake_log = _make_git_log_output([
-            ("e" * 40, [
-                "src/aiv/cli/main.py",
-                ".github/aiv-packets/VERIFICATION_PACKET_CLI.md",
-            ]),
-        ])
+        fake_log = _make_git_log_output(
+            [
+                (
+                    "e" * 40,
+                    [
+                        "src/aiv/cli/main.py",
+                        ".github/aiv-packets/VERIFICATION_PACKET_CLI.md",
+                    ],
+                ),
+            ]
+        )
         auditor = PacketAuditor()
         with patch("subprocess.run") as mock_run:
             mock_run.return_value.returncode = 0
@@ -602,13 +605,18 @@ class TestAuditCommitsCombined:
     """Test that both HOOK_BYPASS and ATOMIC_VIOLATION fire on the same commit."""
 
     def test_bypass_and_violation_both_reported(self, tmp_path: Path) -> None:
-        fake_log = _make_git_log_output([
-            ("f" * 40, [
-                "src/aiv/cli/main.py",
-                "src/aiv/lib/evidence_collector.py",
-                "tests/unit/test_evidence_collector.py",
-            ]),
-        ])
+        fake_log = _make_git_log_output(
+            [
+                (
+                    "f" * 40,
+                    [
+                        "src/aiv/cli/main.py",
+                        "src/aiv/lib/evidence_collector.py",
+                        "tests/unit/test_evidence_collector.py",
+                    ],
+                ),
+            ]
+        )
         auditor = PacketAuditor()
         with patch("subprocess.run") as mock_run:
             mock_run.return_value.returncode = 0

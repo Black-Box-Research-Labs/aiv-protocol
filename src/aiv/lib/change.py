@@ -22,7 +22,6 @@ import re
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -53,6 +52,7 @@ class ChangeContext(BaseModel):
 # Path helpers
 # ---------------------------------------------------------------------------
 
+
 def _aiv_dir(repo_root: Path | None = None) -> Path:
     """Return the .aiv/ directory, creating it if needed."""
     root = repo_root or Path(".")
@@ -69,6 +69,7 @@ def _change_path(repo_root: Path | None = None) -> Path:
 # ---------------------------------------------------------------------------
 # Read / write
 # ---------------------------------------------------------------------------
+
 
 def load_change(repo_root: Path | None = None) -> ChangeContext | None:
     """Load the active change context, or None if no change is active."""
@@ -127,8 +128,7 @@ def begin_change(
 
     if not _NAME_RE.match(name):
         raise ValueError(
-            f"Invalid change name '{name}'. "
-            "Must be lowercase alphanumeric + hyphens, starting with alphanumeric."
+            f"Invalid change name '{name}'. Must be lowercase alphanumeric + hyphens, starting with alphanumeric."
         )
 
     ctx = ChangeContext(
@@ -189,9 +189,7 @@ def close_change(repo_root: Path | None = None) -> ChangeContext:
     """
     ctx = load_change(repo_root)
     if ctx is None:
-        raise ValueError(
-            "No active change context. Run `aiv begin <name>` first."
-        )
+        raise ValueError("No active change context. Run `aiv begin <name>` first.")
     if not ctx.commits:
         raise ValueError(
             f"Change '{ctx.name}' has no commits. Nothing to verify.\n"

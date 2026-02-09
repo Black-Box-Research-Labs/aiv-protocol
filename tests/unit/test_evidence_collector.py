@@ -82,9 +82,7 @@ class TestClassBEvidence:
     def test_collect_single_line_hunk(self, mock_git):
         mock_git.side_effect = lambda *args: {
             ("rev-parse", "HEAD"): "abc1234",
-            ("diff", "--cached", "-U0", "--", "src/x.py"): (
-                "@@ -5,0 +6,1 @@\n+added\n"
-            ),
+            ("diff", "--cached", "-U0", "--", "src/x.py"): ("@@ -5,0 +6,1 @@\n+added\n"),
         }.get(args, "")
 
         result = collect_class_b("src/x.py", "org", "proj")
@@ -227,10 +225,7 @@ class TestClassCEvidence:
     @patch("aiv.lib.evidence_collector._run_git")
     def test_collect_detects_removed_assertion(self, mock_git):
         mock_git.side_effect = lambda *args: {
-            ("diff", "--cached"): (
-                "-    assert response.status == 200\n"
-                "+    pass\n"
-            ),
+            ("diff", "--cached"): ("-    assert response.status == 200\n+    pass\n"),
             ("diff", "--cached", "--name-status"): "",
         }.get(args, "")
 
@@ -306,14 +301,10 @@ class TestClassFEvidence:
     def test_collect_with_covering_files(self, mock_git):
         """collect_class_f with explicit covering files runs git log per file."""
         mock_git.side_effect = lambda *args: {
-            ("log", "--oneline", "--follow", "--", "tests/test_auth.py"):
-                "abc1234 initial commit",
-            ("log", "--format=%an", "--follow", "--diff-filter=A", "--", "tests/test_auth.py"):
-                "alice\n",
-            ("log", "-1", "--format=%an", "--", "tests/test_auth.py"):
-                "alice\n",
-            ("log", "--oneline", "-5", "--", "tests/"):
-                "abc1234 initial commit",
+            ("log", "--oneline", "--follow", "--", "tests/test_auth.py"): "abc1234 initial commit",
+            ("log", "--format=%an", "--follow", "--diff-filter=A", "--", "tests/test_auth.py"): "alice\n",
+            ("log", "-1", "--format=%an", "--", "tests/test_auth.py"): "alice\n",
+            ("log", "--oneline", "-5", "--", "tests/"): "abc1234 initial commit",
         }.get(args, "")
 
         result = collect_class_f(covering_test_files=["tests/test_auth.py"])
@@ -388,13 +379,13 @@ class TestASTSymbolResolver:
         """A hunk spanning multiple functions reports ALL of them, not just the smallest."""
         src = tmp_path / "multi.py"
         src.write_text(
-            "def alpha():\n"        # L1-2
+            "def alpha():\n"  # L1-2
             "    return 1\n"
-            "\n"                     # L3
-            "def beta():\n"          # L4-5
+            "\n"  # L3
+            "def beta():\n"  # L4-5
             "    return 2\n"
-            "\n"                     # L6
-            "def gamma():\n"         # L7-8
+            "\n"  # L6
+            "def gamma():\n"  # L7-8
             "    return 3\n",
             encoding="utf-8",
         )
@@ -410,14 +401,14 @@ class TestASTSymbolResolver:
         """A hunk spanning multiple methods in a class reports all methods."""
         src = tmp_path / "cls.py"
         src.write_text(
-            "class Auditor:\n"              # L1
-            "    def check(self):\n"         # L2-3
+            "class Auditor:\n"  # L1
+            "    def check(self):\n"  # L2-3
             "        pass\n"
-            "\n"                             # L4
-            "    def scan(self):\n"          # L5-6
+            "\n"  # L4
+            "    def scan(self):\n"  # L5-6
             "        pass\n"
-            "\n"                             # L7
-            "    def report(self):\n"        # L8-9
+            "\n"  # L7
+            "    def report(self):\n"  # L8-9
             "        return []\n",
             encoding="utf-8",
         )
@@ -442,8 +433,7 @@ class TestASTTestGraph:
         test_dir = tmp_path / "tests"
         test_dir.mkdir()
         (test_dir / "test_foo.py").write_text(
-            "from mymodule import foo_func, FooClass\n\n"
-            "def test_foo_works():\n    foo_func()\n",
+            "from mymodule import foo_func, FooClass\n\ndef test_foo_works():\n    foo_func()\n",
             encoding="utf-8",
         )
         from aiv.lib.evidence_collector import build_test_graph
@@ -501,9 +491,7 @@ class TestFindCoveringTests:
         test_dir = tmp_path / "tests"
         test_dir.mkdir()
         (test_dir / "test_calc.py").write_text(
-            "from mymodule import calculate\n\n"
-            "def test_calculate_adds():\n"
-            "    assert calculate(1, 2) == 3\n",
+            "from mymodule import calculate\n\ndef test_calculate_adds():\n    assert calculate(1, 2) == 3\n",
             encoding="utf-8",
         )
         from aiv.lib.evidence_collector import (
@@ -523,9 +511,7 @@ class TestFindCoveringTests:
         test_dir = tmp_path / "tests"
         test_dir.mkdir()
         (test_dir / "test_unused.py").write_text(
-            "from mymodule import unused_func\n\n"
-            "def test_something_else():\n"
-            "    assert True\n",
+            "from mymodule import unused_func\n\ndef test_something_else():\n    assert True\n",
             encoding="utf-8",
         )
         from aiv.lib.evidence_collector import build_test_graph, find_covering_tests
@@ -592,9 +578,15 @@ class TestClassAWithSymbolCoverage:
     def test_renders_per_symbol_coverage(self):
         """When symbol_coverage is set, render per-symbol analysis instead of flat list."""
         ev = ClassAEvidence(
-            total_passed=100, total_failed=0, total_warnings=0,
-            duration="5s", relevant_tests=["tests/test_foo.py::test_bar"],
-            ruff_clean=True, ruff_errors=0, mypy_clean=True, mypy_summary="ok",
+            total_passed=100,
+            total_failed=0,
+            total_warnings=0,
+            duration="5s",
+            relevant_tests=["tests/test_foo.py::test_bar"],
+            ruff_clean=True,
+            ruff_errors=0,
+            mypy_clean=True,
+            mypy_summary="ok",
             symbol_coverage=[
                 SymbolCoverage(
                     symbol="my_func",
@@ -616,9 +608,15 @@ class TestClassAWithSymbolCoverage:
     def test_renders_warning_for_uncovered_symbol(self):
         """When a symbol has 0 callers, render WARNING."""
         ev = ClassAEvidence(
-            total_passed=100, total_failed=0, total_warnings=0,
-            duration="5s", relevant_tests=[],
-            ruff_clean=True, ruff_errors=0, mypy_clean=True, mypy_summary="ok",
+            total_passed=100,
+            total_failed=0,
+            total_warnings=0,
+            duration="5s",
+            relevant_tests=[],
+            ruff_clean=True,
+            ruff_errors=0,
+            mypy_clean=True,
+            mypy_summary="ok",
             symbol_coverage=[
                 SymbolCoverage(
                     symbol="untested_func",
@@ -636,9 +634,15 @@ class TestClassAWithSymbolCoverage:
     def test_falls_back_to_grep_when_no_ast(self):
         """Without symbol_coverage, falls back to grep-based test list."""
         ev = ClassAEvidence(
-            total_passed=100, total_failed=0, total_warnings=0,
-            duration="5s", relevant_tests=["tests/test_foo.py::test_bar"],
-            ruff_clean=True, ruff_errors=0, mypy_clean=True, mypy_summary="ok",
+            total_passed=100,
+            total_failed=0,
+            total_warnings=0,
+            duration="5s",
+            relevant_tests=["tests/test_foo.py::test_bar"],
+            ruff_clean=True,
+            ruff_errors=0,
+            mypy_clean=True,
+            mypy_summary="ok",
         )
         md = ev.to_markdown()
         assert "Tests covering changed file" in md
@@ -655,8 +659,10 @@ class TestClassCDownstreamCallers:
 
     def test_renders_downstream_callers(self):
         ev = ClassCEvidence(
-            test_files_modified=[], test_files_deleted=[],
-            assertions_removed=[], skip_markers_added=[],
+            test_files_modified=[],
+            test_files_deleted=[],
+            assertions_removed=[],
+            skip_markers_added=[],
             anti_cheat_clean=True,
             downstream_callers=[
                 DownstreamCaller(file="src/cli/main.py", function="commit_cmd", symbol_called="collect_class_a"),
@@ -671,8 +677,10 @@ class TestClassCDownstreamCallers:
 
     def test_no_downstream_callers_omits_section(self):
         ev = ClassCEvidence(
-            test_files_modified=[], test_files_deleted=[],
-            assertions_removed=[], skip_markers_added=[],
+            test_files_modified=[],
+            test_files_deleted=[],
+            assertions_removed=[],
+            skip_markers_added=[],
             anti_cheat_clean=True,
         )
         md = ev.to_markdown()
@@ -691,8 +699,7 @@ class TestFindDownstreamCallers:
         src_dir = tmp_path / "src"
         src_dir.mkdir()
         (src_dir / "caller.py").write_text(
-            "from mymodule import target_func\n\n"
-            "def run():\n    target_func()\n",
+            "from mymodule import target_func\n\ndef run():\n    target_func()\n",
             encoding="utf-8",
         )
         from aiv.lib.evidence_collector import find_downstream_callers
@@ -744,12 +751,19 @@ class TestClassAGlobalMetricSuppression:
 
     def test_global_metric_suppressed_when_ast_available(self):
         ev = ClassAEvidence(
-            total_passed=551, total_failed=0, total_warnings=0,
-            duration="29s", relevant_tests=[], ruff_clean=True,
-            ruff_errors=0, mypy_clean=True, mypy_summary="clean",
+            total_passed=551,
+            total_failed=0,
+            total_warnings=0,
+            duration="29s",
+            relevant_tests=[],
+            ruff_clean=True,
+            ruff_errors=0,
+            mypy_clean=True,
+            mypy_summary="clean",
             symbol_coverage=[
                 SymbolCoverage(
-                    symbol="foo", line_range="L10",
+                    symbol="foo",
+                    line_range="L10",
                     importing_test_files=["t.py"],
                     calling_tests=["t.py::test_foo"],
                     coverage_verdict="1 test(s) call `foo` directly",
@@ -763,28 +777,42 @@ class TestClassAGlobalMetricSuppression:
 
     def test_global_metric_present_when_no_ast(self):
         ev = ClassAEvidence(
-            total_passed=200, total_failed=0, total_warnings=0,
-            duration="10s", relevant_tests=["t.py::test_a"],
-            ruff_clean=True, ruff_errors=0, mypy_clean=True,
-            mypy_summary="clean", symbol_coverage=[],
+            total_passed=200,
+            total_failed=0,
+            total_warnings=0,
+            duration="10s",
+            relevant_tests=["t.py::test_a"],
+            ruff_clean=True,
+            ruff_errors=0,
+            mypy_clean=True,
+            mypy_summary="clean",
+            symbol_coverage=[],
         )
         md = ev.to_markdown()
         assert "200 passed" in md
 
     def test_coverage_summary_counts_correctly(self):
         ev = ClassAEvidence(
-            total_passed=100, total_failed=0, total_warnings=0,
-            duration="5s", relevant_tests=[], ruff_clean=True,
-            ruff_errors=0, mypy_clean=True, mypy_summary="clean",
+            total_passed=100,
+            total_failed=0,
+            total_warnings=0,
+            duration="5s",
+            relevant_tests=[],
+            ruff_clean=True,
+            ruff_errors=0,
+            mypy_clean=True,
+            mypy_summary="clean",
             symbol_coverage=[
                 SymbolCoverage(
-                    symbol="covered", line_range="L1",
+                    symbol="covered",
+                    line_range="L1",
                     importing_test_files=["t.py"],
                     calling_tests=["t.py::test_x"],
                     coverage_verdict="1 test(s) call `covered` directly",
                 ),
                 SymbolCoverage(
-                    symbol="uncovered", line_range="L20",
+                    symbol="uncovered",
+                    line_range="L20",
                     importing_test_files=[],
                     calling_tests=[],
                     coverage_verdict="WARNING: No tests import or call `uncovered`",
@@ -798,12 +826,19 @@ class TestClassAGlobalMetricSuppression:
 
     def test_uncovered_symbol_shows_fail(self):
         ev = ClassAEvidence(
-            total_passed=100, total_failed=0, total_warnings=0,
-            duration="5s", relevant_tests=[], ruff_clean=True,
-            ruff_errors=0, mypy_clean=True, mypy_summary="clean",
+            total_passed=100,
+            total_failed=0,
+            total_warnings=0,
+            duration="5s",
+            relevant_tests=[],
+            ruff_clean=True,
+            ruff_errors=0,
+            mypy_clean=True,
+            mypy_summary="clean",
             symbol_coverage=[
                 SymbolCoverage(
-                    symbol="to_markdown", line_range="L67",
+                    symbol="to_markdown",
+                    line_range="L67",
                     importing_test_files=[],
                     calling_tests=[],
                     coverage_verdict="WARNING: No tests import or call `to_markdown`",
@@ -826,7 +861,8 @@ class TestBindClaimsToEvidence:
     def test_symbol_claim_verified(self):
         sym_cov = [
             SymbolCoverage(
-                symbol="find_downstream_callers", line_range="L100",
+                symbol="find_downstream_callers",
+                line_range="L100",
                 importing_test_files=["t.py"],
                 calling_tests=["t.py::test_finds_caller"],
                 coverage_verdict="1 test(s) call `find_downstream_callers` directly",
@@ -844,7 +880,8 @@ class TestBindClaimsToEvidence:
     def test_symbol_claim_unverified_when_zero_tests(self):
         sym_cov = [
             SymbolCoverage(
-                symbol="to_markdown", line_range="L67",
+                symbol="to_markdown",
+                line_range="L67",
                 importing_test_files=[],
                 calling_tests=[],
                 coverage_verdict="WARNING: No tests import or call `to_markdown`",
@@ -859,8 +896,10 @@ class TestBindClaimsToEvidence:
 
     def test_structural_claim_verified_when_clean(self):
         class_c = ClassCEvidence(
-            test_files_modified=[], test_files_deleted=[],
-            assertions_removed=[], skip_markers_added=[],
+            test_files_modified=[],
+            test_files_deleted=[],
+            assertions_removed=[],
+            skip_markers_added=[],
             anti_cheat_clean=True,
         )
         results = bind_claims_to_evidence(
@@ -873,8 +912,10 @@ class TestBindClaimsToEvidence:
 
     def test_structural_claim_unverified_when_deletions(self):
         class_c = ClassCEvidence(
-            test_files_modified=[], test_files_deleted=["test_foo.py"],
-            assertions_removed=[], skip_markers_added=[],
+            test_files_modified=[],
+            test_files_deleted=["test_foo.py"],
+            assertions_removed=[],
+            skip_markers_added=[],
             anti_cheat_clean=False,
         )
         results = bind_claims_to_evidence(
@@ -885,9 +926,15 @@ class TestBindClaimsToEvidence:
 
     def test_tooling_claim_verified_ruff(self):
         class_a = ClassAEvidence(
-            total_passed=100, total_failed=0, total_warnings=0,
-            duration="5s", relevant_tests=[], ruff_clean=True,
-            ruff_errors=0, mypy_clean=True, mypy_summary="clean",
+            total_passed=100,
+            total_failed=0,
+            total_warnings=0,
+            duration="5s",
+            relevant_tests=[],
+            ruff_clean=True,
+            ruff_errors=0,
+            mypy_clean=True,
+            mypy_summary="clean",
         )
         results = bind_claims_to_evidence(
             claims=["All ruff checks pass"],
@@ -898,9 +945,15 @@ class TestBindClaimsToEvidence:
 
     def test_tooling_claim_unverified_mypy_errors(self):
         class_a = ClassAEvidence(
-            total_passed=100, total_failed=0, total_warnings=0,
-            duration="5s", relevant_tests=[], ruff_clean=True,
-            ruff_errors=0, mypy_clean=False, mypy_summary="1 error",
+            total_passed=100,
+            total_failed=0,
+            total_warnings=0,
+            duration="5s",
+            relevant_tests=[],
+            ruff_clean=True,
+            ruff_errors=0,
+            mypy_clean=False,
+            mypy_summary="1 error",
         )
         results = bind_claims_to_evidence(
             claims=["mypy type checks pass"],
@@ -918,21 +971,30 @@ class TestBindClaimsToEvidence:
     def test_mixed_claims_classified_correctly(self):
         sym_cov = [
             SymbolCoverage(
-                symbol="ClassAEvidence", line_range="L50",
+                symbol="ClassAEvidence",
+                line_range="L50",
                 importing_test_files=["t.py"],
                 calling_tests=["t.py::test_a"],
                 coverage_verdict="1 test(s) call `ClassAEvidence` directly",
             ),
         ]
         class_c = ClassCEvidence(
-            test_files_modified=[], test_files_deleted=[],
-            assertions_removed=[], skip_markers_added=[],
+            test_files_modified=[],
+            test_files_deleted=[],
+            assertions_removed=[],
+            skip_markers_added=[],
             anti_cheat_clean=True,
         )
         class_a = ClassAEvidence(
-            total_passed=100, total_failed=0, total_warnings=0,
-            duration="5s", relevant_tests=[], ruff_clean=True,
-            ruff_errors=0, mypy_clean=True, mypy_summary="clean",
+            total_passed=100,
+            total_failed=0,
+            total_warnings=0,
+            duration="5s",
+            relevant_tests=[],
+            ruff_clean=True,
+            ruff_errors=0,
+            mypy_clean=True,
+            mypy_summary="clean",
         )
         results = bind_claims_to_evidence(
             claims=[
@@ -955,12 +1017,15 @@ class TestBindClaimsToEvidence:
         """Ensures 'ClassAEvidence.to_markdown' matches before 'to_markdown'."""
         sym_cov = [
             SymbolCoverage(
-                symbol="ClassAEvidence.to_markdown", line_range="L67",
-                importing_test_files=[], calling_tests=[],
+                symbol="ClassAEvidence.to_markdown",
+                line_range="L67",
+                importing_test_files=[],
+                calling_tests=[],
                 coverage_verdict="WARNING: 0 tests",
             ),
             SymbolCoverage(
-                symbol="run", line_range="L10",
+                symbol="run",
+                line_range="L10",
                 importing_test_files=["t.py"],
                 calling_tests=["t.py::test_run"],
                 coverage_verdict="1 test(s)",
@@ -984,8 +1049,10 @@ class TestRenderClaimMatrix:
     def test_renders_table_headers(self):
         verifications = [
             ClaimVerification(
-                claim_index=1, claim_text="foo does bar",
-                claim_type="symbol", matched_symbols=["foo"],
+                claim_index=1,
+                claim_text="foo does bar",
+                claim_type="symbol",
+                matched_symbols=["foo"],
                 evidence_detail="1 test(s) call `foo`",
                 verdict="VERIFIED",
             ),
@@ -997,19 +1064,28 @@ class TestRenderClaimMatrix:
     def test_renders_verdict_icons(self):
         verifications = [
             ClaimVerification(
-                claim_index=1, claim_text="verified claim",
-                claim_type="symbol", matched_symbols=["x"],
-                evidence_detail="1 test", verdict="VERIFIED",
+                claim_index=1,
+                claim_text="verified claim",
+                claim_type="symbol",
+                matched_symbols=["x"],
+                evidence_detail="1 test",
+                verdict="VERIFIED",
             ),
             ClaimVerification(
-                claim_index=2, claim_text="unverified claim",
-                claim_type="symbol", matched_symbols=["y"],
-                evidence_detail="0 tests", verdict="UNVERIFIED",
+                claim_index=2,
+                claim_text="unverified claim",
+                claim_type="symbol",
+                matched_symbols=["y"],
+                evidence_detail="0 tests",
+                verdict="UNVERIFIED",
             ),
             ClaimVerification(
-                claim_index=3, claim_text="review claim",
-                claim_type="unresolved", matched_symbols=[],
-                evidence_detail="No binding", verdict="MANUAL REVIEW",
+                claim_index=3,
+                claim_text="review claim",
+                claim_type="unresolved",
+                matched_symbols=[],
+                evidence_detail="No binding",
+                verdict="MANUAL REVIEW",
             ),
         ]
         md = render_claim_matrix(verifications)
@@ -1022,9 +1098,12 @@ class TestRenderClaimMatrix:
         long_claim = "A" * 80
         verifications = [
             ClaimVerification(
-                claim_index=1, claim_text=long_claim,
-                claim_type="unresolved", matched_symbols=[],
-                evidence_detail="No binding", verdict="MANUAL REVIEW",
+                claim_index=1,
+                claim_text=long_claim,
+                claim_type="unresolved",
+                matched_symbols=[],
+                evidence_detail="No binding",
+                verdict="MANUAL REVIEW",
             ),
         ]
         md = render_claim_matrix(verifications)

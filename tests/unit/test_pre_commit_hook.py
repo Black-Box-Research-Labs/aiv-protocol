@@ -105,8 +105,7 @@ class TestIsSubmodulePath:
 # ---------------------------------------------------------------------------
 
 
-def _mock_main(staged: list[str], submodule_paths: list[str] | None = None,
-               hook_config: tuple | None = None) -> int:
+def _mock_main(staged: list[str], submodule_paths: list[str] | None = None, hook_config: tuple | None = None) -> int:
     """Run main() with mocked staged files and no packet validation."""
     cfg = hook_config or (_DEFAULT_FUNCTIONAL_PREFIXES, _DEFAULT_FUNCTIONAL_ROOT_FILES)
     with (
@@ -327,11 +326,7 @@ class TestLoadHookConfig:
     def test_reads_custom_prefixes_from_yaml(self, tmp_path, monkeypatch) -> None:
         monkeypatch.chdir(tmp_path)
         (tmp_path / ".aiv.yml").write_text(
-            'version: "1.0"\n'
-            "hook:\n"
-            "  functional_prefixes:\n"
-            '    - "backend/"\n'
-            '    - "frontend/"\n',
+            'version: "1.0"\nhook:\n  functional_prefixes:\n    - "backend/"\n    - "frontend/"\n',
             encoding="utf-8",
         )
         prefixes, root_files = _load_hook_config()
@@ -342,11 +337,7 @@ class TestLoadHookConfig:
     def test_reads_custom_root_files_from_yaml(self, tmp_path, monkeypatch) -> None:
         monkeypatch.chdir(tmp_path)
         (tmp_path / ".aiv.yml").write_text(
-            'version: "1.0"\n'
-            "hook:\n"
-            "  functional_root_files:\n"
-            '    - "Makefile"\n'
-            '    - "Dockerfile"\n',
+            'version: "1.0"\nhook:\n  functional_root_files:\n    - "Makefile"\n    - "Dockerfile"\n',
             encoding="utf-8",
         )
         prefixes, root_files = _load_hook_config()

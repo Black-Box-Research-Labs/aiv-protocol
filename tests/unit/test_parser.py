@@ -397,10 +397,10 @@ class TestEvidenceRefsTable:
 Test.
 """
         packet = parser.parse(packet_text)
-        assert EvidenceClass.EXECUTION in packet.evidence_classes_present      # A
-        assert EvidenceClass.REFERENTIAL in packet.evidence_classes_present     # B
-        assert EvidenceClass.NEGATIVE in packet.evidence_classes_present        # C
-        assert EvidenceClass.INTENT in packet.evidence_classes_present          # E
+        assert EvidenceClass.EXECUTION in packet.evidence_classes_present  # A
+        assert EvidenceClass.REFERENTIAL in packet.evidence_classes_present  # B
+        assert EvidenceClass.NEGATIVE in packet.evidence_classes_present  # C
+        assert EvidenceClass.INTENT in packet.evidence_classes_present  # E
 
     def test_evidence_refs_table_no_classes_column(self, parser):
         """Table without Classes column should not crash."""
