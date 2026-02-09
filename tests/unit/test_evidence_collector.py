@@ -17,6 +17,7 @@ from aiv.lib.evidence_collector import (
     ClassBEvidence,
     ClassCEvidence,
     ClassFEvidence,
+    TestFileProvenance,
     collect_class_b,
     collect_class_c,
     collect_class_f,
@@ -255,48 +256,282 @@ class TestClassCEvidence:
 
 
 class TestClassFEvidence:
-    """Class F must scan test file integrity from the actual diff."""
+    """Class F must provide chain-of-custody history DISTINCT from Class C and A."""
 
-    def test_to_markdown_clean(self):
+    def test_to_markdown_shows_provenance_table(self):
+        """Class F must render a per-file provenance table, not restate Class C/A."""
         ev = ClassFEvidence(
-            test_files_in_diff=[],
-            test_assertions_deleted=0,
-            test_files_deleted=0,
+            test_provenance=[
+                TestFileProvenance(
+                    path="tests/unit/test_auth.py",
+                    commit_count=5,
+                    created_by="alice",
+                    created_sha="abc1234",
+                    last_modified_by="bob",
+                    last_modified_sha="def5678",
+                    assertion_count=12,
+                )
+            ],
+            recent_test_log="abc1234 test(auth): add login tests\ndef5678 fix(auth): update assertion",
         )
         md = ev.to_markdown()
-        assert "No test files deleted" in md
-        assert "No assertions removed" in md
+        assert "chain-of-custody" in md.lower()
+        assert "test_auth.py" in md
+        assert "alice" in md
+        assert "bob" in md
+        assert "12" in md  # assertion count
+        assert "5" in md  # commit count
+        # Must NOT contain Class A/C language
+        assert "Full test suite passes" not in md
+        assert "No assertions removed" not in md
 
-    def test_to_markdown_alerts(self):
+    def test_to_markdown_no_covering_tests(self):
+        """When no covering tests exist, say so honestly."""
+        ev = ClassFEvidence(test_provenance=[], recent_test_log="")
+        md = ev.to_markdown()
+        assert "No covering test files found" in md
+
+    def test_to_markdown_includes_git_log(self):
+        """Recent git log for tests/ must appear in the output."""
         ev = ClassFEvidence(
-            test_files_in_diff=["tests/test_auth.py"],
-            test_assertions_deleted=3,
-            test_files_deleted=1,
+            test_provenance=[],
+            recent_test_log="abc1234 test(auth): add tests\ndef5678 fix: update",
         )
         md = ev.to_markdown()
-        assert "ALERT" in md
-        assert "1 test file(s) deleted" in md
-        assert "3 assertion(s) removed" in md
+        assert "abc1234" in md
+        assert "git log" in md.lower()
 
     @patch("aiv.lib.evidence_collector._run_git")
-    def test_collect_detects_deleted_test(self, mock_git):
+    def test_collect_with_covering_files(self, mock_git):
+        """collect_class_f with explicit covering files runs git log per file."""
         mock_git.side_effect = lambda *args: {
-            ("diff", "--cached", "--name-status"): "D\ttests/test_auth.py\nM\tsrc/main.py\n",
-            ("diff", "--cached", "--", "tests/"): "-    assert x == 1\n-    assert y == 2\n",
+            ("log", "--oneline", "--follow", "--", "tests/test_auth.py"):
+                "abc1234 initial commit",
+            ("log", "--format=%an", "--follow", "--diff-filter=A", "--", "tests/test_auth.py"):
+                "alice\n",
+            ("log", "-1", "--format=%an", "--", "tests/test_auth.py"):
+                "alice\n",
+            ("log", "--oneline", "-5", "--", "tests/"):
+                "abc1234 initial commit",
         }.get(args, "")
 
-        result = collect_class_f()
-        assert result.test_files_deleted == 1
-        assert result.test_assertions_deleted == 2
-        assert "tests/test_auth.py" in result.test_files_in_diff
+        result = collect_class_f(covering_test_files=["tests/test_auth.py"])
+        assert len(result.test_provenance) == 1
+        assert result.test_provenance[0].path == "tests/test_auth.py"
+        assert result.test_provenance[0].created_by == "alice"
+        assert result.test_provenance[0].commit_count == 1
 
     @patch("aiv.lib.evidence_collector._run_git")
-    def test_collect_clean(self, mock_git):
+    def test_collect_no_covering_files_discovers_from_diff(self, mock_git):
+        """When no covering files passed, discover from staged diff."""
         mock_git.side_effect = lambda *args: {
             ("diff", "--cached", "--name-status"): "M\tsrc/main.py\n",
-            ("diff", "--cached", "--", "tests/"): "",
+            ("log", "--oneline", "-5", "--", "tests/"): "",
         }.get(args, "")
 
         result = collect_class_f()
-        assert result.test_files_deleted == 0
-        assert result.test_assertions_deleted == 0
+        assert len(result.test_provenance) == 0
+
+
+# ---------------------------------------------------------------------------
+# Phase 1: AST Symbol Resolver
+# ---------------------------------------------------------------------------
+
+
+class TestASTSymbolResolver:
+    """resolve_changed_symbols must map line ranges to enclosing Python symbols."""
+
+    def test_resolves_function(self, tmp_path):
+        """A change inside a function body maps to that function name."""
+        src = tmp_path / "example.py"
+        src.write_text(
+            "def foo():\n    x = 1\n    return x\n\ndef bar():\n    return 2\n",
+            encoding="utf-8",
+        )
+        from aiv.lib.evidence_collector import resolve_changed_symbols
+
+        result = resolve_changed_symbols(str(src), [(2, 2)])
+        assert "foo" in result
+        assert "bar" not in result
+
+    def test_resolves_class(self, tmp_path):
+        """A change inside a class body maps to that class name."""
+        src = tmp_path / "example.py"
+        src.write_text(
+            "class MyClass:\n    def method(self):\n        pass\n\ndef standalone():\n    pass\n",
+            encoding="utf-8",
+        )
+        from aiv.lib.evidence_collector import resolve_changed_symbols
+
+        result = resolve_changed_symbols(str(src), [(3, 3)])
+        # Should resolve to the method inside the class
+        assert any("method" in s for s in result)
+
+    def test_module_level_change(self, tmp_path):
+        """A change at module level (outside any function) returns '<module>'."""
+        src = tmp_path / "example.py"
+        src.write_text("X = 1\nY = 2\n\ndef foo():\n    pass\n", encoding="utf-8")
+        from aiv.lib.evidence_collector import resolve_changed_symbols
+
+        result = resolve_changed_symbols(str(src), [(1, 2)])
+        assert "<module>" in result
+
+    def test_nonexistent_file(self):
+        """A nonexistent file returns '<parse-error>'."""
+        from aiv.lib.evidence_collector import resolve_changed_symbols
+
+        result = resolve_changed_symbols("/nonexistent/file.py", [(1, 5)])
+        assert "<parse-error>" in result
+
+
+# ---------------------------------------------------------------------------
+# Phase 2: AST Test Graph
+# ---------------------------------------------------------------------------
+
+
+class TestASTTestGraph:
+    """build_test_graph must parse test files for imports and calls."""
+
+    def test_builds_import_map(self, tmp_path):
+        """Import map captures imported symbols from test files."""
+        test_dir = tmp_path / "tests"
+        test_dir.mkdir()
+        (test_dir / "test_foo.py").write_text(
+            "from mymodule import foo_func, FooClass\n\n"
+            "def test_foo_works():\n    foo_func()\n",
+            encoding="utf-8",
+        )
+        from aiv.lib.evidence_collector import build_test_graph
+
+        graph = build_test_graph(str(test_dir))
+        # Find the test file in the graph
+        test_file = [k for k in graph.imports if "test_foo" in k][0]
+        assert "foo_func" in graph.imports[test_file]
+        assert "FooClass" in graph.imports[test_file]
+
+    def test_builds_call_map(self, tmp_path):
+        """Call map captures which symbols each test function calls."""
+        test_dir = tmp_path / "tests"
+        test_dir.mkdir()
+        (test_dir / "test_bar.py").write_text(
+            "from mymodule import bar_func\n\n"
+            "def test_bar_returns_true():\n"
+            "    result = bar_func()\n"
+            "    assert result is True\n",
+            encoding="utf-8",
+        )
+        from aiv.lib.evidence_collector import build_test_graph
+
+        graph = build_test_graph(str(test_dir))
+        test_file = [k for k in graph.calls if "test_bar" in k][0]
+        assert "bar_func" in graph.calls[test_file]["test_bar_returns_true"]
+
+    def test_empty_dir(self, tmp_path):
+        """Empty test directory returns empty graph."""
+        test_dir = tmp_path / "tests"
+        test_dir.mkdir()
+        from aiv.lib.evidence_collector import build_test_graph
+
+        graph = build_test_graph(str(test_dir))
+        assert len(graph.imports) == 0
+
+    def test_nonexistent_dir(self):
+        """Nonexistent directory returns empty graph."""
+        from aiv.lib.evidence_collector import build_test_graph
+
+        graph = build_test_graph("/nonexistent/tests/")
+        assert len(graph.imports) == 0
+
+
+# ---------------------------------------------------------------------------
+# Phase 3: find_covering_tests (semantic Class A)
+# ---------------------------------------------------------------------------
+
+
+class TestFindCoveringTests:
+    """find_covering_tests must deterministically map symbols to tests via AST."""
+
+    def test_finds_direct_caller(self, tmp_path):
+        """A test that imports AND calls a symbol is reported as covering."""
+        test_dir = tmp_path / "tests"
+        test_dir.mkdir()
+        (test_dir / "test_calc.py").write_text(
+            "from mymodule import calculate\n\n"
+            "def test_calculate_adds():\n"
+            "    assert calculate(1, 2) == 3\n",
+            encoding="utf-8",
+        )
+        from aiv.lib.evidence_collector import (
+            SymbolCoverage,
+            build_test_graph,
+            find_covering_tests,
+        )
+
+        graph = build_test_graph(str(test_dir))
+        results = find_covering_tests(["calculate"], graph)
+        assert len(results) == 1
+        assert len(results[0].calling_tests) == 1
+        assert "test_calculate_adds" in results[0].calling_tests[0]
+        assert "WARNING" not in results[0].coverage_verdict
+
+    def test_import_without_call_warns(self, tmp_path):
+        """A test that imports but never calls a symbol triggers WARNING."""
+        test_dir = tmp_path / "tests"
+        test_dir.mkdir()
+        (test_dir / "test_unused.py").write_text(
+            "from mymodule import unused_func\n\n"
+            "def test_something_else():\n"
+            "    assert True\n",
+            encoding="utf-8",
+        )
+        from aiv.lib.evidence_collector import build_test_graph, find_covering_tests
+
+        graph = build_test_graph(str(test_dir))
+        results = find_covering_tests(["unused_func"], graph)
+        assert len(results) == 1
+        assert "WARNING" in results[0].coverage_verdict
+        assert "0 tests call it" in results[0].coverage_verdict
+
+    def test_no_import_warns(self, tmp_path):
+        """A symbol not imported by any test triggers WARNING."""
+        test_dir = tmp_path / "tests"
+        test_dir.mkdir()
+        (test_dir / "test_other.py").write_text(
+            "def test_unrelated():\n    assert True\n",
+            encoding="utf-8",
+        )
+        from aiv.lib.evidence_collector import build_test_graph, find_covering_tests
+
+        graph = build_test_graph(str(test_dir))
+        results = find_covering_tests(["totally_unknown_func"], graph)
+        assert len(results) == 1
+        assert "WARNING" in results[0].coverage_verdict
+        assert "No tests import" in results[0].coverage_verdict
+
+    def test_retro_xdist_bug(self, tmp_path):
+        """Retro-test: xdist bug. Tests import ClassAEvidence but never call collect_class_a.
+
+        This is the exact scenario that let the `import pytest_xdist` bug ship.
+        The AST approach must correctly identify that collect_class_a is uncovered.
+        """
+        test_dir = tmp_path / "tests"
+        test_dir.mkdir()
+        (test_dir / "test_evidence.py").write_text(
+            "from aiv.lib.evidence_collector import ClassAEvidence\n\n"
+            "def test_markdown_output():\n"
+            "    ev = ClassAEvidence(\n"
+            "        total_passed=10, total_failed=0, total_warnings=0,\n"
+            "        duration='1s', relevant_tests=[], ruff_clean=True,\n"
+            "        ruff_errors=0, mypy_clean=True, mypy_summary='ok'\n"
+            "    )\n"
+            "    assert 'Class A' in ev.to_markdown()\n",
+            encoding="utf-8",
+        )
+        from aiv.lib.evidence_collector import build_test_graph, find_covering_tests
+
+        graph = build_test_graph(str(test_dir))
+        # collect_class_a is the function that was buggy, not ClassAEvidence
+        results = find_covering_tests(["collect_class_a"], graph)
+        assert len(results) == 1
+        # The test imports ClassAEvidence, NOT collect_class_a
+        assert "WARNING" in results[0].coverage_verdict
