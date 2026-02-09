@@ -886,11 +886,21 @@ def commit_cmd(
 
 - See Class B scope inventory for line-range change details."""
 
-    # Class F: COLLECTED from git diff on test files (R2+)
+    # Class F: COLLECTED from git log chain-of-custody on covering test files (R2+)
     class_f_md = ""
     if tier_upper in ("R2", "R3"):
-        console.print("[dim]Collecting Class F (provenance) — scanning test file integrity...[/dim]")
-        class_f_data = collect_class_f()
+        console.print("[dim]Collecting Class F (provenance) — git log chain-of-custody...[/dim]")
+        # Extract unique test file paths from Class A relevant tests
+        covering_files: list[str] = []
+        if not skip_checks and class_a_data and class_a_data.relevant_tests:
+            seen: set[str] = set()
+            for test_ref in class_a_data.relevant_tests:
+                # test_ref format: "tests/unit/test_foo.py::test_name"
+                tf = test_ref.split("::")[0] if "::" in test_ref else test_ref
+                if tf not in seen:
+                    seen.add(tf)
+                    covering_files.append(tf)
+        class_f_data = collect_class_f(covering_test_files=covering_files if covering_files else None)
         class_f_md = class_f_data.to_markdown()
 
     # --- Assemble evidence from collected artifacts ---

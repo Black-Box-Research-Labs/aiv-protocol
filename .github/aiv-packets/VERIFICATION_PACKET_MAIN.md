@@ -1,6 +1,6 @@
 # AIV Verification Packet (v2.1)
 
-**Commit:** `9547980`
+**Commit:** `f81b6e6`
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
 ---
@@ -13,15 +13,15 @@ classification:
   sod_mode: S1
   critical_surfaces: []
   blast_radius: "src/aiv/cli/main.py"
-  classification_rationale: "Class E was accepting a URL but emitting generic See linked spec — no verifier can trace that to a real requirement"
+  classification_rationale: "Class F was redundant with Class C and A — now shows distinct chain-of-custody provenance"
   classified_by: "ImmortalDemonGod"
-  classified_at: "2026-02-09T01:30:38Z"
+  classified_at: "2026-02-09T02:10:20Z"
 ```
 
 ## Claim(s)
 
-1. aiv commit requires --requirement flag specifying which section/requirement the intent URL satisfies
-2. Class E evidence now includes the user-provided requirement text instead of generic See linked spec
+1. commit_cmd extracts unique test file paths from Class A relevant_tests and passes them to collect_class_f
+2. Class F now shows git log chain-of-custody for the specific test files that cover the changed code
 3. No existing tests were modified or deleted during this change.
 
 ---
@@ -30,25 +30,20 @@ classification:
 
 ### Class E (Intent Alignment)
 
-- **Link:** [https://github.com/ImmortalDemonGod/aiv-protocol/blob/80014cd/SPECIFICATION.md](https://github.com/ImmortalDemonGod/aiv-protocol/blob/80014cd/SPECIFICATION.md)
-- **Requirements Verified:** SPECIFICATION.md Class E Intent Alignment: evidence must reference a specific requirement, not just link to a document
+- **Link:** [https://github.com/ImmortalDemonGod/aiv-protocol/blob/3e48e90/docs/CLAIM_AWARE_EVIDENCE_PLAN.md](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3e48e90/docs/CLAIM_AWARE_EVIDENCE_PLAN.md)
+- **Requirements Verified:** CLAIM_AWARE_EVIDENCE_PLAN.md Phase 0: Class F must use git log --follow on covering test files, not restate Class C+A
 
 ### Class B (Referential Evidence)
 
-**Scope Inventory** (SHA: [`9547980`](https://github.com/ImmortalDemonGod/aiv-protocol/tree/95479805a27cf80417fc6fad810420cef36ac2cc))
+**Scope Inventory** (SHA: [`f81b6e6`](https://github.com/ImmortalDemonGod/aiv-protocol/tree/f81b6e629c2e1f2665b0d9f9eb6c5d001a67af99))
 
-- [`src/aiv/cli/main.py#L730-L732`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/95479805a27cf80417fc6fad810420cef36ac2cc/src/aiv/cli/main.py#L730-L732)
-- [`src/aiv/cli/main.py#L779-L780`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/95479805a27cf80417fc6fad810420cef36ac2cc/src/aiv/cli/main.py#L779-L780)
-- [`src/aiv/cli/main.py#L841`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/95479805a27cf80417fc6fad810420cef36ac2cc/src/aiv/cli/main.py#L841)
+- [`src/aiv/cli/main.py#L889`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/f81b6e629c2e1f2665b0d9f9eb6c5d001a67af99/src/aiv/cli/main.py#L889)
+- [`src/aiv/cli/main.py#L892-L903`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/f81b6e629c2e1f2665b0d9f9eb6c5d001a67af99/src/aiv/cli/main.py#L892-L903)
 
 ### Class A (Execution Evidence)
 
-- **pytest:** 528 passed, 0 failed in 35.04s
-- **Tests covering changed file** (119):
-  - `tests/conftest.py::test_process_payment_success`
-  - `tests/conftest.py::test_login`
-  - `tests/conftest.py::test_refresh_token`
-  - `tests/conftest.py::test_charge`
+- **pytest:** 543 passed, 0 failed in 25.07s
+- **Tests covering changed file** (73):
   - `tests/integration/test_e2e_compliance.py::test_every_real_packet_passes_lenient`
   - `tests/integration/test_e2e_compliance.py::test_every_real_packet_parses_classification`
   - `tests/integration/test_e2e_compliance.py::test_cli_subprocess_check_passes`
@@ -65,6 +60,10 @@ classification:
   - `tests/integration/test_e2e_compliance.py::test_mutable_github_link_blocked`
   - `tests/integration/test_e2e_compliance.py::test_sha_pinned_link_passes`
   - `tests/integration/test_e2e_compliance.py::test_deleted_assertion_in_diff_blocked`
+  - `tests/integration/test_e2e_compliance.py::test_added_skip_decorator_blocked`
+  - `tests/integration/test_e2e_compliance.py::test_deleted_test_file_blocked`
+  - `tests/integration/test_e2e_compliance.py::test_clean_diff_passes`
+  - `tests/integration/test_e2e_compliance.py::test_class_f_justification_overrides_anticheat`
 - **ruff:** All checks passed
 - **mypy:** Success: no issues found in 1 source file
 
@@ -79,7 +78,22 @@ classification:
 
 ### Class F (Provenance Evidence)
 
-- No test files deleted. No assertions removed. Full test suite passes.
+**Test file chain-of-custody:**
+
+| File | Commits | Created By | Last Modified By | Assertions |
+|------|---------|------------|------------------|------------|
+| `tests/integration/test_e2e_compliance.py` | 6 | ImmortalDemonGod (dca3d1f) | ImmortalDemonGod (ffd62ca) | 94 |
+| `tests/unit/test_coverage.py` | 3 | ImmortalDemonGod (2ea606e) | ImmortalDemonGod (90e23b6) | 50 |
+
+**Recent test directory history** (`git log --oneline -5 -- tests/`):
+
+```
+f81b6e6 test(lib): 31 tests for AST symbol resolver, test graph, and semantic coverage
+9547980 test(auditor): 3 tests for evidence TODO severity escalation â€” the exact bar
+2985156 test(lib): 18 tests for evidence collector module
+c88bb9c test(hooks): 41 tests for portable pre-commit hook
+157ccbb style: fix ruff format, lint, and mypy strict errors for CI
+```
 
 ---
 
@@ -92,4 +106,4 @@ Evidence was collected by `aiv commit` running: git diff, pytest -v, ruff, mypy,
 
 ## Summary
 
-aiv commit --requirement forces specific section/requirement text into Class E evidence
+Wire collect_class_f to receive covering test file paths from Class A evidence
