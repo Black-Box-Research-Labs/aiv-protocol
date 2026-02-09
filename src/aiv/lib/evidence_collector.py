@@ -59,12 +59,16 @@ class ClassAEvidence:
     symbol_coverage: list[SymbolCoverage] = field(default_factory=list)
 
     def to_markdown(self) -> str:
-        """Render as markdown including specific test names and tool output.
+        """Render as markdown with claim-specific evidence only.
 
         When AST symbol coverage is available, renders per-symbol verdicts
         showing which tests import AND call each changed symbol, with a
-        coverage summary. The global "N passed" metric is suppressed when
-        per-symbol data is available (it adds no claim-specific signal).
+        coverage summary. Global "N passed" is omitted because it carries
+        zero claim-specific information (identical for a no-op commit).
+
+        Ruff/mypy output is placed in a separate Code Quality section
+        rather than Class A, because linting proves syntax/types, not
+        behavior. Class A is reserved for execution evidence.
         """
         lines = ["### Class A (Execution Evidence)\n"]
 
@@ -78,7 +82,7 @@ class ClassAEvidence:
                 if has_tests:
                     covered += 1
                 icon = "PASS" if has_tests else "FAIL"
-                lines.append(f"- **`{sc.symbol}`** ({sc.line_range}): {icon} — {sc.coverage_verdict}")
+                lines.append(f"- **`{sc.symbol}`** ({sc.line_range}): {icon} -- {sc.coverage_verdict}")
                 if sc.calling_tests:
                     for ct in sc.calling_tests[:10]:
                         lines.append(f"  - `{ct}`")
@@ -87,15 +91,24 @@ class ClassAEvidence:
                         lines.append(f"  - Imported by: `{tf}`")
             lines.append(f"\n**Coverage summary:** {covered}/{total} symbols verified by tests.")
         else:
-            # Fallback: global metric for non-Python files or --skip-checks
-            lines.append(f"- **pytest:** {self.total_passed} passed, {self.total_failed} failed in {self.duration}")
+            # Fallback for non-Python files: only show tests that cover this file
             if self.relevant_tests:
-                lines.append(f"- **Tests covering changed file** ({len(self.relevant_tests)}):")
+                lines.append(f"**Tests covering changed file** ({len(self.relevant_tests)}):\n")
                 for t in self.relevant_tests[:20]:
-                    lines.append(f"  - `{t}`")
+                    lines.append(f"- `{t}`")
             else:
-                lines.append("- **WARNING:** No tests found that directly import or reference the changed file.")
+                lines.append("**WARNING:** No tests found that directly import or reference the changed file.")
+                lines.append("This file has no claim-specific execution evidence.")
 
+        return "\n".join(lines)
+
+    def code_quality_markdown(self) -> str:
+        """Render ruff/mypy as a separate Code Quality section.
+
+        These tools prove syntax and type correctness, not behavioral
+        correctness. They belong outside Class A (Execution Evidence).
+        """
+        lines = ["### Code Quality (Linting & Types)\n"]
         lines.append(f"- **ruff:** {'All checks passed' if self.ruff_clean else f'{self.ruff_errors} error(s)'}")
         lines.append(f"- **mypy:** {self.mypy_summary}")
         return "\n".join(lines)
