@@ -421,7 +421,7 @@ class TestAuditCLI:
 
         _write_packet(tmp_path, "VERIFICATION_PACKET_CLEAN.md", MINIMAL_CLEAN_PACKET)
         result = subprocess.run(
-            [sys.executable, "-m", "aiv", "audit", str(tmp_path)],
+            [sys.executable, "-m", "aiv", "audit", str(tmp_path), "--no-evidence"],
             capture_output=True,
             text=True,
             timeout=30,
@@ -437,7 +437,7 @@ class TestAuditCLI:
         body = MINIMAL_CLEAN_PACKET.replace("`abc1234`", "`pending`")
         _write_packet(tmp_path, "VERIFICATION_PACKET_BAD.md", body)
         result = subprocess.run(
-            [sys.executable, "-m", "aiv", "audit", str(tmp_path)],
+            [sys.executable, "-m", "aiv", "audit", str(tmp_path), "--no-evidence"],
             capture_output=True,
             text=True,
             timeout=30,
@@ -636,3 +636,228 @@ class TestAuditCommitsCombined:
 
         assert len(result.findings) == 0
         assert result.packets_scanned == 0
+
+
+# ---------------------------------------------------------------------------
+# Evidence file auditing tests
+# ---------------------------------------------------------------------------
+
+CLEAN_EVIDENCE = """\
+# AIV Evidence File (v1.0)
+
+**File:** `src/auth.py`
+**Commit:** `abc1234`
+**Generated:** 2026-02-09T08:00:00Z
+**Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
+
+---
+
+## Classification (required)
+
+```yaml
+classification:
+  risk_tier: R1
+  sod_mode: S0
+  critical_surfaces: []
+  blast_radius: "src/auth.py"
+  classification_rationale: "Standard bug fix"
+  classified_by: "alice"
+  classified_at: "2026-02-09T08:00:00Z"
+```
+
+## Claim(s)
+
+1. TokenValidator rejects expired tokens with 401
+2. No existing tests were modified or deleted during this change.
+
+---
+
+## Evidence
+
+### Class E (Intent Alignment)
+
+- **Link:** [https://github.com/org/repo/blob/abc1234def/SPEC.md](https://github.com/org/repo/blob/abc1234def/SPEC.md)
+- **Requirements Verified:** Section 4.2 requires token expiry handling
+
+### Class B (Referential Evidence)
+
+**Scope Inventory** (SHA: [`abc1234`](https://github.com/org/repo/tree/abc1234def))
+
+- [`src/auth.py#L42-L58`](https://github.com/org/repo/blob/abc1234def/src/auth.py#L42-L58)
+
+### Class A (Execution Evidence)
+
+- pytest: 404 passed, 0 failed
+- ruff: clean
+- mypy: clean
+
+---
+
+## Verification Methodology
+
+**Zero-Touch Mandate:** Verifier inspects artifacts only.
+Evidence collected by `aiv commit` running: git diff, pytest (404 passed, 0 failed), ruff (clean), mypy (clean).
+
+---
+
+## Summary
+
+Handle expired JWT tokens with proper 401 response
+"""
+
+
+def _write_evidence(directory: Path, name: str, body: str) -> Path:
+    directory.mkdir(parents=True, exist_ok=True)
+    p = directory / name
+    p.write_text(body, encoding="utf-8")
+    return p
+
+
+class TestEvidenceAudit:
+    """Tests for Layer 1 evidence file auditing."""
+
+    def test_clean_evidence_no_findings(self, tmp_path: Path) -> None:
+        packets_dir = tmp_path / "packets"
+        packets_dir.mkdir()
+        evidence_dir = tmp_path / "evidence"
+        _write_evidence(evidence_dir, "EVIDENCE_AUTH.md", CLEAN_EVIDENCE)
+
+        auditor = PacketAuditor()
+        with patch("aiv.lib.auditor._get_introducing_commit", return_value="abc1234"):
+            result = auditor.audit(packets_dir, evidence_dir=evidence_dir)
+
+        assert result.packets_scanned == 1
+        assert len(result.findings) == 0
+
+    def test_mutable_class_e_link_detected(self, tmp_path: Path) -> None:
+        body = CLEAN_EVIDENCE.replace(
+            "blob/abc1234def/SPEC.md](https://github.com/org/repo/blob/abc1234def/SPEC.md)",
+            "blob/main/SPEC.md](https://github.com/org/repo/blob/main/SPEC.md)",
+        )
+        packets_dir = tmp_path / "packets"
+        packets_dir.mkdir()
+        evidence_dir = tmp_path / "evidence"
+        _write_evidence(evidence_dir, "EVIDENCE_AUTH.md", body)
+
+        auditor = PacketAuditor()
+        with patch("aiv.lib.auditor._get_introducing_commit", return_value="abc1234"):
+            result = auditor.audit(packets_dir, evidence_dir=evidence_dir)
+
+        types = {f.finding_type for f in result.findings}
+        assert "EVIDENCE_MUTABLE_LINK" in types
+
+    def test_tier_skip_detected(self, tmp_path: Path) -> None:
+        """R1 + --skip-checks should be flagged as EVIDENCE_TIER_SKIP."""
+        body = CLEAN_EVIDENCE.replace(
+            "- pytest: 404 passed, 0 failed\n- ruff: clean\n- mypy: clean",
+            "- Local checks skipped (--skip-checks).",
+        )
+        packets_dir = tmp_path / "packets"
+        packets_dir.mkdir()
+        evidence_dir = tmp_path / "evidence"
+        _write_evidence(evidence_dir, "EVIDENCE_AUTH.md", body)
+
+        auditor = PacketAuditor()
+        with patch("aiv.lib.auditor._get_introducing_commit", return_value="abc1234"):
+            result = auditor.audit(packets_dir, evidence_dir=evidence_dir)
+
+        types = {f.finding_type for f in result.findings}
+        assert "EVIDENCE_TIER_SKIP" in types
+
+    def test_r0_skip_no_tier_skip_finding(self, tmp_path: Path) -> None:
+        """R0 + --skip-checks should NOT produce EVIDENCE_TIER_SKIP."""
+        body = CLEAN_EVIDENCE.replace("risk_tier: R1", "risk_tier: R0").replace(
+            "- pytest: 404 passed, 0 failed\n- ruff: clean\n- mypy: clean",
+            "- Local checks skipped (--skip-checks).\n- **Skip reason:** Docs only",
+        ).replace(
+            "Evidence collected by `aiv commit` running: git diff, pytest (404 passed, 0 failed), ruff (clean), mypy (clean).",
+            "**R0 (trivial) -- local checks skipped.**\n**Reason:** Docs only\nOnly git diff scope inventory was collected. No execution evidence.",
+        )
+        packets_dir = tmp_path / "packets"
+        packets_dir.mkdir()
+        evidence_dir = tmp_path / "evidence"
+        _write_evidence(evidence_dir, "EVIDENCE_AUTH.md", body)
+
+        auditor = PacketAuditor()
+        with patch("aiv.lib.auditor._get_introducing_commit", return_value="abc1234"):
+            result = auditor.audit(packets_dir, evidence_dir=evidence_dir)
+
+        types = {f.finding_type for f in result.findings}
+        assert "EVIDENCE_TIER_SKIP" not in types
+        assert "EVIDENCE_THEATER" not in types
+
+    def test_no_skip_reason_detected(self, tmp_path: Path) -> None:
+        """--skip-checks without --skip-reason should be flagged."""
+        body = CLEAN_EVIDENCE.replace("risk_tier: R1", "risk_tier: R0").replace(
+            "- pytest: 404 passed, 0 failed\n- ruff: clean\n- mypy: clean",
+            "- Local checks skipped (--skip-checks).",
+        ).replace(
+            "Evidence collected by `aiv commit` running: git diff, pytest (404 passed, 0 failed), ruff (clean), mypy (clean).",
+            "**R0 (trivial) -- local checks skipped.**\nOnly git diff scope inventory was collected.",
+        )
+        packets_dir = tmp_path / "packets"
+        packets_dir.mkdir()
+        evidence_dir = tmp_path / "evidence"
+        _write_evidence(evidence_dir, "EVIDENCE_AUTH.md", body)
+
+        auditor = PacketAuditor()
+        with patch("aiv.lib.auditor._get_introducing_commit", return_value="abc1234"):
+            result = auditor.audit(packets_dir, evidence_dir=evidence_dir)
+
+        types = {f.finding_type for f in result.findings}
+        assert "EVIDENCE_NO_SKIP_REASON" in types
+
+    def test_theater_methodology_detected(self, tmp_path: Path) -> None:
+        """Methodology claims tools ran but Class A says skipped -> EVIDENCE_THEATER."""
+        body = CLEAN_EVIDENCE.replace(
+            "- pytest: 404 passed, 0 failed\n- ruff: clean\n- mypy: clean",
+            "- Local checks skipped (--skip-checks).",
+        )
+        # Methodology still claims tools ran (the lie)
+        packets_dir = tmp_path / "packets"
+        packets_dir.mkdir()
+        evidence_dir = tmp_path / "evidence"
+        _write_evidence(evidence_dir, "EVIDENCE_AUTH.md", body)
+
+        auditor = PacketAuditor()
+        with patch("aiv.lib.auditor._get_introducing_commit", return_value="abc1234"):
+            result = auditor.audit(packets_dir, evidence_dir=evidence_dir)
+
+        types = {f.finding_type for f in result.findings}
+        assert "EVIDENCE_THEATER" in types
+
+    def test_evidence_dir_none_skips_scan(self, tmp_path: Path) -> None:
+        """evidence_dir=None should skip evidence scanning entirely."""
+        packets_dir = tmp_path / "packets"
+        packets_dir.mkdir()
+
+        auditor = PacketAuditor()
+        result = auditor.audit(packets_dir, evidence_dir=None)
+
+        assert result.packets_scanned == 0
+        assert len(result.findings) == 0
+
+    def test_no_evidence_flag_skips_evidence(self, tmp_path: Path) -> None:
+        """Passing a nonexistent evidence_dir should not crash."""
+        packets_dir = tmp_path / "packets"
+        packets_dir.mkdir()
+        nonexistent = tmp_path / "does_not_exist"
+
+        auditor = PacketAuditor()
+        result = auditor.audit(packets_dir, evidence_dir=nonexistent)
+
+        assert result.packets_scanned == 0
+
+    def test_commit_pending_in_evidence(self, tmp_path: Path) -> None:
+        body = CLEAN_EVIDENCE.replace("`abc1234`", "`pending`")
+        packets_dir = tmp_path / "packets"
+        packets_dir.mkdir()
+        evidence_dir = tmp_path / "evidence"
+        _write_evidence(evidence_dir, "EVIDENCE_AUTH.md", body)
+
+        auditor = PacketAuditor()
+        with patch("aiv.lib.auditor._get_introducing_commit", return_value="abc1234"):
+            result = auditor.audit(packets_dir, evidence_dir=evidence_dir)
+
+        types = {f.finding_type for f in result.findings}
+        assert "COMMIT_PENDING" in types
