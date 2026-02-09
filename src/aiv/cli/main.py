@@ -311,7 +311,7 @@ def quickstart() -> None:
     )
     console.print(
         "[bold yellow]Enforcement:[/bold yellow]\n"
-        "  - R1+ commits blocked when >50% of claims are UNVERIFIED (use --force to override)\n"
+        "  - R1+ commits blocked when >50% of claims are UNVERIFIED (no bypass -- write tests or use R0)\n"
         "  - R3 commits blocked on ANY unverified claim\n"
         "  - --skip-checks only allowed for R0\n"
         "  - Class E intent URLs must be real URLs, not plain text\n"
@@ -1389,7 +1389,6 @@ def commit_cmd(
         "Example: --skip-reason 'Help text only, no logic changes'",
     ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Generate packet and validate but don't commit"),
-    force: str = typer.Option("", "--force", help="Override R3 unverified-claim block (requires justification string)"),
 ) -> None:
     """
     Atomic commit with COLLECTED evidence -- not templates.
@@ -1739,7 +1738,7 @@ def commit_cmd(
     total_bindable = [cv for cv in claim_verifications if cv.verdict != "MANUAL REVIEW"]
     unverified_pct = (len(unverified) / len(total_bindable) * 100) if total_bindable else 0
 
-    if tier_upper != "R0" and unverified and not force:
+    if tier_upper != "R0" and unverified:
         # R1+: block when >50% of bindable claims are unverified
         # R3: block on ANY unverified claim (stricter)
         should_block = (tier_upper == "R3" and len(unverified) > 0) or (
@@ -1754,17 +1753,8 @@ def commit_cmd(
                 console.print(f'  Claim {cv.claim_index}: "{cv.claim_text[:60]}" -- {cv.evidence_detail}')
             console.print("\n[dim]Options:[/dim]")
             console.print("  1. Add tests that call the uncovered symbol(s)")
-            if tier_upper != "R0":
-                console.print("  2. Downgrade to R0 (--tier R0 --skip-checks) if truly trivial")
-            console.print('  3. Use --force "justification" to override (recorded in evidence)')
+            console.print("  2. Downgrade to R0 (--tier R0 --skip-checks) if truly trivial")
             raise typer.Exit(1)
-
-    force_section = ""
-    if force and unverified:
-        force_lines = ["\n**Acknowledged gaps (--force override):**\n"]
-        for cv in unverified:
-            force_lines.append(f"- Claim {cv.claim_index}: UNVERIFIED -- {cv.evidence_detail} (justification: {force})")
-        force_section = "\n".join(force_lines)
 
     # --- Build methodology text (must reflect reality) ---
     if skip_checks:
@@ -1841,7 +1831,6 @@ classification:
 {evidence_sections}
 
 {claim_matrix_md}
-{force_section}
 ---
 
 ## Verification Methodology
