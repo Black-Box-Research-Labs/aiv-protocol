@@ -787,19 +787,38 @@ def commit_cmd(
     file: Path = typer.Argument(..., help="Functional file to commit (e.g. src/auth.py)"),
     message: str = typer.Option(..., "--message", "-m", help="Git commit message"),
     tier: str = typer.Option("R1", "--tier", "-t", help="Risk tier: R0, R1, R2, R3"),
-    claim: list[str] = typer.Option([], "--claim", "-c", help="Falsifiable claim (repeatable, required)"),
-    intent: str = typer.Option("", "--intent", "-i", help="Class E: URL to spec/issue/directive (required)"),
-    requirement: str = typer.Option(
-        "", "--requirement", help="Class E: which specific requirement the intent URL satisfies (required)"
+    claim: list[str] = typer.Option(
+        [], "--claim", "-c",
+        help="Falsifiable claim about the change (REQUIRED, repeatable). "
+             "Format: '[Component] [verb: rejects/returns/ensures/prevents] [result] under [condition]'. "
+             "Example: -c 'TokenValidator rejects expired tokens with 401'",
     ),
-    rationale: str = typer.Option("", "--rationale", "-r", help="Classification rationale (required)"),
-    summary: str = typer.Option("", "--summary", "-s", help="One-line summary (required)"),
+    intent: str = typer.Option(
+        "", "--intent", "-i",
+        help="REQUIRED. Class E intent URL -- link to the spec, issue, or directive that motivated this change. "
+             "Example: -i 'https://github.com/org/repo/issues/42'",
+    ),
+    requirement: str = typer.Option(
+        "", "--requirement",
+        help="REQUIRED. Which specific requirement the --intent URL satisfies. "
+             "Example: --requirement 'Issue #42 requires expired tokens return 401'",
+    ),
+    rationale: str = typer.Option(
+        "", "--rationale", "-r",
+        help="REQUIRED. Why this risk tier was chosen. "
+             "Example: -r 'Standard bug fix in auth module'",
+    ),
+    summary: str = typer.Option(
+        "", "--summary", "-s",
+        help="REQUIRED. One-line summary of the change. "
+             "Example: -s 'Handle expired JWT tokens with proper 401 response'",
+    ),
     skip_checks: bool = typer.Option(False, "--skip-checks", help="Skip running local checks (pytest/ruff/mypy)"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Generate packet and validate but don't commit"),
     force: str = typer.Option("", "--force", help="Override R3 unverified-claim block (requires justification string)"),
 ) -> None:
     """
-    Atomic commit with COLLECTED evidence — not templates.
+    Atomic commit with COLLECTED evidence -- not templates.
 
     Evidence is gathered by running real tools (git diff, pytest -v, ruff,
     mypy, anti-cheat scan). The packet is assembled from tool output, not
@@ -810,8 +829,13 @@ def commit_cmd(
         aiv commit src/auth.py -m "fix(auth): handle expired tokens" -t R1 \\
             -c "TokenValidator rejects expired tokens with 401" \\
             -i "https://github.com/org/repo/issues/42" \\
+            --requirement "Issue #42 requires expired tokens return 401" \\
             -r "Standard bug fix in auth module" \\
             -s "Handle expired JWT tokens with proper 401 response"
+
+    Claim format (falsifiable):
+        GOOD: "TokenValidator rejects expired tokens with HTTP 401"
+        BAD:  "Fixed the authentication bug"
     """
     import re
     import subprocess
