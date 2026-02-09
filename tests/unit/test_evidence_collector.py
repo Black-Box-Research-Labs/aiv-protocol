@@ -17,6 +17,8 @@ from aiv.lib.evidence_collector import (
     ClassBEvidence,
     ClassCEvidence,
     ClassFEvidence,
+    DownstreamCaller,
+    SymbolCoverage,
     TestFileProvenance,
     collect_class_b,
     collect_class_c,
@@ -535,3 +537,155 @@ class TestFindCoveringTests:
         assert len(results) == 1
         # The test imports ClassAEvidence, NOT collect_class_a
         assert "WARNING" in results[0].coverage_verdict
+
+
+# ---------------------------------------------------------------------------
+# AST-wired Class A to_markdown (per-symbol coverage)
+# ---------------------------------------------------------------------------
+
+
+class TestClassAWithSymbolCoverage:
+    """Class A to_markdown must render per-symbol AST coverage when available."""
+
+    def test_renders_per_symbol_coverage(self):
+        """When symbol_coverage is set, render per-symbol analysis instead of flat list."""
+        ev = ClassAEvidence(
+            total_passed=100, total_failed=0, total_warnings=0,
+            duration="5s", relevant_tests=["tests/test_foo.py::test_bar"],
+            ruff_clean=True, ruff_errors=0, mypy_clean=True, mypy_summary="ok",
+            symbol_coverage=[
+                SymbolCoverage(
+                    symbol="my_func",
+                    line_range="L42-L58",
+                    importing_test_files=["tests/test_foo.py"],
+                    calling_tests=["tests/test_foo.py::test_bar"],
+                    coverage_verdict="1 test(s) call `my_func` directly",
+                )
+            ],
+        )
+        md = ev.to_markdown()
+        assert "Per-symbol test coverage" in md
+        assert "`my_func`" in md
+        assert "L42-L58" in md
+        assert "test_bar" in md
+        # Should NOT fall back to flat test list
+        assert "Tests covering changed file" not in md
+
+    def test_renders_warning_for_uncovered_symbol(self):
+        """When a symbol has 0 callers, render WARNING."""
+        ev = ClassAEvidence(
+            total_passed=100, total_failed=0, total_warnings=0,
+            duration="5s", relevant_tests=[],
+            ruff_clean=True, ruff_errors=0, mypy_clean=True, mypy_summary="ok",
+            symbol_coverage=[
+                SymbolCoverage(
+                    symbol="untested_func",
+                    line_range="L10",
+                    importing_test_files=[],
+                    calling_tests=[],
+                    coverage_verdict="WARNING: No tests import or call `untested_func`",
+                )
+            ],
+        )
+        md = ev.to_markdown()
+        assert "WARNING" in md
+        assert "untested_func" in md
+
+    def test_falls_back_to_grep_when_no_ast(self):
+        """Without symbol_coverage, falls back to grep-based test list."""
+        ev = ClassAEvidence(
+            total_passed=100, total_failed=0, total_warnings=0,
+            duration="5s", relevant_tests=["tests/test_foo.py::test_bar"],
+            ruff_clean=True, ruff_errors=0, mypy_clean=True, mypy_summary="ok",
+        )
+        md = ev.to_markdown()
+        assert "Tests covering changed file" in md
+        assert "Per-symbol" not in md
+
+
+# ---------------------------------------------------------------------------
+# Class C downstream caller rendering
+# ---------------------------------------------------------------------------
+
+
+class TestClassCDownstreamCallers:
+    """Class C to_markdown must render downstream impact analysis when available."""
+
+    def test_renders_downstream_callers(self):
+        ev = ClassCEvidence(
+            test_files_modified=[], test_files_deleted=[],
+            assertions_removed=[], skip_markers_added=[],
+            anti_cheat_clean=True,
+            downstream_callers=[
+                DownstreamCaller(file="src/cli/main.py", function="commit_cmd", symbol_called="collect_class_a"),
+                DownstreamCaller(file="src/cli/main.py", function="run_checks", symbol_called="collect_class_a"),
+            ],
+        )
+        md = ev.to_markdown()
+        assert "Downstream impact analysis" in md
+        assert "collect_class_a" in md
+        assert "commit_cmd" in md
+        assert "run_checks" in md
+
+    def test_no_downstream_callers_omits_section(self):
+        ev = ClassCEvidence(
+            test_files_modified=[], test_files_deleted=[],
+            assertions_removed=[], skip_markers_added=[],
+            anti_cheat_clean=True,
+        )
+        md = ev.to_markdown()
+        assert "Downstream impact" not in md
+
+
+# ---------------------------------------------------------------------------
+# Phase 4: find_downstream_callers
+# ---------------------------------------------------------------------------
+
+
+class TestFindDownstreamCallers:
+    """find_downstream_callers must find functions in src/ that call changed symbols."""
+
+    def test_finds_caller_in_src(self, tmp_path):
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        (src_dir / "caller.py").write_text(
+            "from mymodule import target_func\n\n"
+            "def run():\n    target_func()\n",
+            encoding="utf-8",
+        )
+        from aiv.lib.evidence_collector import find_downstream_callers
+
+        callers = find_downstream_callers(["target_func"], src_dir=str(src_dir))
+        assert len(callers) == 1
+        assert callers[0].function == "run"
+        assert callers[0].symbol_called == "target_func"
+
+    def test_excludes_committed_file(self, tmp_path):
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        # The committed file itself should be excluded
+        committed = src_dir / "target.py"
+        committed.write_text(
+            "from mymodule import helper\n\ndef target_func():\n    helper()\n",
+            encoding="utf-8",
+        )
+        from aiv.lib.evidence_collector import find_downstream_callers
+
+        callers = find_downstream_callers(
+            ["helper"],
+            src_dir=str(src_dir),
+            exclude_file=str(committed).replace("\\", "/"),
+        )
+        assert len(callers) == 0
+
+    def test_no_callers_returns_empty(self, tmp_path):
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        (src_dir / "other.py").write_text(
+            "def unrelated():\n    pass\n",
+            encoding="utf-8",
+        )
+        from aiv.lib.evidence_collector import find_downstream_callers
+
+        callers = find_downstream_callers(["nonexistent_func"], src_dir=str(src_dir))
+        assert len(callers) == 0
