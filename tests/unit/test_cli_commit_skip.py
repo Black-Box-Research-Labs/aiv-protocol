@@ -23,11 +23,15 @@ def staged_repo(tmp_path: Path) -> Path:
     subprocess.run(["git", "init", str(tmp_path)], capture_output=True, check=True)
     subprocess.run(
         ["git", "config", "user.email", "test@test.com"],
-        cwd=str(tmp_path), capture_output=True, check=True,
+        cwd=str(tmp_path),
+        capture_output=True,
+        check=True,
     )
     subprocess.run(
         ["git", "config", "user.name", "Test"],
-        cwd=str(tmp_path), capture_output=True, check=True,
+        cwd=str(tmp_path),
+        capture_output=True,
+        check=True,
     )
     # Create and commit a file so HEAD exists
     readme = tmp_path / "README.md"
@@ -35,7 +39,9 @@ def staged_repo(tmp_path: Path) -> Path:
     subprocess.run(["git", "add", "."], cwd=str(tmp_path), capture_output=True, check=True)
     subprocess.run(
         ["git", "commit", "-m", "init"],
-        cwd=str(tmp_path), capture_output=True, check=True,
+        cwd=str(tmp_path),
+        capture_output=True,
+        check=True,
     )
     # Create a functional file to commit
     src = tmp_path / "src"
@@ -49,13 +55,23 @@ def staged_repo(tmp_path: Path) -> Path:
 def _run_aiv_commit(cwd: Path, extra_args: list[str] | None = None) -> subprocess.CompletedProcess:
     """Run aiv commit with standard required flags plus any extras."""
     base = [
-        sys.executable, "-m", "aiv", "commit", "src/hello.py",
-        "-m", "test commit",
-        "-c", "hello prints hello to stdout",
-        "-i", "https://github.com/org/repo/issues/1",
-        "--requirement", "Issue #1",
-        "-r", "trivial test",
-        "-s", "test summary",
+        sys.executable,
+        "-m",
+        "aiv",
+        "commit",
+        "src/hello.py",
+        "-m",
+        "test commit",
+        "-c",
+        "hello prints hello to stdout",
+        "-i",
+        "https://github.com/org/repo/issues/1",
+        "--requirement",
+        "Issue #1",
+        "-r",
+        "trivial test",
+        "-s",
+        "test summary",
     ]
     if extra_args:
         base.extend(extra_args)

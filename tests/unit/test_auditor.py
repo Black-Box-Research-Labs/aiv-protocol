@@ -766,12 +766,16 @@ class TestEvidenceAudit:
 
     def test_r0_skip_no_tier_skip_finding(self, tmp_path: Path) -> None:
         """R0 + --skip-checks should NOT produce EVIDENCE_TIER_SKIP."""
-        body = CLEAN_EVIDENCE.replace("risk_tier: R1", "risk_tier: R0").replace(
-            "- pytest: 404 passed, 0 failed\n- ruff: clean\n- mypy: clean",
-            "- Local checks skipped (--skip-checks).\n- **Skip reason:** Docs only",
-        ).replace(
-            "Evidence collected by `aiv commit` running: git diff, pytest (404 passed, 0 failed), ruff (clean), mypy (clean).",
-            "**R0 (trivial) -- local checks skipped.**\n**Reason:** Docs only\nOnly git diff scope inventory was collected. No execution evidence.",
+        body = (
+            CLEAN_EVIDENCE.replace("risk_tier: R1", "risk_tier: R0")
+            .replace(
+                "- pytest: 404 passed, 0 failed\n- ruff: clean\n- mypy: clean",
+                "- Local checks skipped (--skip-checks).\n- **Skip reason:** Docs only",
+            )
+            .replace(
+                "Evidence collected by `aiv commit` running: git diff, pytest (404 passed, 0 failed), ruff (clean), mypy (clean).",
+                "**R0 (trivial) -- local checks skipped.**\n**Reason:** Docs only\nOnly git diff scope inventory was collected. No execution evidence.",
+            )
         )
         packets_dir = tmp_path / "packets"
         packets_dir.mkdir()
@@ -788,12 +792,16 @@ class TestEvidenceAudit:
 
     def test_no_skip_reason_detected(self, tmp_path: Path) -> None:
         """--skip-checks without --skip-reason should be flagged."""
-        body = CLEAN_EVIDENCE.replace("risk_tier: R1", "risk_tier: R0").replace(
-            "- pytest: 404 passed, 0 failed\n- ruff: clean\n- mypy: clean",
-            "- Local checks skipped (--skip-checks).",
-        ).replace(
-            "Evidence collected by `aiv commit` running: git diff, pytest (404 passed, 0 failed), ruff (clean), mypy (clean).",
-            "**R0 (trivial) -- local checks skipped.**\nOnly git diff scope inventory was collected.",
+        body = (
+            CLEAN_EVIDENCE.replace("risk_tier: R1", "risk_tier: R0")
+            .replace(
+                "- pytest: 404 passed, 0 failed\n- ruff: clean\n- mypy: clean",
+                "- Local checks skipped (--skip-checks).",
+            )
+            .replace(
+                "Evidence collected by `aiv commit` running: git diff, pytest (404 passed, 0 failed), ruff (clean), mypy (clean).",
+                "**R0 (trivial) -- local checks skipped.**\nOnly git diff scope inventory was collected.",
+            )
         )
         packets_dir = tmp_path / "packets"
         packets_dir.mkdir()

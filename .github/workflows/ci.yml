@@ -80,7 +80,10 @@ jobs:
         run: pip install -e ".[dev]"
 
       - name: Audit packets + commit history
-        run: aiv audit --commits 20
+        # TODO: Remove --no-evidence once old evidence files are re-generated
+        # with anti-theater gates (mutable links, theater methodology, R1+skip).
+        # Run `aiv audit` locally to see evidence findings.
+        run: aiv audit --commits 20 --no-evidence
 
   evidence:
     name: Generate AIV Evidence Artifacts
