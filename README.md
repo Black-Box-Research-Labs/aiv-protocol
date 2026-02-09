@@ -492,6 +492,9 @@ classification:
   - `tests/unit/test_auth.py::test_malformed_token_returns_400`
 
 **Coverage summary:** 1/1 symbols verified by tests.
+
+### Code Quality (Linting & Types)
+
 - **ruff:** All checks passed
 - **mypy:** clean
 
@@ -509,7 +512,8 @@ classification:
 ## Verification Methodology
 
 **Zero-Touch Mandate:** Verifier inspects artifacts only.
-Evidence was collected by `aiv commit` running: git diff, pytest -v, ruff, mypy, anti-cheat scan.
+Evidence collected by `aiv commit` running: git diff (scope inventory), AST symbol-to-test binding (1/1 symbols verified).
+Ruff/mypy results are in Code Quality (not Class A) because they prove syntax/types, not behavior.
 
 ---
 
