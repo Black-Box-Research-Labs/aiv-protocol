@@ -16,7 +16,7 @@ Do NOT use plain `git commit` for functional code changes. Use `aiv commit` inst
 
 - Claims (-c) MUST be falsifiable: "TokenValidator rejects expired tokens with 401" NOT "Fixed auth bug"
 - Intent (-i) MUST be a URL (https://...), not plain text
-- R1+ commits are BLOCKED if >50% of claims lack test coverage. Use --force "justification" to override.
+- R1+ commits are BLOCKED if >50% of claims lack test coverage. No bypass -- write tests or use R0.
 - --skip-checks is ONLY allowed for R0 (docs, formatting, comments)
 - Run `aiv quickstart` for the full workflow reference
 

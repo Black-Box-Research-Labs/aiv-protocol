@@ -42,7 +42,7 @@ aiv commit <file> \
 - `-i` must be a **URL** (https://...), not plain text
 - `-t` risk tier: R0 (trivial), R1 (default, low), R2 (medium), R3 (high/critical)
 - You can repeat `-c` for multiple claims
-- R1+ commits are **blocked** if >50% of claims lack test coverage. Use `--force "justification"` to override.
+- R1+ commits are **blocked** if >50% of claims lack test coverage. No bypass -- write tests or use R0.
 - `--skip-checks` is only allowed for R0 (formatting, docs, comments)
 
 ### 3. Repeat step 2 for each file in the change
