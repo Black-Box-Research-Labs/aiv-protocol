@@ -1,6 +1,6 @@
 # AIV Verification Packet (v2.1)
 
-**Commit:** `036f0fe`
+**Commit:** `ee93409`
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
 ---
@@ -13,15 +13,15 @@ classification:
   sod_mode: S1
   critical_surfaces: []
   blast_radius: "src/aiv/lib/evidence_collector.py"
-  classification_rationale: "Evidence collector runs pytest on every commit — halving that time directly improves developer experience"
+  classification_rationale: "Two bugs: xdist never activated (wrong module name), test relevance had false positives (bare word grep)"
   classified_by: "ImmortalDemonGod"
-  classified_at: "2026-02-09T01:33:59Z"
+  classified_at: "2026-02-09T01:38:20Z"
 ```
 
 ## Claim(s)
 
-1. collect_class_a runs pytest with -n auto when pytest-xdist is installed, cutting test time from 35s to 19s
-2. Falls back to serial execution if pytest-xdist is not installed
+1. Parallel test execution activates correctly: import xdist (not import pytest_xdist) detects pytest-xdist
+2. Class A test relevance uses Python import-path matching instead of bare stem grep, eliminating false positives like pyproject matching pre-commit hook tests
 3. No existing tests were modified or deleted during this change.
 
 ---
@@ -30,19 +30,21 @@ classification:
 
 ### Class E (Intent Alignment)
 
-- **Link:** [https://github.com/ImmortalDemonGod/aiv-protocol/blob/036f0fe/SPECIFICATION.md](https://github.com/ImmortalDemonGod/aiv-protocol/blob/036f0fe/SPECIFICATION.md)
-- **Requirements Verified:** Performance: evidence collection should not block the developer workflow — 35s per commit is too slow for adoption
+- **Link:** [https://github.com/ImmortalDemonGod/aiv-protocol/blob/ee93409/SPECIFICATION.md](https://github.com/ImmortalDemonGod/aiv-protocol/blob/ee93409/SPECIFICATION.md)
+- **Requirements Verified:** Evidence integrity: Class A must only list tests that actually test the changed module, not tests that happen to mention a keyword
 
 ### Class B (Referential Evidence)
 
-**Scope Inventory** (SHA: [`036f0fe`](https://github.com/ImmortalDemonGod/aiv-protocol/tree/036f0fe05b6d12aec19405a393c8d86ec81259d8))
+**Scope Inventory** (SHA: [`ee93409`](https://github.com/ImmortalDemonGod/aiv-protocol/tree/ee934098a8eec73e275b17d0bdd57c2faa4a6e0f))
 
-- [`src/aiv/lib/evidence_collector.py#L252-L260`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/036f0fe05b6d12aec19405a393c8d86ec81259d8/src/aiv/lib/evidence_collector.py#L252-L260)
+- [`src/aiv/lib/evidence_collector.py#L255`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/ee934098a8eec73e275b17d0bdd57c2faa4a6e0f/src/aiv/lib/evidence_collector.py#L255)
+- [`src/aiv/lib/evidence_collector.py#L281-L283`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/ee934098a8eec73e275b17d0bdd57c2faa4a6e0f/src/aiv/lib/evidence_collector.py#L281-L283)
+- [`src/aiv/lib/evidence_collector.py#L285-L329`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/ee934098a8eec73e275b17d0bdd57c2faa4a6e0f/src/aiv/lib/evidence_collector.py#L285-L329)
 
 ### Class A (Execution Evidence)
 
-- **pytest:** 528 passed, 0 failed in 35.84s
-- **Tests covering changed file** (18):
+- **pytest:** 530 passed, 0 failed in 19.21s
+- **Tests covering changed file** (17):
   - `tests/unit/test_evidence_collector.py::test_to_markdown_includes_sha_pinned_links`
   - `tests/unit/test_evidence_collector.py::test_to_markdown_includes_tree_link`
   - `tests/unit/test_evidence_collector.py::test_collect_parses_diff_hunks`
@@ -57,7 +59,6 @@ classification:
   - `tests/unit/test_evidence_collector.py::test_collect_detects_deleted_test_file`
   - `tests/unit/test_evidence_collector.py::test_collect_detects_removed_assertion`
   - `tests/unit/test_evidence_collector.py::test_collect_clean_diff`
-  - `tests/unit/test_evidence_collector.py::test_to_markdown_clean`
   - `tests/unit/test_evidence_collector.py::test_to_markdown_alerts`
   - `tests/unit/test_evidence_collector.py::test_collect_detects_deleted_test`
   - `tests/unit/test_evidence_collector.py::test_collect_clean`
@@ -88,4 +89,4 @@ Evidence was collected by `aiv commit` running: git diff, pytest -v, ruff, mypy,
 
 ## Summary
 
-pytest -n auto parallel execution in evidence collector, 35s to 19s
+Fix xdist import detection and Class A test relevance false positives

@@ -252,7 +252,7 @@ def collect_class_a(file_path: str) -> ClassAEvidence:
     # 1. Run pytest in parallel (-n auto via pytest-xdist, fallback to serial)
     pytest_cmd = [sys.executable, "-m", "pytest", "--tb=no", "-q", "--no-header"]
     try:
-        import pytest_xdist as _  # noqa: F401
+        import xdist as _  # noqa: F401
 
         pytest_cmd.extend(["-n", "auto"])
     except ImportError:
@@ -278,32 +278,55 @@ def collect_class_a(file_path: str) -> ClassAEvidence:
     if m:
         duration = m.group(1)
 
-    # 2. Find tests that reference the changed file's module
-    # Extract module name from file path (e.g., src/aiv/lib/auditor.py -> auditor)
-    stem = Path(file_path).stem
-
-    # Search test files for imports/references to the changed module
+    # 2. Find tests that actually import or test the changed module.
+    # Uses import-path matching (not bare word grep) to avoid false positives
+    # like "pyproject" matching pre-commit hook tests that mention the word.
     relevant_tests: list[str] = []
-    try:
-        # Use grep to find test files that import or reference the module
-        grep_result = _run(
-            ["git", "grep", "-l", stem, "--", "tests/"],
-            timeout=10,
-        )
-        test_files = [f.strip() for f in grep_result.stdout.splitlines() if f.strip()]
+    stem = Path(file_path).stem
+    file_posix_local = file_path.replace("\\", "/")
 
-        # Collect test function names from those files
-        for tf in test_files[:5]:  # cap file scan
-            try:
-                content = Path(tf).read_text(encoding="utf-8")
-                for line in content.splitlines():
-                    m = re.match(r"\s*(def |class )(test_\w+)", line)
-                    if m:
-                        relevant_tests.append(f"{tf}::{m.group(2)}")
-            except Exception:
-                pass
-    except Exception:
-        pass
+    # Derive Python import path: src/aiv/lib/auditor.py -> aiv.lib.auditor
+    import_path = ""
+    if file_posix_local.endswith(".py"):
+        parts = Path(file_posix_local).with_suffix("").parts
+        # Strip leading "src/" if present
+        if parts and parts[0] == "src":
+            parts = parts[1:]
+        import_path = ".".join(parts)  # e.g. "aiv.lib.auditor"
+
+    search_patterns: list[str] = []
+    if import_path:
+        # Search for actual imports: "from aiv.lib.auditor import" or "import auditor"
+        search_patterns.append(f"from {import_path}")
+        # Also search for partial import path (e.g. "from aiv.lib import auditor")
+        if "." in import_path:
+            parent = import_path.rsplit(".", 1)[0]
+            search_patterns.append(f"from {parent} import {stem}")
+        # Also match test files named after the module (test_auditor.py)
+        search_patterns.append(f"test_{stem}")
+
+    for pattern in search_patterns:
+        try:
+            grep_result = _run(
+                ["git", "grep", "-l", pattern, "--", "tests/"],
+                timeout=10,
+            )
+            for tf in grep_result.stdout.splitlines():
+                tf = tf.strip()
+                if not tf:
+                    continue
+                try:
+                    content = Path(tf).read_text(encoding="utf-8")
+                    for line in content.splitlines():
+                        m = re.match(r"\s*(def |class )(test_\w+)", line)
+                        if m:
+                            entry = f"{tf}::{m.group(2)}"
+                            if entry not in relevant_tests:
+                                relevant_tests.append(entry)
+                except Exception:
+                    pass
+        except Exception:
+            pass
 
     # 3. Ruff
     ruff_r = _run([sys.executable, "-m", "ruff", "check", file_path], timeout=30)
