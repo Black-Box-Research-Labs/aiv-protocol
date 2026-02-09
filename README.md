@@ -190,7 +190,20 @@ The tool collects: the proof.
 | `--summary` / `-s` | Yes | One-line summary of the change |
 | `--tier` / `-t` | No (default: R1) | Risk tier: R0, R1, R2, R3 |
 | `--skip-checks` | No | Skip pytest/ruff/mypy (**R0 only** — blocked for R1+) |
+| `--skip-reason` | With `--skip-checks` | Documents why checks were skipped (stamped into evidence) |
 | `--dry-run` | No | Generate + validate, don't commit |
+
+#### Claim Verification Gate
+
+`aiv commit` binds each claim to test coverage via AST analysis. If too many claims lack test evidence, the commit is **blocked**:
+
+- **R1/R2:** Blocked when >50% of bindable claims are UNVERIFIED
+- **R3:** Blocked on ANY unverified claim
+- **R0:** No gate (checks are skipped)
+
+There is no `--force` bypass. If blocked, your options are:
+1. **Write tests** that call the uncovered symbol(s)
+2. **Downgrade to R0** (`--tier R0 --skip-checks --skip-reason "..."`) if the change is truly trivial
 
 #### Alternative Workflows
 
@@ -268,6 +281,14 @@ $ aiv check .github/aiv-packets/VERIFICATION_PACKET_GITIGNORE.md
 - `--diff <path>` — Enable anti-cheat scanning against a git diff
 - `--audit-links` — Verify evidence URLs are reachable via HTTP HEAD (E021). Dead links — pointing to deleted files, force-pushed commits, or renamed repos — are flagged as blocking errors. Unreachable links (network failures) are flagged as warnings.
 
+### `aiv quickstart`
+
+Prints the complete AIV workflow reference — from `init` to `push`. Designed for LLMs and new users who need the full picture in one command:
+
+```bash
+aiv quickstart
+```
+
 ### `aiv init`
 
 Initializes AIV in a repository: creates `.aiv.yml`, `.github/aiv-packets/`, `.github/aiv-evidence/`, and installs pre-commit + pre-push hooks.
@@ -319,12 +340,15 @@ Discards the change context without generating a packet. Evidence files remain i
 
 ### `aiv audit`
 
-Audits all verification packets for quality issues the validation pipeline does not catch:
+Audits all verification packets AND evidence files for quality issues the validation pipeline does not catch:
 
 - Commit SHA traceability (`COMMIT_PENDING`)
 - Class E link immutability
 - TODO remnants
 - Missing Class F for bug-fix claims
+- **Unverified claims** (`EVIDENCE_UNVERIFIED_CLAIM`) — flags each FAIL UNVERIFIED in the Claim Verification Matrix
+- **High unverified rate** (`EVIDENCE_HIGH_UNVERIFIED`) — flags evidence files where >50% of claims are unverified
+- **Manual review needed** (`EVIDENCE_MANUAL_REVIEW`) — flags claims that need human review
 
 ```bash
 # Audit all packets
@@ -579,7 +603,7 @@ aiv-protocol/
 │   │       └── validators/
 │   │           └── session.py       # Session rules S001–S016
 │   └── __main__.py                  # python -m aiv support
-├── tests/                           # 401+ tests (unit + integration)
+├── tests/                           # 370+ tests (unit + integration)
 │   ├── unit/
 │   │   ├── test_models.py
 │   │   ├── test_parser.py
