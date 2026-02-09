@@ -117,18 +117,28 @@ cd your-project
 aiv init
 ```
 
-This creates three things:
+This creates:
 - **`.aiv.yml`** — Configuration file (strict mode enabled by default)
-- **`.github/aiv-packets/`** — Directory for verification packets
-- **`.git/hooks/pre-commit`** — Atomic commit enforcement hook (blocks code commits without a verification packet)
+- **`.github/aiv-packets/`** — Directory for Layer 2 verification packets (per-change)
+- **`.github/aiv-evidence/`** — Directory for Layer 1 evidence files (per-file)
+- **`.git/hooks/pre-commit`** — Atomic commit enforcement hook
+- **`.git/hooks/pre-push`** — Catches commits that bypassed pre-commit via `--no-verify`
 
-Use `aiv init --no-hook` to skip the pre-commit hook if you prefer manual enforcement.
+Use `aiv init --no-hook` to skip hook installation if you prefer manual enforcement.
 
-### 3. The Workflow (Every Commit)
+### 3. The Workflow
 
-**Recommended: `aiv commit`** — one command that collects evidence by running real tools (git diff, pytest, ruff, mypy, anti-cheat scan) and assembles the packet from their output:
+AIV uses a **Two-Layer Architecture**:
+- **Layer 1 (per-file):** Each `aiv commit` generates an evidence file (`EVIDENCE_*.md`) with collected proof
+- **Layer 2 (per-change):** `aiv close` aggregates all evidence into a verification packet (`PACKET_*.md`)
+
+#### Quickstart (Recommended)
 
 ```bash
+# 1. Start a tracked change
+aiv begin auth-fix --description "Handle expired JWT tokens"
+
+# 2. Commit files with evidence collection
 aiv commit src/auth.py \
     -m "fix(auth): handle expired tokens" \
     -t R1 \
@@ -137,20 +147,39 @@ aiv commit src/auth.py \
     --requirement "Issue #42 requires expired tokens return 401" \
     -r "Standard bug fix in auth module" \
     -s "Handle expired JWT tokens with proper 401 response"
+
+# 3. Check progress at any time
+aiv status
+
+# 4. Close the change — generates the Layer 2 packet
+aiv close --requirement "Issue #42 requires expired tokens return 401"
+
+# 5. Push
+git push
 ```
 
-This generates a packet with:
-- **Class B:** SHA-pinned line-range permalinks from `git diff --cached`
-- **Class A:** pytest results + specific test names covering the changed file
-- **Class C (R2+):** Anti-cheat scan — deleted assertions, deleted test files, added skip markers
-- **Class F (R2+):** Test file integrity scan from `git diff`
+#### What Each Step Does
 
-> **Note:** Per-symbol test coverage analysis (AST-based) works for **Python files only**. Non-Python files get grep-based test discovery. The rest of `aiv commit` (Class B permalinks, anti-cheat, provenance) works for any language.
+**`aiv begin <name>`** opens a change context (`.aiv/change.json`, gitignored). While active:
+- The pre-commit hook allows multi-file commits (no 1:1 atomic rule)
+- Each `aiv commit` is tracked in the change context
+
+**`aiv commit <file>`** collects evidence by running real tools and writes it to `.github/aiv-evidence/EVIDENCE_*.md`:
+- **Class B:** SHA-pinned line-range permalinks from `git diff --cached`
+- **Class A:** pytest results + per-symbol test coverage (AST-based, Python only)
+- **Class C (R2+):** Anti-cheat scan — deleted assertions, deleted test files, skip markers
+- **Class F (R2+):** Test file provenance — git log chain-of-custody
 
 You provide: claims (`-c`), intent URL (`-i`), rationale (`-r`), summary (`-s`).
 The tool collects: the proof.
 
-**`aiv commit` flag reference:**
+**`aiv close`** reads the change context, aggregates all evidence references into a Layer 2 packet (`PACKET_<name>.md`), validates it, and commits it. The packet links to each evidence file by commit SHA.
+
+**`aiv abandon`** discards the change context without generating a packet. Evidence files remain.
+
+> **Note:** Per-symbol test coverage analysis (AST-based) works for **Python files only**. Non-Python files get grep-based test discovery. The rest of `aiv commit` (Class B permalinks, anti-cheat, provenance) works for any language.
+
+#### `aiv commit` Flag Reference
 
 | Flag | Required | Description |
 |------|----------|-------------|
@@ -164,14 +193,17 @@ The tool collects: the proof.
 | `--dry-run` | No | Generate + validate, don't commit |
 | `--force` | No | Override R3 unverified-claim block (requires justification) |
 
-**Manual alternative: `aiv generate`** — if you need more control:
+#### Alternative Workflows
+
+**Single-file atomic commits (without `aiv begin`):** `aiv commit` works standalone — it generates an evidence file and commits atomically (1 functional file + 1 evidence file). The pre-commit hook enforces this pattern when no change context is active.
+
+**Manual packet creation:** Use `aiv generate` to scaffold a packet template, edit it, then commit:
 
 ```bash
 aiv generate auth-fix --tier R1
 # Edit the generated packet, then:
 git add src/auth.py .github/aiv-packets/VERIFICATION_PACKET_AUTH_FIX.md
 git commit -m "fix(auth): handle expired tokens"
-# → Pre-commit hook validates the packet automatically
 ```
 
 ### 4. Validation Commands
@@ -239,7 +271,52 @@ $ aiv check .github/aiv-packets/VERIFICATION_PACKET_GITIGNORE.md
 
 ### `aiv init`
 
-Creates a `.aiv.yml` configuration file in the target directory.
+Initializes AIV in a repository: creates `.aiv.yml`, `.github/aiv-packets/`, `.github/aiv-evidence/`, and installs pre-commit + pre-push hooks.
+
+### `aiv begin`
+
+Opens a change context for tracking a multi-commit logical change:
+
+```bash
+aiv begin auth-fix --description "Handle expired JWT tokens"
+aiv begin payments-v2 --mode pr    # Feature branch mode
+```
+
+While a change is active, the pre-commit hook relaxes the 1:1 atomic rule, allowing multi-file commits. Each `aiv commit` is tracked in `.aiv/change.json` (gitignored).
+
+### `aiv commit`
+
+Collects evidence and commits a single functional file atomically:
+
+```bash
+aiv commit src/auth.py \
+    -m "fix(auth): handle expired tokens" \
+    -c "TokenValidator rejects expired tokens with 401" \
+    -i "https://github.com/org/repo/issues/42" \
+    --requirement "Issue #42 requires expired tokens return 401" \
+    -r "Standard bug fix in auth module" \
+    -s "Handle expired JWT tokens with proper 401 response"
+```
+
+Generates `.github/aiv-evidence/EVIDENCE_*.md` with Class A/B/C/F evidence collected from real tools.
+
+### `aiv close`
+
+Closes the active change and generates a Layer 2 verification packet:
+
+```bash
+aiv close --requirement "Issue #42 requires expired tokens return 401"
+aiv close --include-untracked   # Include commits made without aiv commit
+aiv close --tier R2 --rationale "Auth module changes"
+```
+
+### `aiv status`
+
+Shows the active change context — tracked commits, files, and evidence files.
+
+### `aiv abandon`
+
+Discards the change context without generating a packet. Evidence files remain in git.
 
 ### `aiv audit`
 
@@ -461,7 +538,7 @@ Handle expired JWT tokens with proper 401 response
 
 ## Repository Structure
 
-```
+```bash
 aiv-protocol/
 ├── src/aiv/                         # Python implementation
 │   ├── cli/main.py                  # CLI entry point (typer)
@@ -472,6 +549,7 @@ aiv-protocol/
 │   │   ├── errors.py                # Exception hierarchy
 │   │   ├── auditor.py               # Packet quality auditor
 │   │   ├── evidence_collector.py    # AST-based evidence collection for aiv commit
+│   │   ├── change.py                # Change lifecycle (begin/close/abandon/status)
 │   │   └── validators/
 │   │       ├── pipeline.py          # 8-stage validation orchestrator
 │   │       ├── base.py              # Base validator class
@@ -481,7 +559,8 @@ aiv-protocol/
 │   │       ├── zero_touch.py        # Zero-Touch mandate (E008)
 │   │       └── anti_cheat.py        # Test manipulation scanner (E011)
 │   ├── hooks/
-│   │   └── pre_commit.py            # Python pre-commit hook logic
+│   │   ├── pre_commit.py            # Pre-commit: atomic commit + change-context gate
+│   │   └── pre_push.py              # Pre-push: catches --no-verify bypass + unclosed changes
 │   ├── guard/                       # Python AIV Guard (CI module)
 │   │   ├── models.py                # Guard-specific Pydantic models
 │   │   ├── github_api.py            # GitHub API client
@@ -497,7 +576,7 @@ aiv-protocol/
 │   │       └── validators/
 │   │           └── session.py       # Session rules S001–S016
 │   └── __main__.py                  # python -m aiv support
-├── tests/                           # 553 tests (unit + integration)
+├── tests/                           # 401+ tests (unit + integration)
 │   ├── unit/
 │   │   ├── test_models.py
 │   │   ├── test_parser.py
@@ -506,7 +585,9 @@ aiv-protocol/
 │   │   ├── test_svp.py              # SVP module tests
 │   │   ├── test_auditor.py          # Auditor module tests
 │   │   ├── test_evidence_collector.py # Evidence collector tests
+│   │   ├── test_change.py           # Change lifecycle tests
 │   │   ├── test_pre_commit_hook.py  # Pre-commit hook tests
+│   │   ├── test_pre_push_hook.py    # Pre-push hook tests
 │   │   └── test_coverage.py         # Coverage gap tests
 │   └── integration/
 │       ├── test_full_workflow.py
@@ -517,10 +598,12 @@ aiv-protocol/
 │   │   ├── aiv-guard-python.yml     # PR validation — Python (live)
 │   │   ├── ci.yml                   # CI: lint, format, type-check, test
 │   │   └── verify-architecture.yml  # Evidence generation (disabled)
-│   └── aiv-packets/                 # 83 verification packets (+ 1 template)
+│   ├── aiv-packets/                 # Layer 2: per-change verification packets
+│   └── aiv-evidence/                # Layer 1: per-file evidence files
 ├── docs/
-│   ├── AIV_SVP_PROTOCOL_USER_STORY.md  # Problem statement and user story
-│   ├── CLAIM_AWARE_EVIDENCE_PLAN.md    # Evidence collector design doc
+│   ├── TWO_LAYER_VERIFICATION_ARCHITECTURE.md  # Two-Layer Architecture design doc
+│   ├── AIV_SVP_PROTOCOL_USER_STORY.md          # Problem statement and user story
+│   ├── CLAIM_AWARE_EVIDENCE_PLAN.md            # Evidence collector design doc
 │   └── specs/
 │       ├── AIV-SUITE-SPEC-V1.0-CANONICAL_2025-12-19.md
 │       ├── SVP-SUITE-SPEC-V1.0-CANONICAL-2025-12-20.md
@@ -530,8 +613,9 @@ aiv-protocol/
 │   ├── session-pr*.json             # SVP verification sessions
 │   └── ratings.json                 # Verifier ELO ratings
 ├── scripts/
-│   └── map_packets.py               # Source-file-to-packet mapping generator
-├── .husky/pre-commit                # Atomic commit enforcement
+│   ├── map_packets.py               # Source-file-to-packet mapping generator
+│   └── migrate_two_layer.py         # Migration script for Two-Layer Architecture
+├── .husky/pre-commit                # Legacy atomic commit enforcement (JS)
 ├── FILE_PACKET_MAP.md               # Evidence index: file ↔ packet mapping
 ├── FILE_PACKET_MAP.json             # Machine-readable mapping (same data)
 ├── SPECIFICATION.md                 # Canonical AIV standard (v1.0.0)
@@ -555,11 +639,12 @@ aiv-protocol/
 
 ## Enforcement (Live)
 
-Three enforcement layers, all active:
+Four enforcement layers, all active:
 
-1. **Pre-commit hook** — Blocks commits without atomic unit pattern (1 functional file + 1 verification packet); runs both `aiv check` and `aiv audit` on staged packets
-2. **`aiv check` CLI** — Local validation with 8-stage pipeline, strict mode, anti-cheat scanning, link vitality checks
-3. **AIV Guard CI (Python)** — PR-level validation as a Python module (`src/aiv/guard/`): canonical packet validation, manifest verification, critical surface detection, SoD checks, and GitHub API integration
+1. **Pre-commit hook** — Enforces atomic commits (1 functional file + 1 evidence file). With an active change context (`aiv begin`), allows multi-file commits. On protected branches without a change context, blocks functional files that lack a paired evidence file.
+2. **Pre-push hook** — Catches commits that bypassed the pre-commit hook via `git commit --no-verify`. Also blocks pushes on protected branches with unclosed change contexts.
+3. **`aiv check` CLI** — Local validation with 8-stage pipeline, strict mode, anti-cheat scanning, link vitality checks
+4. **AIV Guard CI (Python)** — PR-level validation as a Python module (`src/aiv/guard/`): canonical packet validation, manifest verification, critical surface detection, SoD checks, and GitHub API integration
 
 ## Configuration
 
