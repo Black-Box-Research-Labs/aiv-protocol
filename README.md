@@ -189,7 +189,7 @@ The tool collects: the proof.
 | `--rationale` / `-r` | Yes | Why this risk tier was chosen |
 | `--summary` / `-s` | Yes | One-line summary of the change |
 | `--tier` / `-t` | No (default: R1) | Risk tier: R0, R1, R2, R3 |
-| `--skip-checks` | No | Skip pytest/ruff/mypy |
+| `--skip-checks` | No | Skip pytest/ruff/mypy (**R0 only** — blocked for R1+) |
 | `--dry-run` | No | Generate + validate, don't commit |
 | `--force` | No | Override R3 unverified-claim block (requires justification) |
 
