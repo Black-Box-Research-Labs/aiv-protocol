@@ -384,6 +384,50 @@ class TestASTSymbolResolver:
         result = resolve_changed_symbols("/nonexistent/file.py", [(1, 5)])
         assert "<parse-error>" in result
 
+    def test_multi_symbol_hunk(self, tmp_path):
+        """A hunk spanning multiple functions reports ALL of them, not just the smallest."""
+        src = tmp_path / "multi.py"
+        src.write_text(
+            "def alpha():\n"        # L1-2
+            "    return 1\n"
+            "\n"                     # L3
+            "def beta():\n"          # L4-5
+            "    return 2\n"
+            "\n"                     # L6
+            "def gamma():\n"         # L7-8
+            "    return 3\n",
+            encoding="utf-8",
+        )
+        from aiv.lib.evidence_collector import resolve_changed_symbols
+
+        # Hunk spans all three functions
+        result = resolve_changed_symbols(str(src), [(1, 8)])
+        assert "alpha" in result
+        assert "beta" in result
+        assert "gamma" in result
+
+    def test_multi_symbol_class_methods(self, tmp_path):
+        """A hunk spanning multiple methods in a class reports all methods."""
+        src = tmp_path / "cls.py"
+        src.write_text(
+            "class Auditor:\n"              # L1
+            "    def check(self):\n"         # L2-3
+            "        pass\n"
+            "\n"                             # L4
+            "    def scan(self):\n"          # L5-6
+            "        pass\n"
+            "\n"                             # L7
+            "    def report(self):\n"        # L8-9
+            "        return []\n",
+            encoding="utf-8",
+        )
+        from aiv.lib.evidence_collector import resolve_changed_symbols
+
+        result = resolve_changed_symbols(str(src), [(2, 9)])
+        assert any("check" in s for s in result)
+        assert any("scan" in s for s in result)
+        assert any("report" in s for s in result)
+
 
 # ---------------------------------------------------------------------------
 # Phase 2: AST Test Graph
