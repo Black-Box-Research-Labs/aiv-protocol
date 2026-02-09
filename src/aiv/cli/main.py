@@ -729,19 +729,16 @@ def commit_cmd(
     intent: str = typer.Option("", "--intent", "-i", help="Class E: URL to spec/issue/directive (required)"),
     rationale: str = typer.Option("", "--rationale", "-r", help="Classification rationale (required)"),
     summary: str = typer.Option("", "--summary", "-s", help="One-line summary (required)"),
-    negative: str = typer.Option(
-        "", "--negative", "-n", help="Class C: negative evidence statement (required for R2+)"
-    ),
     skip_checks: bool = typer.Option(False, "--skip-checks", help="Skip running local checks (pytest/ruff/mypy)"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Generate packet and validate but don't commit"),
 ) -> None:
     """
-    Atomic commit: generate packet, validate, stage, and commit in one step.
+    Atomic commit with COLLECTED evidence — not templates.
 
-    This is the recommended way to commit under the AIV Protocol.
-    It enforces that every required field is provided — no TODOs ever
-    enter the packet. If a required flag is missing, the command fails
-    with a clear error telling you exactly what to provide.
+    Evidence is gathered by running real tools (git diff, pytest -v, ruff,
+    mypy, anti-cheat scan). The packet is assembled from tool output, not
+    from user-provided strings. You provide claims, intent, and rationale;
+    the tool collects the proof.
 
     Examples:
         aiv commit src/auth.py -m "fix(auth): handle expired tokens" -t R1 \\
@@ -749,16 +746,16 @@ def commit_cmd(
             -i "https://github.com/org/repo/issues/42" \\
             -r "Standard bug fix in auth module" \\
             -s "Handle expired JWT tokens with proper 401 response"
-
-        aiv commit src/config.py -m "feat(config): add timeout setting" -t R2 \\
-            -c "AIVConfig accepts timeout_seconds with default 30" \\
-            -i "https://github.com/org/repo/blob/abc123/SPECIFICATION.md" \\
-            -r "Config schema change — public API surface" \\
-            -s "Add configurable timeout to AIVConfig" \\
-            -n "No regressions: 495 tests pass, no test files modified"
     """
     import subprocess
     from datetime import datetime, timezone
+
+    from aiv.lib.evidence_collector import (
+        collect_class_a,
+        collect_class_b,
+        collect_class_c,
+        collect_class_f,
+    )
 
     # --- Validate tier ---
     tier_upper = tier.upper().strip()
@@ -766,7 +763,7 @@ def commit_cmd(
         console.print(f"[red]Error:[/red] Invalid tier '{tier}'. Use R0, R1, R2, or R3.")
         raise typer.Exit(1)
 
-    # --- Enforce required flags (the whole point — no TODOs) ---
+    # --- Enforce required flags (humans provide intent; tools collect proof) ---
     missing: list[str] = []
     if not claim:
         missing.append("--claim / -c  (at least one falsifiable claim)")
@@ -776,14 +773,12 @@ def commit_cmd(
         missing.append("--rationale / -r (why this tier was chosen)")
     if not summary:
         missing.append("--summary / -s (one-line summary of the change)")
-    if tier_upper in ("R2", "R3") and not negative:
-        missing.append("--negative / -n (Class C: what you searched for and didn't find)")
 
     if missing:
-        console.print("[red]Error:[/red] Missing required evidence flags:")
+        console.print("[red]Error:[/red] Missing required flags:")
         for m in missing:
             console.print(f"  [bold]{m}[/bold]")
-        console.print("\n[dim]The AIV Protocol requires real evidence, not TODOs.[/dim]")
+        console.print("\n[dim]You provide the intent; the tool collects the proof.[/dim]")
         raise typer.Exit(1)
 
     if not file.exists():
@@ -810,7 +805,7 @@ def commit_cmd(
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     sod = "S0" if tier_upper in ("R0", "R1") else "S1"
 
-    # --- Auto-detect git context ---
+    # --- Detect git context ---
     console.print("[dim]Detecting git context...[/dim]")
     git_ctx = _detect_git_context()
     owner = git_ctx.get("owner", "")
@@ -831,75 +826,76 @@ def commit_cmd(
     except Exception:
         pass
 
-    # --- Run local checks for Class A ---
-    local_results = ""
-    if not skip_checks:
-        console.print("[dim]Running local checks (pytest, ruff, mypy)...[/dim]")
-        local_results = _run_local_checks()
-        console.print("  Done.")
-
-    # --- Build Class B: scope from the actual file, not git diff ---
+    # --- COLLECT evidence (not generate) ---
     file_posix = str(file).replace("\\", "/")
-    if owner and repo and head_sha:
-        scope_header = (
-            f"**Scope Inventory** (SHA: [`{head_sha[:7]}`]"
-            f"(https://github.com/{owner}/{repo}/tree/{head_sha}))"
-        )
-    else:
-        scope_header = "**Scope Inventory**"
-    class_b = f"""### Class B (Referential Evidence)
 
-{scope_header}
-
-- Modified: `{file_posix}`"""
-
-    # --- Build Class E: from --intent flag (already validated non-empty) ---
-    class_e = f"""### Class E (Intent Alignment)
+    # Class E: user-provided (can't be auto-collected)
+    class_e_md = f"""### Class E (Intent Alignment)
 
 - **Link:** [{intent}]({intent})
 - **Requirements Verified:** See linked spec/issue."""
 
-    # --- Build Class A: from local checks ---
-    if local_results:
-        class_a = f"""### Class A (Execution Evidence)
+    # Class B: COLLECTED from git diff line ranges
+    console.print("[dim]Collecting Class B (referential) from git diff...[/dim]")
+    class_b_data = collect_class_b(file_posix, owner, repo)
+    class_b_md = class_b_data.to_markdown()
+    console.print(f"  Found {len(class_b_data.hunks)} changed hunk(s)")
 
-- **Local results:**
-{local_results}"""
+    # Class A: COLLECTED from running pytest, ruff, mypy
+    if not skip_checks:
+        console.print("[dim]Collecting Class A (execution) — running pytest, ruff, mypy...[/dim]")
+        class_a_data = collect_class_a(file_posix)
+        class_a_md = class_a_data.to_markdown()
+        console.print(
+            f"  pytest: {class_a_data.total_passed} passed, {class_a_data.total_failed} failed"
+        )
+        console.print(f"  Tests covering changed file: {len(class_a_data.relevant_tests)}")
+        console.print(f"  ruff: {'clean' if class_a_data.ruff_clean else 'errors'}")
+        console.print(f"  mypy: {class_a_data.mypy_summary}")
     else:
-        class_a = """### Class A (Execution Evidence)
+        class_a_md = """### Class A (Execution Evidence)
 
 - Local checks skipped (--skip-checks)."""
 
-    # --- Build Class C (R2+): from --negative flag ---
-    class_c = ""
+    # Class C: COLLECTED from scanning diff for regression indicators (R2+)
+    class_c_md = ""
     if tier_upper in ("R2", "R3"):
-        class_c = f"""### Class C (Negative Evidence)
+        console.print("[dim]Collecting Class C (negative) — scanning diff for regressions...[/dim]")
+        class_c_data = collect_class_c()
+        class_c_md = class_c_data.to_markdown()
+        if class_c_data.assertions_removed:
+            console.print(
+                f"  [yellow]WARNING:[/yellow] {len(class_c_data.assertions_removed)} assertion(s) removed"
+            )
+        if class_c_data.test_files_deleted:
+            console.print(
+                f"  [red]ALERT:[/red] {len(class_c_data.test_files_deleted)} test file(s) deleted"
+            )
+        if class_c_data.anti_cheat_clean:
+            console.print("  No regression indicators found.")
 
-- {negative}"""
-
-    # --- Build Class D (R3): require manual for now ---
-    class_d = ""
+    # Class D (R3): not yet auto-collectible
+    class_d_md = ""
     if tier_upper == "R3":
-        class_d = """### Class D (Differential Evidence)
+        class_d_md = """### Class D (Differential Evidence)
 
-- See Class B scope inventory for change details."""
+- See Class B scope inventory for line-range change details."""
 
-    # --- Build Class F (R2+): auto-fill from test results ---
-    class_f = ""
+    # Class F: COLLECTED from git diff on test files (R2+)
+    class_f_md = ""
     if tier_upper in ("R2", "R3"):
-        class_f = f"""### Class F (Provenance Evidence)
+        console.print("[dim]Collecting Class F (provenance) — scanning test file integrity...[/dim]")
+        class_f_data = collect_class_f()
+        class_f_md = class_f_data.to_markdown()
 
-**Claim {len(claim) + 1}: No regressions**
-- No test files modified or deleted. Full test suite passes."""
-
-    # --- Assemble evidence sections ---
-    evidence_parts = [class_e, class_b, class_a]
-    if class_c:
-        evidence_parts.append(class_c)
-    if class_d:
-        evidence_parts.append(class_d)
-    if class_f:
-        evidence_parts.append(class_f)
+    # --- Assemble evidence from collected artifacts ---
+    evidence_parts = [class_e_md, class_b_md, class_a_md]
+    if class_c_md:
+        evidence_parts.append(class_c_md)
+    if class_d_md:
+        evidence_parts.append(class_d_md)
+    if class_f_md:
+        evidence_parts.append(class_f_md)
     evidence_sections = "\n\n".join(evidence_parts)
 
     # --- Assemble packet ---
@@ -938,6 +934,7 @@ classification:
 ## Verification Methodology
 
 **Zero-Touch Mandate:** Verifier inspects artifacts only.
+Evidence was collected by `aiv commit` running: git diff, pytest -v, ruff, mypy, anti-cheat scan.
 
 ---
 
@@ -945,36 +942,6 @@ classification:
 
 {summary}
 """
-
-    # --- Final TODO scan: block if any TODOs leaked into evidence/classification ---
-    # Only scan Evidence section and Classification — claims can legitimately
-    # mention "TODO" when describing behavior (e.g., "rejects TODO remnants").
-    import re
-
-    todo_lines = []
-    in_evidence = False
-    in_classification = False
-    for i, line in enumerate(packet_text.split("\n"), 1):
-        stripped = line.strip()
-        if stripped.startswith("## Evidence"):
-            in_evidence = True
-        elif stripped.startswith("## Classification"):
-            in_classification = True
-        elif stripped.startswith("## ") and stripped not in ("## Evidence", "## Classification"):
-            in_evidence = False
-            in_classification = False
-        if (in_evidence or in_classification) and re.search(r"\bTODO\b", stripped, re.IGNORECASE):
-            todo_lines.append(f"  Line {i}: {stripped[:80]}")
-    # Also check Summary line
-    for i, line in enumerate(packet_text.split("\n"), 1):
-        if line.strip().startswith("TODO") and i > len(packet_text.split("\n")) - 5:
-            todo_lines.append(f"  Line {i}: {line.strip()[:80]}")
-    if todo_lines:
-        console.print("[red]Error:[/red] Packet still contains TODO placeholders:")
-        for tl in todo_lines:
-            console.print(tl)
-        console.print("\nProvide real values via command flags. No TODOs allowed.")
-        raise typer.Exit(1)
 
     packet_path.write_text(packet_text, encoding="utf-8")
     console.print(f"[green]Generated:[/green] {packet_path}")
