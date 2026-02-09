@@ -501,10 +501,7 @@ class TestCallVisitorSubprocessDetection:
 
         from aiv.lib.evidence_collector import _CallVisitor
 
-        source = (
-            "def helper():\n"
-            '    subprocess.run([sys.executable, "-m", "aiv", "commit", "f.py"])\n'
-        )
+        source = 'def helper():\n    subprocess.run([sys.executable, "-m", "aiv", "commit", "f.py"])\n'
         tree = ast.parse(source)
         func = [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)][0]
         cv = _CallVisitor()
@@ -518,11 +515,7 @@ class TestCallVisitorSubprocessDetection:
 
         from aiv.lib.evidence_collector import _CallVisitor
 
-        source = (
-            "def helper():\n"
-            '    base = [sys.executable, "-m", "aiv", "init", "."]\n'
-            "    subprocess.run(base)\n"
-        )
+        source = 'def helper():\n    base = [sys.executable, "-m", "aiv", "init", "."]\n    subprocess.run(base)\n'
         tree = ast.parse(source)
         func = [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)][0]
         cv = _CallVisitor()
@@ -535,10 +528,7 @@ class TestCallVisitorSubprocessDetection:
 
         from aiv.lib.evidence_collector import _CallVisitor
 
-        source = (
-            "def helper():\n"
-            '    subprocess.run([sys.executable, "-m", "aiv", "nonexistent"])\n'
-        )
+        source = 'def helper():\n    subprocess.run([sys.executable, "-m", "aiv", "nonexistent"])\n'
         tree = ast.parse(source)
         func = [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)][0]
         cv = _CallVisitor()
