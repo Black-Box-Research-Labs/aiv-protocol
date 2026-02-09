@@ -34,8 +34,10 @@ import sys
 PACKET_PREFIXES = (
     ".github/aiv-packets/VERIFICATION_PACKET_",
     ".github/VERIFICATION_PACKET_",
+    ".github/aiv-packets/PACKET_",
 )
 PACKET_SUFFIX = ".md"
+EVIDENCE_PREFIX = ".github/aiv-evidence/EVIDENCE_"
 
 FUNCTIONAL_PREFIXES = (
     "src/",
@@ -154,6 +156,31 @@ def check_commits(commits: list[str]) -> list[tuple[str, list[str]]]:
     return violations
 
 
+def _check_unclosed_change() -> tuple[bool, str, int]:
+    """Check if there's an unclosed change context.
+
+    Returns (has_unclosed, change_name, commit_count).
+    """
+    try:
+        from aiv.lib.change import load_change
+        ctx = load_change()
+        if ctx is not None and ctx.commits:
+            return True, ctx.name, len(ctx.commits)
+    except Exception:
+        pass
+    return False, "", 0
+
+
+def _is_on_protected_branch() -> bool:
+    """Check if the current branch is a protected branch."""
+    try:
+        from aiv.lib.change import get_current_branch, is_protected_branch
+        branch = get_current_branch()
+        return is_protected_branch(branch)
+    except Exception:
+        return False
+
+
 def main() -> int:
     """Run the AIV pre-push hook.
 
@@ -162,6 +189,28 @@ def main() -> int:
 
     Returns 0 to allow push, 1 to block.
     """
+    # -----------------------------------------------------------------------
+    # Two-Layer Architecture: Unclosed change detection (§8.2 of design doc)
+    # -----------------------------------------------------------------------
+    if _is_on_protected_branch():
+        has_unclosed, change_name, commit_count = _check_unclosed_change()
+        if has_unclosed:
+            print()
+            print("=" * 79)
+            print("[BLOCK] AIV Pre-Push Hook: Unclosed Change Detected")
+            print("=" * 79)
+            print()
+            print(f"Open change '{change_name}' has {commit_count} commit(s)")
+            print("without a verification packet.")
+            print()
+            print("Run `aiv close` to generate the verification packet, or")
+            print("`aiv abandon` to discard the change context.")
+            print("=" * 79)
+            return 1
+
+    # -----------------------------------------------------------------------
+    # Legacy: per-commit violation scanning
+    # -----------------------------------------------------------------------
     violations: list[tuple[str, list[str]]] = []
 
     for line in sys.stdin:
