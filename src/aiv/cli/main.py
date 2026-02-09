@@ -242,13 +242,19 @@ def audit(
         "-n",
         help="Scan N recent commits for protocol violations (HOOK_BYPASS, ATOMIC_VIOLATION)",
     ),
+    no_evidence: bool = typer.Option(
+        False,
+        "--no-evidence",
+        help="Skip scanning Layer 1 evidence files (.github/aiv-evidence/)",
+    ),
 ) -> None:
     """
-    Audit all verification packets for quality issues.
+    Audit all verification packets AND evidence files for quality issues.
 
-    Checks for problems the validation pipeline does not catch:
+    Scans Layer 2 packets (.github/aiv-packets/) and Layer 1 evidence files
+    (.github/aiv-evidence/) for problems the validation pipeline does not catch:
     commit SHA traceability, Class E link immutability, TODO remnants,
-    missing Class F for bug-fix claims, and more.
+    missing Class F for bug-fix claims, verification theater detection, and more.
 
     With --commits N, also scans the last N git commits for protocol
     violations: functional files without packets, multi-file bundles, etc.
@@ -258,11 +264,13 @@ def audit(
         aiv audit --fix
         aiv audit .github/aiv-packets --fix
         aiv audit --commits 20
+        aiv audit --no-evidence
     """
     from aiv.lib.auditor import AuditSeverity, PacketAuditor
 
+    evidence_dir = None if no_evidence else Path(".github/aiv-evidence")
     auditor = PacketAuditor()
-    result = auditor.audit(packets_dir, fix=fix)
+    result = auditor.audit(packets_dir, fix=fix, evidence_dir=evidence_dir)
 
     # Optionally run git-history audit
     if commits > 0:
