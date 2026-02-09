@@ -103,13 +103,17 @@ def check(
 @app.command()
 def init(
     path: Path = typer.Argument(Path("."), help="Repository path to initialize"),
+    install_hook: bool = typer.Option(True, "--install-hook/--no-hook", help="Install git pre-commit hook"),
 ) -> None:
     """
     Initialize AIV Protocol in a repository.
 
     Creates:
     - .aiv.yml configuration file
+    - .github/aiv-packets/ directory for verification packets
+    - .git/hooks/pre-commit hook (atomic commit enforcement)
     """
+    # 1. Create .aiv.yml
     aiv_yml = path / ".aiv.yml"
     if aiv_yml.exists():
         console.print(f"[yellow]Warning:[/yellow] {aiv_yml} already exists, skipping.")
@@ -123,6 +127,50 @@ def init(
             encoding="utf-8",
         )
         console.print(f"[green]Created:[/green] {aiv_yml}")
+
+    # 2. Create packets directory
+    packets_dir = path / ".github" / "aiv-packets"
+    packets_dir.mkdir(parents=True, exist_ok=True)
+    gitkeep = packets_dir / ".gitkeep"
+    if not gitkeep.exists():
+        gitkeep.touch()
+        console.print(f"[green]Created:[/green] {packets_dir}/")
+
+    # 3. Install pre-commit hook
+    if install_hook:
+        git_dir = path / ".git"
+        if not git_dir.is_dir():
+            console.print("[yellow]Warning:[/yellow] No .git directory found — skipping hook install.")
+        else:
+            hooks_dir = git_dir / "hooks"
+            hooks_dir.mkdir(parents=True, exist_ok=True)
+            hook_file = hooks_dir / "pre-commit"
+            hook_shim = (
+                "#!/usr/bin/env python3\n"
+                '"""AIV Protocol pre-commit hook. Installed by `aiv init`."""\n'
+                "import sys\n"
+                "from aiv.hooks.pre_commit import main\n"
+                "sys.exit(main())\n"
+            )
+            if hook_file.exists():
+                existing = hook_file.read_text(encoding="utf-8", errors="replace")
+                if "aiv" in existing.lower():
+                    console.print(f"[yellow]Warning:[/yellow] {hook_file} already contains AIV hook, skipping.")
+                else:
+                    console.print(
+                        f"[yellow]Warning:[/yellow] {hook_file} exists (non-AIV). "
+                        "Use [bold]--no-hook[/bold] to skip, or remove it manually first."
+                    )
+            else:
+                hook_file.write_text(hook_shim, encoding="utf-8")
+                # Make executable on Unix
+                try:
+                    import stat
+
+                    hook_file.chmod(hook_file.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+                except OSError:
+                    pass
+                console.print(f"[green]Installed:[/green] pre-commit hook → {hook_file}")
 
     console.print(f"[green][OK] AIV Protocol initialized in {path}[/green]")
     console.print("[dim]Tip: Use [bold]aiv generate <name>[/bold] to create a verification packet.[/dim]")
@@ -593,8 +641,8 @@ def _build_evidence_sections(
 
 - **Link:** {class_e_link}
 - **Requirements Verified:**
-  1. TODO: Requirement 1
-  2. TODO: Requirement 2""")
+  1. TODO: Which spec/issue requirement does this change satisfy?
+  2. TODO: What acceptance criteria were met?""")
 
     # Class B — always required
     # Auto-generate SHA-pinned links if we have owner/repo/sha
@@ -621,7 +669,7 @@ def _build_evidence_sections(
     if local_results:
         class_a_local = f"- **Local results:**\n{local_results}"
     else:
-        class_a_local = '- TODO: Test results (e.g., "422/422 pytest tests pass")'
+        class_a_local = '- TODO: Paste test output here (e.g., "pytest — 454 passed in 38s") or link to CI run'
 
     sections.append(f"""### Class A (Execution Evidence)
 
@@ -632,13 +680,21 @@ def _build_evidence_sections(
     if tier in ("R2", "R3"):
         sections.append("""### Class C (Negative Evidence)
 
-- TODO: No regressions found. Describe search scope and method.""")
+- TODO: Describe what you searched for and didn't find. Example:
+  "Searched all test files for deleted assertions or @pytest.mark.skip additions — none found.
+  Ran full regression suite (N tests) — no failures."
+- Search scope: TODO (e.g., "all files in tests/", "grep for removed assert statements")""")
 
     # Class D — required for R3
     if tier == "R3":
         sections.append("""### Class D (Differential Evidence)
 
-- TODO: Before/after diff of critical behavior.""")
+- TODO: Document what changed in the API, state, or config. Example:
+  "API surface: `login()` signature unchanged. New optional param `timeout: int = 30`.
+  No breaking changes to existing callers."
+- Before: TODO
+- After: TODO
+- Breaking changes: TODO (none / list them)""")
 
     # Class F — required for R3, optional R2
     if tier in ("R2", "R3"):
@@ -662,6 +718,202 @@ def _display_findings(findings: list[ValidationFinding], title: str, color: str)
         table.add_row(finding.rule_id, finding.location or "-", finding.message, finding.suggestion or "-")
 
     console.print(table)
+
+
+@app.command(name="commit")
+def commit_cmd(
+    file: Path = typer.Argument(..., help="Functional file to commit (e.g. src/auth.py)"),
+    message: str = typer.Option(..., "--message", "-m", help="Git commit message"),
+    tier: str = typer.Option("R1", "--tier", "-t", help="Risk tier: R0, R1, R2, R3"),
+    claim: list[str] = typer.Option([], "--claim", "-c", help="Falsifiable claim (repeatable)"),
+    rationale: str = typer.Option("", "--rationale", "-r", help="Classification rationale"),
+    summary: str = typer.Option("", "--summary", "-s", help="One-line summary of the change"),
+    skip_checks: bool = typer.Option(False, "--skip-checks", help="Skip running local checks (pytest/ruff/mypy)"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Generate packet and validate but don't commit"),
+) -> None:
+    """
+    Atomic commit: generate packet, validate, stage, and commit in one step.
+
+    This is the recommended way to commit under the AIV Protocol.
+    It ensures every commit has a valid verification packet without
+    requiring manual packet creation.
+
+    Examples:
+        aiv commit src/auth.py -m "fix(auth): handle expired tokens" -t R1 \\
+            -c "TokenValidator rejects expired tokens with 401"
+
+        aiv commit tests/test_auth.py -m "test(auth): add expiry tests" -t R1 \\
+            -c "test_expired_token asserts 401 response for expired JWT" \\
+            -s "Add tests for token expiry edge cases"
+    """
+    import shutil
+    import subprocess
+    import tempfile
+    from datetime import datetime, timezone
+
+    # Validate inputs
+    tier_upper = tier.upper().strip()
+    if tier_upper not in ("R0", "R1", "R2", "R3"):
+        console.print(f"[red]Error:[/red] Invalid tier '{tier}'. Use R0, R1, R2, or R3.")
+        raise typer.Exit(1)
+
+    if not file.exists():
+        console.print(f"[red]Error:[/red] File not found: {file}")
+        raise typer.Exit(1)
+
+    # Normalize name from filename
+    safe_name = file.stem.upper().replace("-", "_").replace(" ", "_")
+    packet_filename = f"VERIFICATION_PACKET_{safe_name}.md"
+    packets_dir = Path(".github/aiv-packets")
+    packets_dir.mkdir(parents=True, exist_ok=True)
+    packet_path = packets_dir / packet_filename
+
+    if packet_path.exists():
+        console.print(f"[yellow]Warning:[/yellow] {packet_path} already exists.")
+        overwrite = typer.confirm("Overwrite?", default=False)
+        if not overwrite:
+            raise typer.Exit(0)
+
+    # Build claims section
+    if claim:
+        claims_text = "\n".join(
+            f"{i}. {c}" for i, c in enumerate(claim, 1)
+        )
+        claims_text += "\n" + f"{len(claim) + 1}. No existing tests were modified or deleted during this change."
+    else:
+        claims_text = (
+            "1. [Component/Function] [assertive verb: rejects/returns/ensures/prevents/limits] "
+            "[result] under [condition].\n"
+            "2. No existing tests were modified or deleted during this change."
+        )
+
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    sod = "S0" if tier_upper in ("R0", "R1") else "S1"
+
+    # Auto-detect git context
+    console.print("[dim]Detecting git context...[/dim]")
+    git_ctx = _detect_git_context()
+    scope_lines = _detect_git_scope()
+
+    if git_ctx.get("owner") and git_ctx.get("repo"):
+        console.print(f"  Repo: [bold]{git_ctx['owner']}/{git_ctx['repo']}[/bold]")
+
+    # Run local checks for Class A
+    local_results = ""
+    if not skip_checks:
+        console.print("[dim]Running local checks (pytest, ruff, mypy)...[/dim]")
+        local_results = _run_local_checks()
+        console.print("  Done.")
+
+    # Auto-detect classified_by
+    classified_by = "TODO"
+    try:
+        r = subprocess.run(
+            ["git", "config", "user.name"], capture_output=True, text=True, timeout=5
+        )
+        if r.returncode == 0 and r.stdout.strip():
+            classified_by = r.stdout.strip()
+    except Exception:
+        pass
+
+    # Build evidence sections
+    evidence_sections = _build_evidence_sections(tier_upper, scope_lines, git_ctx, local_results)
+
+    # Assemble packet
+    packet_text = f"""# AIV Verification Packet (v2.1)
+
+**Commit:** `{git_ctx.get('head_sha', 'pending')[:7]}`
+**Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
+
+---
+
+## Classification (required)
+
+```yaml
+classification:
+  risk_tier: {tier_upper}
+  sod_mode: {sod}
+  critical_surfaces: []
+  blast_radius: {file}
+  classification_rationale: "{rationale or "TODO: Describe why this tier was chosen"}"
+  classified_by: "{classified_by}"
+  classified_at: "{now}"
+```
+
+## Claim(s)
+
+{claims_text}
+
+---
+
+## Evidence
+
+{evidence_sections}
+
+---
+
+## Verification Methodology
+
+**Zero-Touch Mandate:** Verifier inspects artifacts only.
+
+---
+
+## Summary
+
+{summary or "TODO: One-line summary of the change."}
+"""
+
+    packet_path.write_text(packet_text, encoding="utf-8")
+    console.print(f"[green]Generated:[/green] {packet_path}")
+
+    # Validate the packet
+    console.print("[dim]Validating packet...[/dim]")
+    config = AIVConfig()
+    pipeline = ValidationPipeline(config=config)
+    result = pipeline.validate(packet_text)
+
+    if result.status == ValidationStatus.FAIL:
+        console.print(f"[red]Packet validation failed ({len(result.errors)} errors):[/red]")
+        for e in result.errors:
+            console.print(f"  [{e.rule_id}] {e.message}")
+        console.print("\nFix the packet and retry, or pass --skip-checks.")
+        raise typer.Exit(1)
+
+    if result.warnings:
+        for w in result.warnings:
+            console.print(f"  [yellow]WARN[/yellow] [{w.rule_id}] {w.message}")
+
+    console.print("[green]Packet validation passed.[/green]")
+
+    if dry_run:
+        console.print("[dim]Dry run — skipping git stage and commit.[/dim]")
+        raise typer.Exit(0)
+
+    # Stage both files
+    console.print("[dim]Staging files...[/dim]")
+    subprocess.run(["git", "add", str(file), str(packet_path)], check=True, timeout=10)
+    console.print(f"  Staged: {file}")
+    console.print(f"  Staged: {packet_path}")
+
+    # Commit (the pre-commit hook will validate again)
+    console.print("[dim]Committing...[/dim]")
+    commit_result = subprocess.run(
+        ["git", "commit", "-m", message],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+
+    if commit_result.returncode != 0:
+        console.print(f"[red]Commit failed:[/red]")
+        if commit_result.stdout:
+            console.print(commit_result.stdout)
+        if commit_result.stderr:
+            console.print(commit_result.stderr)
+        raise typer.Exit(1)
+
+    console.print(commit_result.stdout)
+    console.print(f"[green][OK] Atomic commit complete: {file} + {packet_path}[/green]")
 
 
 if __name__ == "__main__":
