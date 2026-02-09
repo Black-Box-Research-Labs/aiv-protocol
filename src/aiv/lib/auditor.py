@@ -16,6 +16,11 @@ quality issues that the validation pipeline does not catch:
 - SUMMARY_TODO: Summary section is TODO.
 - FIX_NO_CLASS_F: Claims mention fix/bug but no Class F section.
 
+Git-history audit (``audit_commits``):
+
+- HOOK_BYPASS: Functional file committed without a paired verification packet.
+- ATOMIC_VIOLATION: Commit contains more than 1 functional file + 1 packet.
+
 Optionally auto-fixes COMMIT_PENDING and CLASS_E_NO_URL when --fix is used.
 """
 
@@ -29,6 +34,39 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+# Packet path patterns (mirrors pre_commit.py constants)
+_PACKET_PREFIXES = (
+    ".github/aiv-packets/VERIFICATION_PACKET_",
+    ".github/VERIFICATION_PACKET_",
+)
+_PACKET_SUFFIX = ".md"
+
+# Default functional prefixes (mirrors pre_commit.py defaults)
+_FUNCTIONAL_PREFIXES = (
+    "src/",
+    "lib/",
+    "app/",
+    "pkg/",
+    "cmd/",
+    "internal/",
+    "engine/",
+    "infrastructure/",
+    "scripts/",
+    "tests/",
+    ".github/workflows/",
+    ".husky/",
+)
+
+_FUNCTIONAL_ROOT_FILES = {
+    "pyproject.toml",
+    "setup.py",
+    "setup.cfg",
+    "package.json",
+    "package-lock.json",
+    ".gitignore",
+    ".env.example",
+}
 
 
 class AuditSeverity(str, Enum):
@@ -400,3 +438,115 @@ class PacketAuditor:
                     body = body[: ce_match.start(2)] + new_link + body[ce_match.end(2) :]
 
         return body
+
+    # ----- Git-history audit -----
+
+    @staticmethod
+    def _is_packet_path(path: str) -> bool:
+        return (
+            any(path.startswith(p) for p in _PACKET_PREFIXES)
+            and path.endswith(_PACKET_SUFFIX)
+        )
+
+    @staticmethod
+    def _is_functional_path(path: str) -> bool:
+        if any(path.startswith(p) for p in _FUNCTIONAL_PREFIXES):
+            return True
+        return path in _FUNCTIONAL_ROOT_FILES
+
+    def audit_commits(
+        self,
+        repo_root: Path,
+        *,
+        num_commits: int = 20,
+    ) -> AuditResult:
+        """Scan recent git commits for protocol violations.
+
+        Detects:
+        - HOOK_BYPASS: functional file(s) committed without a verification packet
+        - ATOMIC_VIOLATION: commit has >1 functional file (multi-file bundle)
+        """
+        result = AuditResult()
+
+        try:
+            log_output = subprocess.run(
+                ["git", "log", f"-{num_commits}", "--format=%H", "--name-only"],
+                capture_output=True,
+                text=True,
+                timeout=30,
+                cwd=str(repo_root),
+            )
+            if log_output.returncode != 0:
+                return result
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            return result
+
+        # Parse git log output: SHA followed by file list, separated by blank lines
+        commits: list[tuple[str, list[str]]] = []
+        current_sha = ""
+        current_files: list[str] = []
+        for line in log_output.stdout.strip().split("\n"):
+            line = line.strip()
+            if not line:
+                if current_sha and current_files:
+                    commits.append((current_sha, current_files))
+                    current_files = []
+                continue
+            if len(line) == 40 and all(c in "0123456789abcdef" for c in line):
+                if current_sha and current_files:
+                    commits.append((current_sha, current_files))
+                    current_files = []
+                current_sha = line
+            else:
+                current_files.append(line)
+        if current_sha and current_files:
+            commits.append((current_sha, current_files))
+
+        result.packets_scanned = len(commits)
+
+        for sha, files in commits:
+            short = sha[:7]
+            packets = [f for f in files if self._is_packet_path(f)]
+            functional = [f for f in files if self._is_functional_path(f)]
+
+            # Skip commits with no functional files (docs-only, etc.)
+            if not functional:
+                continue
+
+            # HOOK_BYPASS: functional files but no packet
+            if functional and not packets:
+                result.findings.append(
+                    AuditFinding(
+                        packet_name=f"commit:{short}",
+                        finding_type="HOOK_BYPASS",
+                        severity=AuditSeverity.ERROR,
+                        message=(
+                            f"Commit {short} has {len(functional)} functional "
+                            f"file(s) but no verification packet. "
+                            f"Files: {', '.join(functional[:5])}"
+                        ),
+                    )
+                )
+
+            # ATOMIC_VIOLATION: more than 1 functional file in a commit
+            if len(functional) > 1:
+                result.findings.append(
+                    AuditFinding(
+                        packet_name=f"commit:{short}",
+                        finding_type="ATOMIC_VIOLATION",
+                        severity=AuditSeverity.WARNING,
+                        message=(
+                            f"Commit {short} bundles {len(functional)} "
+                            f"functional files (atomic rule: max 1). "
+                            f"Files: {', '.join(functional[:5])}"
+                        ),
+                    )
+                )
+
+        if result.findings:
+            seen: set[str] = set()
+            for f in result.findings:
+                seen.add(f.packet_name)
+            result.packets_with_issues = len(seen)
+
+        return result
