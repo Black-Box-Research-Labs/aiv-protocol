@@ -147,6 +147,20 @@ This generates a packet with:
 You provide: claims (`-c`), intent URL (`-i`), rationale (`-r`), summary (`-s`).
 The tool collects: the proof.
 
+**`aiv commit` flag reference:**
+
+| Flag | Required | Description |
+|------|----------|-------------|
+| `--claim` / `-c` | Yes (repeatable) | Falsifiable claim about the change |
+| `--intent` / `-i` | Yes | Class E: URL to spec/issue/directive |
+| `--requirement` | Yes | Which specific requirement the URL satisfies |
+| `--rationale` / `-r` | Yes | Why this risk tier was chosen |
+| `--summary` / `-s` | Yes | One-line summary of the change |
+| `--tier` / `-t` | No (default: R1) | Risk tier: R0, R1, R2, R3 |
+| `--skip-checks` | No | Skip pytest/ruff/mypy |
+| `--dry-run` | No | Generate + validate, don't commit |
+| `--force` | No | Override R3 unverified-claim block (requires justification) |
+
 **Manual alternative: `aiv generate`** — if you need more control:
 
 ```bash
@@ -317,13 +331,31 @@ Cognitive verification commands for the Systematic Verifier Protocol:
 - **Requirements Verified:** Section 4.2 requires token expiry handling.
 ```
 
-**Class F (Provenance)** — Chain-of-custody for bug fixes or security changes:
+**Class F (Provenance)** — Git log chain-of-custody for covering test files:
 ```markdown
-- No test files modified or deleted. Full test suite passes.
-- Commit signed with GPG key `2A55...52C6`.
+**Test file chain-of-custody:**
+
+| File | Commits | Created By | Last Modified By | Assertions |
+|------|---------|------------|------------------|------------|
+| `tests/unit/test_auth.py` | 12 | alice (a1b2c3d) | bob (e4f5g6h) | 47 |
+| `tests/unit/test_tokens.py` | 5 | alice (i9j0k1l) | alice (m2n3o4p) | 23 |
 ```
 
 Full specification: [`SPECIFICATION.md`](SPECIFICATION.md)
+
+### Error Code Reference
+
+When `aiv check` rejects a packet, it reports error codes like `[E004]`. The most common:
+
+| Code | Severity | What It Means | Fix |
+|------|----------|---------------|-----|
+| E001 | BLOCK | Packet parse failure | Use `aiv generate` or `aiv commit` to create a valid packet |
+| E004 | BLOCK | Link not SHA-pinned | Replace `/blob/main/` with `/blob/<commit-sha>/` |
+| E008 | BLOCK | Zero-Touch violation | Remove manual steps from reproduction instructions |
+| E019 | BLOCK | Required evidence class missing | Add the missing class (R0/R1: A+B, R2: +C+E, R3: +D+F) |
+| E011 | BLOCK | Test modification without justification | Add Class F explaining why tests changed |
+
+Full reference: [`docs/ERROR_CODES.md`](docs/ERROR_CODES.md)
 
 ### Cognitive Verification (Class G — Optional)
 
