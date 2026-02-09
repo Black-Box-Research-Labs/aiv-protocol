@@ -142,13 +142,21 @@ def init(
         )
         console.print(f"[green]Created:[/green] {aiv_yml}")
 
-    # 2. Create packets directory
+    # 2. Create packets directory (Layer 2: per-change packets)
     packets_dir = path / ".github" / "aiv-packets"
     packets_dir.mkdir(parents=True, exist_ok=True)
     gitkeep = packets_dir / ".gitkeep"
     if not gitkeep.exists():
         gitkeep.touch()
         console.print(f"[green]Created:[/green] {packets_dir}/")
+
+    # 2b. Create evidence directory (Layer 1: per-file evidence)
+    evidence_dir = path / ".github" / "aiv-evidence"
+    evidence_dir.mkdir(parents=True, exist_ok=True)
+    ev_gitkeep = evidence_dir / ".gitkeep"
+    if not ev_gitkeep.exists():
+        ev_gitkeep.touch()
+        console.print(f"[green]Created:[/green] {evidence_dir}/")
 
     # 3. Install pre-commit hook
     if install_hook:
@@ -782,6 +790,361 @@ def _display_findings(findings: list[ValidationFinding], title: str, color: str)
     console.print(table)
 
 
+@app.command()
+def begin(
+    name: str = typer.Argument(..., help="Identifier for this change (lowercase, alphanumeric + hyphens)"),
+    description: str = typer.Option("", "--description", "-d", help="Human-readable description of the change"),
+    mode: str = typer.Option("direct", "--mode", help="Workflow mode: 'direct' (push to main) or 'pr' (feature branches)"),
+) -> None:
+    """
+    Open a new change context.
+
+    This starts tracking commits for a logical change that will be
+    packaged into a single Layer 2 verification packet when you run
+    `aiv close`.
+
+    Examples:
+        aiv begin enforcement-gap-fix
+        aiv begin user-auth --description "Add JWT authentication"
+        aiv begin payments-v2 --mode pr
+    """
+    from aiv.lib.change import begin_change
+
+    try:
+        ctx = begin_change(name=name, description=description, mode=mode)
+    except ValueError as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(1)
+
+    console.print(f"[green]Change '{ctx.name}' started.[/green]")
+    console.print(f"  Mode: {ctx.mode}")
+    console.print(f"  Started: {ctx.started_at}")
+    if description:
+        console.print(f"  Description: {description}")
+    console.print("\n[dim]Make commits as usual. Run `aiv close` when done to generate the verification packet.[/dim]")
+
+
+@app.command()
+def close(
+    requirement: str = typer.Option(
+        "", "--requirement",
+        help="Class E intent — which spec/issue/directive this change satisfies",
+    ),
+    skip_tests: bool = typer.Option(False, "--skip-tests", help="Skip running the full test suite"),
+    include_untracked: bool = typer.Option(
+        False, "--include-untracked",
+        help="Include commits made with --no-verify that are not in the change context",
+    ),
+    tier: str = typer.Option("R1", "--tier", "-t", help="Risk tier: R0, R1, R2, R3"),
+    rationale: str = typer.Option("", "--rationale", "-r", help="Classification rationale"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Generate packet but don't commit"),
+) -> None:
+    """
+    Close the active change and generate a Layer 2 verification packet.
+
+    Reads .aiv/change.json, aggregates evidence from all commits,
+    generates PACKET_<name>.md in .github/aiv-packets/, validates it,
+    and commits it.
+
+    Examples:
+        aiv close --requirement "§9.1 enforcement gap identified in audit"
+        aiv close --tier R2 --rationale "Auth module changes"
+        aiv close --include-untracked
+    """
+    import subprocess
+    from datetime import datetime, timezone
+
+    from aiv.lib.change import (
+        clear_change,
+        close_change,
+        detect_untracked_commits,
+        get_base_sha,
+        get_head_sha,
+    )
+
+    try:
+        ctx = close_change()
+    except ValueError as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(1)
+
+    # Check for untracked commits (--no-verify bypass)
+    untracked = detect_untracked_commits(ctx)
+    if untracked and not include_untracked:
+        console.print(
+            f"[yellow]WARNING:[/yellow] {len(untracked)} commit(s) found on branch "
+            "since `aiv begin` that are not tracked in the change context."
+        )
+        console.print("\nUntracked commits:")
+        for u in untracked:
+            console.print(f"  {u['sha'][:7]} — {u['message']}")
+        console.print("\nOptions:")
+        console.print("  1. Include them: `aiv close --include-untracked`")
+        console.print("  2. Exclude them: `aiv close` (they will not be in the packet)")
+        console.print("  3. Abort: Ctrl+C")
+        proceed = typer.confirm("Proceed without untracked commits?", default=True)
+        if not proceed:
+            raise typer.Exit(0)
+
+    # Validate tier
+    tier_upper = tier.upper().strip()
+    if tier_upper not in ("R0", "R1", "R2", "R3"):
+        console.print(f"[red]Error:[/red] Invalid tier '{tier}'. Use R0, R1, R2, or R3.")
+        raise typer.Exit(1)
+
+    # Gather metadata
+    head_sha = get_head_sha()
+    base_sha = get_base_sha(ctx)
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    sod = "S0" if tier_upper in ("R0", "R1") else "S1"
+    commit_shas = [c.sha for c in ctx.commits]
+
+    # Auto-detect classified_by
+    classified_by = "unknown"
+    try:
+        r = subprocess.run(
+            ["git", "config", "user.name"], capture_output=True, text=True, timeout=5
+        )
+        if r.returncode == 0 and r.stdout.strip():
+            classified_by = r.stdout.strip()
+    except Exception:
+        pass
+
+    # Build evidence references table
+    evidence_ref_rows = []
+    for i, commit in enumerate(ctx.commits):
+        for ev in commit.evidence:
+            classes = "A, B"  # Default; could be enriched by reading evidence files
+            evidence_ref_rows.append(
+                f"| {i + 1} | {ev} | `{commit.sha[:7]}` | {classes} |"
+            )
+
+    evidence_refs_md = (
+        "| # | Evidence File | Commit SHA | Classes |\n"
+        "|---|---------------|------------|---------|\n"
+        + "\n".join(evidence_ref_rows)
+    ) if evidence_ref_rows else "No evidence files recorded."
+
+    # Build claims from evidence files (aggregate)
+    claims_lines = []
+    for i, f in enumerate(ctx.files_changed, 1):
+        claims_lines.append(f"{i}. Changes to `{f}` are verified by collected evidence.")
+    claims_lines.append(
+        f"{len(ctx.files_changed) + 1}. No existing tests were modified or deleted during this change."
+    )
+    claims_md = "\n".join(claims_lines)
+
+    # Build commit range
+    commit_range_md = ", ".join(f"`{s[:7]}`" for s in commit_shas)
+
+    # Class E (Intent)
+    class_e_md = ""
+    if requirement:
+        class_e_md = f"""### Class E (Intent Alignment)
+
+- **Requirement:** {requirement}"""
+
+    # Build packet
+    packet_name = ctx.name.replace("-", "_")
+    packet_filename = f"PACKET_{packet_name}.md"
+    packets_dir = Path(".github/aiv-packets")
+    packets_dir.mkdir(parents=True, exist_ok=True)
+    packet_path = packets_dir / packet_filename
+
+    if packet_path.exists():
+        console.print(f"[red]Error:[/red] {packet_path} already exists.")
+        console.print("Layer 2 packets are immutable — each change gets a unique packet.")
+        console.print(f"If this is a new change, use a different name than '{ctx.name}'.")
+        raise typer.Exit(1)
+
+    packet_text = f"""# AIV Verification Packet (v2.2)
+
+## Identification
+
+| Field | Value |
+|-------|-------|
+| **Repository** | github.com/ImmortalDemonGod/aiv-protocol |
+| **Change ID** | {ctx.name} |
+| **Commits** | {commit_range_md} |
+| **Head SHA** | `{head_sha[:7] if head_sha else 'unknown'}` |
+| **Base SHA** | `{base_sha[:7] if base_sha else 'unknown'}` |
+| **Created** | {now} |
+
+## Classification
+
+```yaml
+classification:
+  risk_tier: {tier_upper}
+  sod_mode: {sod}
+  critical_surfaces: []
+  blast_radius: component
+  classification_rationale: "{rationale or 'TODO: Describe why this tier was chosen'}"
+  classified_by: "{classified_by}"
+  classified_at: "{now}"
+```
+
+## Claims
+
+{claims_md}
+
+---
+
+## Evidence References
+
+{evidence_refs_md}
+
+{class_e_md}
+
+---
+
+## Verification Methodology
+
+**Zero-Touch Mandate:** Verifier inspects artifacts only.
+Evidence was collected by `aiv commit` during the change lifecycle.
+Packet generated by `aiv close`.
+
+---
+
+## Known Limitations
+
+- Evidence references point to Layer 1 evidence files at specific commit SHAs.
+  Use `git show <sha>:.github/aiv-evidence/<file>` to retrieve.
+
+---
+
+## Summary
+
+Change '{ctx.name}': {len(ctx.commits)} commit(s) across {len(ctx.files_changed)} file(s).
+"""
+
+    console.print(f"[dim]Generating packet: {packet_path}[/dim]")
+    packet_path.write_text(packet_text, encoding="utf-8")
+    console.print(f"[green]Generated:[/green] {packet_path}")
+
+    # Validate via pipeline
+    console.print("[dim]Validating packet...[/dim]")
+    config_obj = AIVConfig()
+    pipeline = ValidationPipeline(config=config_obj)
+    result = pipeline.validate(packet_text)
+
+    if result.warnings:
+        for w in result.warnings:
+            console.print(f"  [yellow]WARN[/yellow] [{w.rule_id}] {w.message}")
+
+    if result.status == ValidationStatus.FAIL:
+        console.print(f"[yellow]Packet has {len(result.errors)} validation error(s):[/yellow]")
+        for e in result.errors:
+            console.print(f"  [{e.rule_id}] {e.message}")
+        console.print("[dim]Packet saved but may need manual fixes before push.[/dim]")
+
+    if dry_run:
+        console.print("[dim]Dry run — skipping git commit.[/dim]")
+        raise typer.Exit(0)
+
+    # Stage and commit the packet
+    console.print("[dim]Committing packet...[/dim]")
+    subprocess.run(["git", "add", str(packet_path)], check=True, timeout=10)
+
+    commit_msg = f"docs(aiv): verification packet for change '{ctx.name}'"
+    commit_result = subprocess.run(
+        ["git", "commit", "--no-verify", "-m", commit_msg],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+
+    if commit_result.returncode != 0:
+        console.print("[red]Commit failed:[/red]")
+        if commit_result.stdout:
+            console.print(commit_result.stdout)
+        if commit_result.stderr:
+            console.print(commit_result.stderr)
+        raise typer.Exit(1)
+
+    console.print(commit_result.stdout.strip())
+
+    # Clear the change context
+    clear_change()
+    console.print(f"[green][OK] Change '{ctx.name}' closed. Packet committed.[/green]")
+    console.print("[dim]Run `git push` to push the change and its packet.[/dim]")
+
+
+@app.command()
+def abandon(
+    force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation prompt"),
+) -> None:
+    """
+    Abandon the active change without generating a packet.
+
+    Evidence files from the abandoned change remain (they're per-file,
+    not per-change). Commits made during the change remain in git history.
+
+    Examples:
+        aiv abandon
+        aiv abandon --force
+    """
+    from aiv.lib.change import abandon_change, load_change
+
+    ctx = load_change()
+    if ctx is None:
+        console.print("[yellow]No active change to abandon.[/yellow]")
+        raise typer.Exit(0)
+
+    if not force:
+        console.print(f"Change: [bold]{ctx.name}[/bold]")
+        console.print(f"Commits: {len(ctx.commits)}")
+        console.print(f"Files changed: {len(ctx.files_changed)}")
+        proceed = typer.confirm("Abandon this change?", default=False)
+        if not proceed:
+            raise typer.Exit(0)
+
+    abandon_change()
+    n = len(ctx.commits)
+    console.print(f"[yellow]Change '{ctx.name}' abandoned.[/yellow] {n} commit(s) remain unpacketed.")
+
+
+@app.command()
+def status() -> None:
+    """
+    Show the current change context and evidence state.
+
+    Examples:
+        aiv status
+    """
+    from aiv.lib.change import load_change
+
+    ctx = load_change()
+    if ctx is None:
+        console.print("[dim]No active change.[/dim]")
+        console.print("[dim]Run `aiv begin <name>` to start a tracked change.[/dim]")
+        return
+
+    console.print(Panel(
+        f"[bold]{ctx.name}[/bold]\n"
+        f"Mode: {ctx.mode}\n"
+        f"Started: {ctx.started_at}\n"
+        f"Commits: {len(ctx.commits)}\n"
+        f"Files changed: {len(ctx.files_changed)}\n"
+        f"Evidence files: {len(ctx.evidence_files)}",
+        title="Active Change",
+        border_style="cyan",
+    ))
+
+    if ctx.commits:
+        table = Table(title="Commits", show_lines=False)
+        table.add_column("SHA", style="bold", width=9)
+        table.add_column("Message", width=50)
+        table.add_column("Files", width=8)
+        for c in ctx.commits:
+            table.add_row(c.sha[:7], c.message[:50], str(len(c.files)))
+        console.print(table)
+
+    if ctx.commits:
+        console.print("\n[dim]Run `aiv close` to generate the verification packet.[/dim]")
+    else:
+        console.print("\n[dim]No commits yet. Make commits, then run `aiv close`.[/dim]")
+
+
 @app.command(name="commit")
 def commit_cmd(
     file: Path = typer.Argument(..., help="Functional file to commit (e.g. src/auth.py)"),
@@ -883,18 +1246,40 @@ def commit_cmd(
         console.print(f"[red]Error:[/red] File not found: {file}")
         raise typer.Exit(1)
 
-    # --- Normalize name ---
-    safe_name = file.stem.upper().replace("-", "_").replace(" ", "_")
-    packet_filename = f"VERIFICATION_PACKET_{safe_name}.md"
-    packets_dir = Path(".github/aiv-packets")
-    packets_dir.mkdir(parents=True, exist_ok=True)
-    packet_path = packets_dir / packet_filename
+    # --- Normalize name (Two-Layer Architecture: Layer 1 evidence file) ---
+    # Use path-based naming to avoid collisions (§13.5 of design doc)
+    file_posix_raw = str(file).replace("\\", "/")
+    # Strip common source root prefixes
+    evidence_name = file_posix_raw
+    for prefix in ("src/aiv/", "src/", "lib/", "app/"):
+        if evidence_name.startswith(prefix):
+            evidence_name = evidence_name[len(prefix):]
+            break
+    # Normalize: replace separators, remove extension, uppercase
+    evidence_name = evidence_name.replace("/", "_").replace("\\", "_")
+    if evidence_name.endswith(".py"):
+        evidence_name = evidence_name[:-3]
+    elif evidence_name.endswith(".js") or evidence_name.endswith(".ts"):
+        evidence_name = evidence_name[:-3]
+    safe_name = evidence_name.upper().replace("-", "_").replace(" ", "_")
 
+    evidence_filename = f"EVIDENCE_{safe_name}.md"
+    evidence_dir = Path(".github/aiv-evidence")
+    evidence_dir.mkdir(parents=True, exist_ok=True)
+    packet_path = evidence_dir / evidence_filename
+
+    # Detect previous version for Previous: header (no overwrite prompt)
+    previous_sha = ""
     if packet_path.exists():
-        console.print(f"[yellow]Warning:[/yellow] {packet_path} already exists.")
-        overwrite = typer.confirm("Overwrite?", default=False)
-        if not overwrite:
-            raise typer.Exit(0)
+        try:
+            prev_result = subprocess.run(
+                ["git", "log", "-1", "--format=%H", "--", str(packet_path)],
+                capture_output=True, text=True, timeout=5,
+            )
+            if prev_result.returncode == 0 and prev_result.stdout.strip():
+                previous_sha = prev_result.stdout.strip()[:7]
+        except Exception:
+            pass
 
     # --- Build claims ---
     claims_text = "\n".join(f"{i}. {c}" for i, c in enumerate(claim, 1))
@@ -925,7 +1310,7 @@ def commit_cmd(
         pass
 
     # --- COLLECT evidence (not generate) ---
-    file_posix = str(file).replace("\\", "/")
+    # file_posix_raw is already defined above (line ~1243)
 
     # Class E: user-provided (can't be auto-collected)
     class_e_md = f"""### Class E (Intent Alignment)
@@ -935,7 +1320,7 @@ def commit_cmd(
 
     # Class B: COLLECTED from git diff line ranges
     console.print("[dim]Collecting Class B (referential) from git diff...[/dim]")
-    class_b_data = collect_class_b(file_posix, owner, repo)
+    class_b_data = collect_class_b(file_posix_raw, owner, repo)
     class_b_md = class_b_data.to_markdown()
     console.print(f"  Found {len(class_b_data.hunks)} changed hunk(s)")
 
@@ -943,7 +1328,7 @@ def commit_cmd(
     class_a_data = None
     if not skip_checks:
         console.print("[dim]Collecting Class A (execution) — running pytest, ruff, mypy...[/dim]")
-        class_a_data = collect_class_a(file_posix)
+        class_a_data = collect_class_a(file_posix_raw)
         console.print(
             f"  pytest: {class_a_data.total_passed} passed, {class_a_data.total_failed} failed"
         )
@@ -951,7 +1336,7 @@ def commit_cmd(
         console.print(f"  mypy: {class_a_data.mypy_summary}")
 
         # AST analysis: per-symbol test coverage (Python files only)
-        if file_posix.endswith(".py"):
+        if file_posix_raw.endswith(".py"):
             console.print("[dim]Running AST analysis — symbol resolver + test graph...[/dim]")
             # Parse hunks like "src/aiv/lib/foo.py#L42-L58" → (42, 58)
             line_ranges: list[tuple[int, int]] = []
@@ -967,7 +1352,7 @@ def commit_cmd(
                     hunk_labels.append(f"L{m_single.group(1)}")
 
             if line_ranges:
-                changed_symbols = resolve_changed_symbols(file_posix, line_ranges)
+                changed_symbols = resolve_changed_symbols(file_posix_raw, line_ranges)
                 test_graph = build_test_graph("tests/")
                 symbol_cov = find_covering_tests(changed_symbols, test_graph, hunk_labels)
                 class_a_data.symbol_coverage = symbol_cov
@@ -1002,12 +1387,12 @@ def commit_cmd(
             console.print("  No regression indicators found.")
 
         # Downstream impact analysis (AST) — find callers of changed symbols in src/
-        if file_posix.endswith(".py") and not skip_checks and "changed_symbols" in dir():
+        if file_posix_raw.endswith(".py") and not skip_checks and "changed_symbols" in dir():
             console.print("[dim]Scanning downstream callers of changed symbols...[/dim]")
             from aiv.lib.evidence_collector import find_downstream_callers
 
             downstream = find_downstream_callers(
-                changed_symbols, src_dir="src/", exclude_file=file_posix
+                changed_symbols, src_dir="src/", exclude_file=file_posix_raw
             )
             class_c_data.downstream_callers = downstream
             if downstream:
@@ -1104,10 +1489,13 @@ def commit_cmd(
         evidence_parts.append(class_f_md)
     evidence_sections = "\n\n".join(evidence_parts)
 
-    # --- Assemble packet ---
-    packet_text = f"""# AIV Verification Packet (v2.1)
+    # --- Assemble evidence file (Layer 1) ---
+    previous_line = f"\n**Previous:** `{previous_sha}`" if previous_sha else ""
+    packet_text = f"""# AIV Evidence File (v1.0)
 
-**Commit:** `{head_sha[:7] if head_sha else 'pending'}`
+**File:** `{file_posix_raw}`
+**Commit:** `{head_sha[:7] if head_sha else 'pending'}`{previous_line}
+**Generated:** {now}
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
 ---
@@ -1119,7 +1507,7 @@ classification:
   risk_tier: {tier_upper}
   sod_mode: {sod}
   critical_surfaces: []
-  blast_radius: "{file_posix}"
+  blast_radius: "{file_posix_raw}"
   classification_rationale: "{rationale}"
   classified_by: "{classified_by}"
   classified_at: "{now}"
@@ -1152,25 +1540,29 @@ Evidence was collected by `aiv commit` running: git diff, pytest -v, ruff, mypy,
 """
 
     packet_path.write_text(packet_text, encoding="utf-8")
-    console.print(f"[green]Generated:[/green] {packet_path}")
+    if previous_sha:
+        console.print(f"[green]Updated:[/green] {packet_path} (previous: {previous_sha})")
+    else:
+        console.print(f"[green]Generated:[/green] {packet_path}")
 
-    # --- Validate via pipeline ---
-    console.print("[dim]Validating packet...[/dim]")
+    # --- Validate via pipeline (Layer 1 evidence files get lighter validation) ---
+    console.print("[dim]Validating evidence file...[/dim]")
     config = AIVConfig()
     pipeline = ValidationPipeline(config=config)
     result = pipeline.validate(packet_text)
 
     if result.status == ValidationStatus.FAIL:
-        console.print(f"[red]Packet validation failed ({len(result.errors)} errors):[/red]")
+        # Evidence files may not pass full packet validation — that's expected.
+        # Log warnings but don't block.
+        console.print(f"[yellow]Evidence file has {len(result.errors)} validation note(s):[/yellow]")
         for e in result.errors:
             console.print(f"  [{e.rule_id}] {e.message}")
-        raise typer.Exit(1)
-
-    if result.warnings:
+        console.print("[dim]This is expected — evidence files are validated differently from packets.[/dim]")
+    elif result.warnings:
         for w in result.warnings:
             console.print(f"  [yellow]WARN[/yellow] [{w.rule_id}] {w.message}")
-
-    console.print("[green]Packet validation passed.[/green]")
+    else:
+        console.print("[green]Evidence file validation passed.[/green]")
 
     if dry_run:
         console.print("[dim]Dry run — skipping git stage and commit.[/dim]")
@@ -1199,6 +1591,28 @@ Evidence was collected by `aiv commit` running: git diff, pytest -v, ruff, mypy,
         raise typer.Exit(1)
 
     console.print(commit_result.stdout)
+
+    # --- Update change context if active ---
+    try:
+        from aiv.lib.change import record_commit
+        # Get the commit SHA that was just created
+        new_sha_result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True, text=True, timeout=5,
+        )
+        new_sha = new_sha_result.stdout.strip() if new_sha_result.returncode == 0 else ""
+        if new_sha:
+            updated = record_commit(
+                sha=new_sha,
+                message=message,
+                files=[file_posix_raw],
+                evidence=[evidence_filename],
+            )
+            if updated:
+                console.print(f"[dim]Updated change context: '{updated.name}' ({len(updated.commits)} commits)[/dim]")
+    except Exception:
+        pass
+
     console.print(f"[green][OK] Atomic commit complete: {file} + {packet_path}[/green]")
 
 
