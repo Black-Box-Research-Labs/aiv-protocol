@@ -1,12 +1,15 @@
 # Claim-Aware Evidence Routing — Design Plan
 
-**Status:** V3 — Post-implementation audit. Phases 0–4 shipped. Three remaining
-forms of theater identified and designed for elimination.
+**Status:** V4 — Phases 0–8 shipped. Phase 1 bug discovered and patched:
+`resolve_changed_symbols` reported only 1 symbol per hunk (smallest/innermost),
+starving the claim binder. Patched to report ALL overlapping symbols.
 
 **History:**
 - V1: Keyword matching proposed → **REJECTED** (false positives, false negatives, gameable)
 - V2: AST-based semantic analysis designed → **IMPLEMENTED** (Phases 0–4)
 - V3: Honest audit of shipped output → **3 remaining gaps identified**
+- V4: Phases 5–8 shipped (`e53f2c6`). Phase 1 resolver bug found during
+  enforcement gap analysis — single-symbol-per-hunk caused claim matrix theater
 
 ---
 
@@ -378,52 +381,37 @@ negatives (misses a test that actually covers the symbol). Mitigated by:
 | Phase | Description | Status | Commit |
 |-------|-------------|--------|--------|
 | 0 | Distinct Class F (git log chain-of-custody) | ✅ Shipped | `e58b81c` |
-| 1 | AST Symbol Resolver (`resolve_changed_symbols`) | ✅ Shipped | `e58b81c` |
+| 1 | AST Symbol Resolver (`resolve_changed_symbols`) | ⚠️ Bug found | `e58b81c` |
 | 2 | AST Test Graph (`build_test_graph`) | ✅ Shipped | `e58b81c` |
 | 3 | Per-Symbol Class A (`find_covering_tests`) | ✅ Shipped | `6e05404` |
 | 4 | Downstream Class C (`find_downstream_callers`) | ✅ Shipped | `6e05404` |
+| 5 | Remove global metric from Class A | ✅ Shipped | `e53f2c6` |
+| 6 | Claim Verification Matrix | ✅ Shipped | `e53f2c6` |
+| 7 | R3 blocking + `--force` | ✅ Shipped | `e53f2c6` |
+| 8 | Class D cleanup (`git diff --stat`) | ✅ Shipped | `e53f2c6` |
+| 9 | Phase 1 resolver bug — multi-symbol hunks | ✅ Patched | pending |
 
-### Remaining Phases
+### Phase 1 Bug: Single-Symbol-Per-Hunk (V4 Discovery)
 
-#### Phase 5: Remove Global Metric from Class A
+**Problem:** `resolve_changed_symbols()` picked only the **smallest** (innermost)
+symbol per diff hunk. When a hunk spanned multiple functions (common for large
+additions), only one symbol was reported. This starved `bind_claims_to_evidence()`
+of symbols to match against, causing most claims to fall through to "unresolved /
+MANUAL REVIEW."
 
-Replace `551 passed, 0 failed` with per-symbol verdicts when AST is available.
-Keep global metric only as non-Python fallback.
+**Impact:** The Claim Verification Matrix (Phase 6) existed but was theater —
+it produced a table of MANUAL REVIEW entries for claims that SHOULD have been
+verifiable. Example: claim "audit_commits() detects HOOK_BYPASS" contains the
+symbol `audit_commits`, but the resolver only reported `_is_functional_path`
+(smallest function in the same hunk). The binder couldn't match and gave up.
 
-**Changes:**
-- `ClassAEvidence.to_markdown()`: suppress global line when `symbol_coverage`
-  is non-empty; add symbol verdict summary
-- Tests: verify global metric absent when AST available, present when not
+**Root cause:** The resolver used a "best match" pattern (smallest overlapping
+symbol) inherited from IDE go-to-definition behavior. But evidence collection
+needs ALL changed symbols, not just the innermost one.
 
-#### Phase 6: Claim Verification Matrix
-
-Add explicit claim→evidence binding to the packet.
-
-**Changes:**
-- New `ClaimVerification` dataclass
-- New `bind_claims_to_evidence()` function
-- `commit_cmd` passes claims to binding function
-- Packet template includes matrix section
-- Tests: verify binding for exact match, substring match, no match
-
-#### Phase 7: R3 Blocking + `--force`
-
-Block R3 commits with unverified claims. Add `--force` override with audit trail.
-
-**Changes:**
-- `commit_cmd`: post-validation check of claim matrix at R3
-- New `--force` flag
-- Packet template includes "Acknowledged gaps" section
-- Tests: verify R3 blocks, R2 warns, R1 advisory, `--force` overrides
-
-#### Phase 8: Class D Cleanup
-
-Remove Class D "See Class B" pointer or replace with actual differential data.
-
-**Changes:**
-- `commit_cmd`: omit Class D section when no differential analysis available
-- Or: populate with `git diff --stat` summary
-- Tests: verify Class D absent or contains real data
+**Patch:** Changed `resolve_changed_symbols()` to collect ALL symbols whose
+range overlaps with each hunk, instead of only the smallest. One `for` loop
+replacement. 2 new tests verify multi-symbol hunks.
 
 ---
 
