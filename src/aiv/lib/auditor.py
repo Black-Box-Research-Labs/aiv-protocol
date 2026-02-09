@@ -249,12 +249,14 @@ class PacketAuditor:
                     )
                 )
             elif "http" not in link_text:
+                # TODO in Class E is an error, not a warning
+                is_todo = bool(re.search(r"\bTODO\b", link_text, re.IGNORECASE))
                 findings.append(
                     AuditFinding(
                         packet_name=name,
                         finding_type="CLASS_E_NO_URL",
-                        severity=AuditSeverity.WARNING,
-                        message=f"Class E link is plain text: {link_text[:80]}",
+                        severity=AuditSeverity.ERROR if is_todo else AuditSeverity.WARNING,
+                        message=f"Class E link is {'TODO' if is_todo else 'plain text'}: {link_text[:80]}",
                         auto_fixable=self._can_pin_link(link_text),
                     )
                 )
@@ -269,16 +271,25 @@ class PacketAuditor:
                 )
 
         # 3. TODO remnants in content
+        # TODOs in evidence sections are errors (they mean the evidence is missing).
+        # TODOs in classification rationale are warnings (soft guidance).
+        evidence_section = False
         for i, line in enumerate(body.split("\n"), 1):
             stripped = line.strip()
+            if stripped.startswith("## Evidence"):
+                evidence_section = True
+            elif stripped.startswith("## ") and evidence_section:
+                evidence_section = False
             if re.search(r"\bTODO\b", stripped, re.IGNORECASE):
                 if any(kw in stripped for kw in _TODO_META_KEYWORDS):
                     continue
+                # TODOs inside evidence sections are blocking errors
+                sev = AuditSeverity.ERROR if evidence_section else AuditSeverity.WARNING
                 findings.append(
                     AuditFinding(
                         packet_name=name,
                         finding_type="TODO_PRESENT",
-                        severity=AuditSeverity.WARNING,
+                        severity=sev,
                         message=f"TODO on line {i}: {stripped[:80]}",
                         line_number=i,
                     )
