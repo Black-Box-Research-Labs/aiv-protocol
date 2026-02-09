@@ -26,6 +26,11 @@ class ClassBEvidence:
     hunks: list[str]  # ["src/auth.py#L42-L58", ...]
 
     def to_markdown(self) -> str:
+        """Render as markdown with clickable SHA-pinned GitHub permalinks.
+
+        Each hunk becomes a link like:
+        ``[`src/auth.py#L42-L58`](https://github.com/org/repo/blob/<sha>/src/auth.py#L42-L58)``
+        """
         short = self.head_sha[:7]
         lines = [
             "### Class B (Referential Evidence)\n",
@@ -55,6 +60,11 @@ class ClassAEvidence:
     mypy_summary: str
 
     def to_markdown(self) -> str:
+        """Render as markdown including specific test names and tool output.
+
+        Emits a WARNING if no tests are found that reference the changed file,
+        making coverage gaps visible rather than hidden.
+        """
         lines = ["### Class A (Execution Evidence)\n"]
         lines.append(f"- **pytest:** {self.total_passed} passed, {self.total_failed} failed in {self.duration}")
         if self.relevant_tests:
@@ -79,6 +89,12 @@ class ClassCEvidence:
     anti_cheat_clean: bool
 
     def to_markdown(self) -> str:
+        """Render as markdown documenting search methodology and findings.
+
+        Reports what was searched for (assertions, test deletions, skip markers)
+        and whether each indicator was found or absent. ALERTs are emitted for
+        any regression indicator detected.
+        """
         lines = ["### Class C (Negative Evidence)\n"]
         lines.append("**Search methodology:** Ran `git diff --cached` and scanned for regression indicators.\n")
 
@@ -122,6 +138,11 @@ class ClassFEvidence:
     test_files_deleted: int
 
     def to_markdown(self) -> str:
+        """Render as markdown documenting test file chain-of-custody.
+
+        Reports whether any test files were deleted or any assertions removed
+        in the staged diff, providing cryptographic-grade provenance via git.
+        """
         lines = ["### Class F (Provenance Evidence)\n"]
         if self.test_files_deleted == 0 and self.test_assertions_deleted == 0:
             lines.append("- No test files deleted. No assertions removed. Full test suite passes.")
@@ -136,6 +157,10 @@ class ClassFEvidence:
 
 
 def _run_git(*args: str) -> str:
+    """Run a git command and return stripped stdout.
+
+    Returns empty string on failure or timeout (never raises).
+    """
     result = subprocess.run(
         ["git", *args], capture_output=True, text=True, timeout=30
     )
@@ -143,6 +168,7 @@ def _run_git(*args: str) -> str:
 
 
 def _run(cmd: list[str], timeout: int = 60) -> subprocess.CompletedProcess[str]:
+    """Run an arbitrary command and return the CompletedProcess."""
     return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
 
 
@@ -152,7 +178,20 @@ def _run(cmd: list[str], timeout: int = 60) -> subprocess.CompletedProcess[str]:
 
 
 def collect_class_b(file_path: str, owner: str, repo: str) -> ClassBEvidence:
-    """Collect Class B by parsing git diff --cached for exact line ranges."""
+    """Collect Class B evidence by parsing ``git diff --cached`` for exact line ranges.
+
+    Produces SHA-pinned GitHub permalinks to every changed hunk in the file.
+    For new files (no diff hunks), falls back to the full file line range.
+
+    Args:
+        file_path: Path to the changed file (e.g. ``src/aiv/lib/auditor.py``).
+        owner: GitHub repository owner (e.g. ``ImmortalDemonGod``).
+        repo: GitHub repository name (e.g. ``aiv-protocol``).
+
+    Returns:
+        ClassBEvidence with head_sha, owner, repo, and a list of hunk strings
+        like ``src/auth.py#L42-L58``.
+    """
     head_sha = _run_git("rev-parse", "HEAD")
     if not head_sha:
         head_sha = "unknown"
@@ -191,7 +230,23 @@ def collect_class_b(file_path: str, owner: str, repo: str) -> ClassBEvidence:
 
 
 def collect_class_a(file_path: str) -> ClassAEvidence:
-    """Collect Class A by running pytest -v and extracting relevant test names."""
+    """Collect Class A evidence by running pytest, ruff, and mypy.
+
+    1. Runs ``pytest --tb=no -q`` to get pass/fail counts and duration.
+    2. Uses ``git grep`` to find test files that reference the changed module,
+       then extracts ``test_*`` function names from those files.
+    3. Runs ``ruff check`` on the changed file.
+    4. Runs ``mypy`` on the changed file.
+
+    If no tests reference the changed file, emits a WARNING in the output
+    rather than silently omitting this gap.
+
+    Args:
+        file_path: Path to the changed file.
+
+    Returns:
+        ClassAEvidence with test counts, relevant test names, and linter results.
+    """
     import sys
 
     # 1. Run pytest -v to get individual test results
@@ -268,7 +323,19 @@ def collect_class_a(file_path: str) -> ClassAEvidence:
 
 
 def collect_class_c() -> ClassCEvidence:
-    """Collect Class C by scanning git diff --cached for regression indicators."""
+    """Collect Class C (negative) evidence by scanning ``git diff --cached``.
+
+    Searches the staged diff for four regression indicators:
+
+    1. **Test file deletions** — any file with "test" in its path deleted.
+    2. **Test file modifications** — any test file modified (informational).
+    3. **Deleted assertions** — lines removed that contain ``assert``.
+    4. **Added skip markers** — lines added with ``@pytest.mark.skip`` etc.
+       (Excludes string literals to avoid false positives from documentation.)
+
+    Returns:
+        ClassCEvidence with lists of findings and an ``anti_cheat_clean`` flag.
+    """
     diff = _run_git("diff", "--cached")
 
     # Find modified/deleted test files
@@ -312,7 +379,20 @@ def collect_class_c() -> ClassCEvidence:
 
 
 def collect_class_f() -> ClassFEvidence:
-    """Collect Class F by scanning git diff --cached for test file integrity."""
+    """Collect Class F (provenance) evidence by verifying test file integrity.
+
+    Scans ``git diff --cached`` for:
+
+    1. Test files present in the diff (any file with "test" in path).
+    2. How many of those are deletions.
+    3. How many ``assert`` statements were removed from ``tests/``.
+
+    This provides chain-of-custody proof that the test suite was not
+    weakened by the commit.
+
+    Returns:
+        ClassFEvidence with test file lists and deletion/assertion counts.
+    """
     name_status = _run_git("diff", "--cached", "--name-status")
 
     test_files: list[str] = []
