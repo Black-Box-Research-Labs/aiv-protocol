@@ -1,9 +1,9 @@
 # AIV Evidence File (v1.0)
 
 **File:** `src/aiv/cli/main.py`
-**Commit:** `7eed8f4`
-**Previous:** `7eed8f4`
-**Generated:** 2026-02-09T09:12:11Z
+**Commit:** `6295235`
+**Previous:** `875f37e`
+**Generated:** 2026-02-09T09:16:40Z
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
 ---
@@ -12,22 +12,19 @@
 
 ```yaml
 classification:
-  risk_tier: R1
+  risk_tier: R0
   sod_mode: S0
   critical_surfaces: []
   blast_radius: "src/aiv/cli/main.py"
-  classification_rationale: "Quality improvements to close and generate commands"
+  classification_rationale: "Formatting only"
   classified_by: "ImmortalDemonGod"
-  classified_at: "2026-02-09T09:12:11Z"
+  classified_at: "2026-02-09T09:16:40Z"
 ```
 
 ## Claim(s)
 
-1. aiv close extracts real claims from Layer 1 evidence files instead of generic boilerplate
-2. aiv close extracts Class B file references from evidence files to fix E016 warnings
-3. aiv close detects actual evidence classes (A-F) present in each evidence file
-4. aiv generate scopes ruff to staged Python files when available, falls back to full src/tests/
-5. No existing tests were modified or deleted during this change.
+1. Ruff auto-format applied to main.py with no logic changes
+2. No existing tests were modified or deleted during this change.
 
 ---
 
@@ -35,54 +32,34 @@ classification:
 
 ### Class E (Intent Alignment)
 
-- **Link:** [https://github.com/ImmortalDemonGod/aiv-protocol/blob/7eed8f4f8c8e17b011b4483639a81462676fdba6/src/aiv/cli/main.py](https://github.com/ImmortalDemonGod/aiv-protocol/blob/7eed8f4f8c8e17b011b4483639a81462676fdba6/src/aiv/cli/main.py)
-- **Requirements Verified:** Layer 2 packets must contain meaningful claims from evidence, not boilerplate
+- **Link:** [https://github.com/ImmortalDemonGod/aiv-protocol/blob/62952356eba82e64a7abc3feca46c7e297a68c1f/pyproject.toml](https://github.com/ImmortalDemonGod/aiv-protocol/blob/62952356eba82e64a7abc3feca46c7e297a68c1f/pyproject.toml)
+- **Requirements Verified:** All code must pass ruff format check in CI
 
 ### Class B (Referential Evidence)
 
-**Scope Inventory** (SHA: [`7eed8f4`](https://github.com/ImmortalDemonGod/aiv-protocol/tree/7eed8f4f8c8e17b011b4483639a81462676fdba6))
+**Scope Inventory** (SHA: [`6295235`](https://github.com/ImmortalDemonGod/aiv-protocol/tree/62952356eba82e64a7abc3feca46c7e297a68c1f))
 
-- [`src/aiv/cli/main.py#L656-L667`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/7eed8f4f8c8e17b011b4483639a81462676fdba6/src/aiv/cli/main.py#L656-L667)
-- [`src/aiv/cli/main.py#L670`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/7eed8f4f8c8e17b011b4483639a81462676fdba6/src/aiv/cli/main.py#L670)
-- [`src/aiv/cli/main.py#L941-L943`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/7eed8f4f8c8e17b011b4483639a81462676fdba6/src/aiv/cli/main.py#L941-L943)
-- [`src/aiv/cli/main.py#L945-L948`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/7eed8f4f8c8e17b011b4483639a81462676fdba6/src/aiv/cli/main.py#L945-L948)
-- [`src/aiv/cli/main.py#L951-L987`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/7eed8f4f8c8e17b011b4483639a81462676fdba6/src/aiv/cli/main.py#L951-L987)
-- [`src/aiv/cli/main.py#L999-L1008`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/7eed8f4f8c8e17b011b4483639a81462676fdba6/src/aiv/cli/main.py#L999-L1008)
-- [`src/aiv/cli/main.py#L1014-L1022`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/7eed8f4f8c8e17b011b4483639a81462676fdba6/src/aiv/cli/main.py#L1014-L1022)
-- [`src/aiv/cli/main.py#L1081-L1084`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/7eed8f4f8c8e17b011b4483639a81462676fdba6/src/aiv/cli/main.py#L1081-L1084)
+- [`src/aiv/cli/main.py#L661-L663`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/62952356eba82e64a7abc3feca46c7e297a68c1f/src/aiv/cli/main.py#L661-L663)
+- [`src/aiv/cli/main.py#L962-L967`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/62952356eba82e64a7abc3feca46c7e297a68c1f/src/aiv/cli/main.py#L962-L967)
+- [`src/aiv/cli/main.py#L975`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/62952356eba82e64a7abc3feca46c7e297a68c1f/src/aiv/cli/main.py#L975)
 
 ### Class A (Execution Evidence)
 
-**Per-symbol test coverage (AST analysis):**
+- Local checks skipped (--skip-checks).
+- **Skip reason:** Formatting only, no logic changes
 
-- **`_run_local_checks`** (L656-L667): FAIL — WARNING: No tests import or call `_run_local_checks`
-- **`close`** (L670): FAIL — WARNING: No tests import or call `close`
 
-**Coverage summary:** 0/2 symbols verified by tests.
-- **ruff:** All checks passed
-- **mypy:** Success: no issues found in 1 source file
-
-## Claim Verification Matrix
-
-| # | Claim | Type | Evidence | Verdict |
-|---|-------|------|----------|---------|
-| 1 | aiv close extracts real claims from Layer 1 evidence files i... | symbol | 0 tests call `close` | FAIL UNVERIFIED |
-| 2 | aiv close extracts Class B file references from evidence fil... | symbol | 0 tests call `close` | FAIL UNVERIFIED |
-| 3 | aiv close detects actual evidence classes (A-F) present in e... | symbol | 0 tests call `close` | FAIL UNVERIFIED |
-| 4 | aiv generate scopes ruff to staged Python files when availab... | tooling | Class A: ruff: clean | PASS VERIFIED |
-| 5 | No existing tests were modified or deleted during this chang... | structural | Class C not collected | REVIEW MANUAL REVIEW |
-
-**Verdict summary:** 1 verified, 3 unverified, 1 manual review.
 
 ---
 
 ## Verification Methodology
 
-**Zero-Touch Mandate:** Verifier inspects artifacts only.
-Evidence collected by `aiv commit` running: git diff, pytest (677 passed, 10 failed), ruff (clean), mypy (Success: no issues found in 1 source file), AST symbol-to-test binding (2 symbols).
+**R0 (trivial) -- local checks skipped.**
+**Reason:** Formatting only, no logic changes
+Only git diff scope inventory was collected. No execution evidence.
 
 ---
 
 ## Summary
 
-aiv close now produces rich packets with real claims and file refs; aiv generate scopes ruff properly
+Apply ruff format to main.py

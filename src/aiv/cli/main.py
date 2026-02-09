@@ -658,7 +658,9 @@ def _run_local_checks() -> str:
     try:
         staged = subprocess.run(
             ["git", "diff", "--cached", "--name-only", "--diff-filter=ACMR"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         staged_py = [f for f in staged.stdout.strip().splitlines() if f.endswith(".py")]
         if staged_py:
@@ -957,8 +959,12 @@ def close(
                     # Detect which evidence classes are present
                     found_classes = []
                     for cls_letter, cls_name in [
-                        ("A", "Class A"), ("B", "Class B"), ("C", "Class C"),
-                        ("D", "Class D"), ("E", "Class E"), ("F", "Class F"),
+                        ("A", "Class A"),
+                        ("B", "Class B"),
+                        ("C", "Class C"),
+                        ("D", "Class D"),
+                        ("E", "Class E"),
+                        ("F", "Class F"),
                     ]:
                         if f"### {cls_name}" in ev_body:
                             found_classes.append(cls_letter)
@@ -966,9 +972,7 @@ def close(
                         classes = ", ".join(found_classes)
 
                     # Extract claims
-                    claims_match = _re.search(
-                        r"## Claim\(s\)\s*\n(.*?)(?=\n---|\n## )", ev_body, _re.DOTALL
-                    )
+                    claims_match = _re.search(r"## Claim\(s\)\s*\n(.*?)(?=\n---|\n## )", ev_body, _re.DOTALL)
                     if claims_match:
                         for line in claims_match.group(1).strip().splitlines():
                             line = line.strip()
