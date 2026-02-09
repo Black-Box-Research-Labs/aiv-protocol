@@ -218,11 +218,13 @@ class PacketAuditor:
         *,
         fix: bool = False,
     ) -> AuditResult:
-        """Audit all VERIFICATION_PACKET_*.md files in *packets_dir*.
+        """Audit all VERIFICATION_PACKET_*.md and PACKET_*.md files in *packets_dir*.
 
         If *fix* is True, auto-fixable issues are corrected in-place.
         """
-        packets = sorted(p for p in packets_dir.glob("VERIFICATION_PACKET_*.md") if "TEMPLATE" not in p.name)
+        legacy = sorted(p for p in packets_dir.glob("VERIFICATION_PACKET_*.md") if "TEMPLATE" not in p.name)
+        layer2 = sorted(p for p in packets_dir.glob("PACKET_*.md"))
+        packets = legacy + layer2
 
         result = AuditResult(packets_scanned=len(packets))
         packets_with_findings: set[str] = set()
