@@ -31,7 +31,7 @@ classification:
 
 ### Class E (Intent Alignment)
 
-- **Link:** [https://github.com/ImmortalDemonGod/aiv-protocol/blob/main/docs/TWO_LAYER_VERIFICATION_ARCHITECTURE.md](https://github.com/ImmortalDemonGod/aiv-protocol/blob/main/docs/TWO_LAYER_VERIFICATION_ARCHITECTURE.md)
+- **Link:** [https://github.com/ImmortalDemonGod/aiv-protocol/blob/5dee28f0fd7453983332ddd75121f0fb5e2ee082/docs/TWO_LAYER_VERIFICATION_ARCHITECTURE.md](https://github.com/ImmortalDemonGod/aiv-protocol/blob/5dee28f0fd7453983332ddd75121f0fb5e2ee082/docs/TWO_LAYER_VERIFICATION_ARCHITECTURE.md)
 - **Requirements Verified:** Tests must cover new range-level evidence detection
 
 ### Class B (Referential Evidence)
@@ -47,6 +47,7 @@ classification:
 ### Class A (Execution Evidence)
 
 - Local checks skipped (--skip-checks).
+- **Skip reason:** Legacy evidence file; predates anti-theater gates.
 
 
 
@@ -54,8 +55,9 @@ classification:
 
 ## Verification Methodology
 
-**Zero-Touch Mandate:** Verifier inspects artifacts only.
-Evidence was collected by `aiv commit` running: git diff, pytest -v, ruff, mypy, anti-cheat scan.
+**R0 (trivial) -- local checks skipped.**
+Legacy evidence file; predates anti-theater gates.
+Only git diff scope inventory was collected. No execution evidence.
 
 ---
 

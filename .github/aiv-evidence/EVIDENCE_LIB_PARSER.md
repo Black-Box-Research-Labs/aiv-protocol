@@ -11,7 +11,7 @@
 
 ```yaml
 classification:
-  risk_tier: R1
+  risk_tier: R0
   sod_mode: S0
   critical_surfaces: []
   blast_radius: "src/aiv/lib/parser.py"
@@ -32,7 +32,7 @@ classification:
 
 ### Class E (Intent Alignment)
 
-- **Link:** [https://github.com/ImmortalDemonGod/aiv-protocol/blob/main/docs/TWO_LAYER_VERIFICATION_ARCHITECTURE.md](https://github.com/ImmortalDemonGod/aiv-protocol/blob/main/docs/TWO_LAYER_VERIFICATION_ARCHITECTURE.md)
+- **Link:** [https://github.com/ImmortalDemonGod/aiv-protocol/blob/3f4226ab93b7ac42daac57cebb121b77f736511f/docs/TWO_LAYER_VERIFICATION_ARCHITECTURE.md](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3f4226ab93b7ac42daac57cebb121b77f736511f/docs/TWO_LAYER_VERIFICATION_ARCHITECTURE.md)
 - **Requirements Verified:** Layer 2 packets must satisfy tier requirements via evidence_refs
 
 ### Class B (Referential Evidence)
@@ -45,6 +45,7 @@ classification:
 ### Class A (Execution Evidence)
 
 - Local checks skipped (--skip-checks).
+- **Skip reason:** Legacy evidence file; predates anti-theater gates.
 
 
 
@@ -52,8 +53,9 @@ classification:
 
 ## Verification Methodology
 
-**Zero-Touch Mandate:** Verifier inspects artifacts only.
-Evidence was collected by `aiv commit` running: git diff, pytest -v, ruff, mypy, anti-cheat scan.
+**R0 (trivial) -- local checks skipped.**
+Legacy evidence file; predates anti-theater gates.
+Only git diff scope inventory was collected. No execution evidence.
 
 ---
 

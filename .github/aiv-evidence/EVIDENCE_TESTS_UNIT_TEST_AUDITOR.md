@@ -23,7 +23,7 @@ classification:
 ## Claim(s)
 
 1. TestEvidenceAudit.test_clean_evidence_no_findings verifies clean evidence produces 0 findings
-2. TestEvidenceAudit.test_mutable_class_e_link_detected catches /blob/main/ in evidence
+2. TestEvidenceAudit.test_mutable_class_e_link_detected catches /blob/24cd26a0122678fb4f6f88163676b353f15c80d5/ in evidence
 3. TestEvidenceAudit.test_tier_skip_detected catches R1 with --skip-checks
 4. TestEvidenceAudit.test_theater_methodology_detected catches methodology lies
 5. No existing tests were modified or deleted during this change.

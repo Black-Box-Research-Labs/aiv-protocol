@@ -43,6 +43,7 @@ classification:
 ### Class A (Execution Evidence)
 
 - Local checks skipped (--skip-checks).
+- **Skip reason:** Legacy evidence file; predates anti-theater gates.
 
 
 

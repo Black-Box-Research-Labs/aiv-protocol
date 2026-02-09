@@ -24,7 +24,7 @@ classification:
 ## Claim(s)
 
 1. PacketAuditor.audit() accepts evidence_dir parameter and scans EVIDENCE_*.md files
-2. _check_evidence detects EVIDENCE_MUTABLE_LINK when Class E uses /blob/main/
+2. _check_evidence detects EVIDENCE_MUTABLE_LINK when Class E uses /blob/ea12f6807c484e6aa83bd51156b75233df9d25b6/
 3. _check_evidence detects EVIDENCE_TIER_SKIP when R1+ tier uses --skip-checks
 4. _check_evidence detects EVIDENCE_NO_SKIP_REASON when --skip-checks lacks --skip-reason
 5. _check_evidence detects EVIDENCE_THEATER when methodology claims tools ran but Class A says skipped
