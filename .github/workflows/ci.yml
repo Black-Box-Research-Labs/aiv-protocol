@@ -61,6 +61,27 @@ jobs:
           name: coverage-report
           path: .coverage
 
+  protocol-audit:
+    name: Protocol Compliance Audit
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 25
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Audit packets + commit history
+        run: aiv audit --commits 20
+
   evidence:
     name: Generate AIV Evidence Artifacts
     needs: [lint, test]
