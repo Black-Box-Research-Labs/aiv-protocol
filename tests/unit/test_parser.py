@@ -357,3 +357,75 @@ Done.
         sections = parser._extract_sections(packet_text)
         titles = [s.title for s in sections]
         assert "This is deeply nested and must not be a section" not in titles
+
+
+class TestEvidenceRefsTable:
+    """Tests for Layer 2 evidence references table parsing."""
+
+    @pytest.fixture
+    def parser(self):
+        return PacketParser()
+
+    def test_evidence_refs_table_extracts_classes(self, parser):
+        """Layer 2 packet with evidence refs table should populate evidence_classes_present."""
+        packet_text = """\
+# AIV Verification Packet (v2.2)
+
+## Claim(s)
+
+1. Changes to src/aiv/lib/change.py are verified by collected evidence.
+2. No existing tests were modified or deleted during this change.
+
+---
+
+## Evidence References
+
+| # | Evidence File | Commit SHA | Classes |
+|---|---------------|------------|---------|
+| 1 | EVIDENCE_LIB_CHANGE.md | `88ea4b4` | A, B |
+| 2 | EVIDENCE_CLI_MAIN.md | `38c2c0c` | A, B, C |
+
+### Class E (Intent Alignment)
+
+- **Link:** [Design doc](https://github.com/o/r/blob/abc1234567890abc1234567890abc1234567890a/docs/design.md)
+- **Requirements Verified:** Design doc section 7
+
+---
+
+## Summary
+
+Test.
+"""
+        packet = parser.parse(packet_text)
+        assert EvidenceClass.EXECUTION in packet.evidence_classes_present      # A
+        assert EvidenceClass.REFERENTIAL in packet.evidence_classes_present     # B
+        assert EvidenceClass.NEGATIVE in packet.evidence_classes_present        # C
+        assert EvidenceClass.INTENT in packet.evidence_classes_present          # E
+
+    def test_evidence_refs_table_no_classes_column(self, parser):
+        """Table without Classes column should not crash."""
+        content = [
+            "| # | Evidence File | Commit SHA |",
+            "|---|---------------|------------|",
+            "| 1 | EVIDENCE_FOO.md | `abc1234` |",
+        ]
+        result = parser._parse_evidence_refs_table(content)
+        assert result == set()
+
+    def test_evidence_refs_table_all_classes(self, parser):
+        """Table with all 6 classes should extract them all."""
+        content = [
+            "| # | Evidence File | Classes |",
+            "|---|---------------|---------|",
+            "| 1 | EV_1.md | A, B, C |",
+            "| 2 | EV_2.md | D, E, F |",
+        ]
+        result = parser._parse_evidence_refs_table(content)
+        assert result == {
+            EvidenceClass.EXECUTION,
+            EvidenceClass.REFERENTIAL,
+            EvidenceClass.NEGATIVE,
+            EvidenceClass.DIFFERENTIAL,
+            EvidenceClass.INTENT,
+            EvidenceClass.PROVENANCE,
+        }
