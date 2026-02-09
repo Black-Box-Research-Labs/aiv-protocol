@@ -98,39 +98,82 @@ These findings produced three protocol rules that harden SVP against AI yes-men:
 
 Full details: [`.svp/AUDIT_AI_FIRST_PASS.md`](.svp/AUDIT_AI_FIRST_PASS.md)
 
-## Quickstart
+## Adopting AIV in Your Project
+
+### 1. Install
 
 ```bash
-# Install
+# From PyPI (coming soon) or from git:
+pip install git+https://github.com/ImmortalDemonGod/aiv-protocol.git
+
+# Or for local development of the protocol itself:
 pip install -e ".[dev]"
+```
 
-# Validate a verification packet
-aiv check .github/aiv-packets/VERIFICATION_PACKET_GITIGNORE.md
+### 2. Initialize
 
-# Validate in lenient mode (warnings don't block)
-aiv check --no-strict .github/aiv-packets/VERIFICATION_PACKET_AIV_IMPLEMENTATION.md
+```bash
+cd your-project
+aiv init
+```
 
-# Validate with anti-cheat diff scanning
+This creates three things:
+- **`.aiv.yml`** — Configuration file (strict mode enabled by default)
+- **`.github/aiv-packets/`** — Directory for verification packets
+- **`.git/hooks/pre-commit`** — Atomic commit enforcement hook (blocks code commits without a verification packet)
+
+Use `aiv init --no-hook` to skip the pre-commit hook if you prefer manual enforcement.
+
+### 3. The Workflow (Every Commit)
+
+```bash
+# 1. Write your code change (one file at a time)
+vim src/auth.py
+
+# 2. Generate a verification packet scaffold
+aiv generate auth-fix --tier R1
+
+# 3. Fill in the TODO sections (claims, evidence links, test output)
+vim .github/aiv-packets/VERIFICATION_PACKET_AUTH_FIX.md
+
+# 4. Stage both files and commit
+git add src/auth.py .github/aiv-packets/VERIFICATION_PACKET_AUTH_FIX.md
+git commit -m "fix(auth): handle expired tokens"
+# → Pre-commit hook validates the packet automatically
+```
+
+### 4. Validation Commands
+
+```bash
+# Validate a verification packet through the 8-stage pipeline
+aiv check .github/aiv-packets/VERIFICATION_PACKET_AUTH_FIX.md
+
+# Lenient mode (warnings don't block)
+aiv check --no-strict packet.md
+
+# With anti-cheat diff scanning
 aiv check packet.md --diff changes.patch
 
-# Validate with link vitality checks (HTTP HEAD probes)
+# With link vitality checks (HTTP HEAD probes on evidence URLs)
 aiv check packet.md --audit-links
 
-# Audit all packets for quality issues
+# Audit all packets for quality issues (TODO remnants, missing SHAs, etc.)
 aiv audit
 
-# Scaffold a new verification packet
-aiv generate my-feature --tier R1
+# Auto-fix common audit issues (backfill commit SHAs, pin URLs)
+aiv audit --fix
+```
 
-# Initialize AIV in a repository
-aiv init
+### 5. SVP Cognitive Verification (Optional)
 
-# SVP cognitive verification (per-scope workflow)
+```bash
 aiv svp predict 42 --verifier alice --test-file tests/test_auth.py --approach "..." --edge-cases "..."
 aiv svp trace 42 --verifier alice --function src/auth.py::login --notes "..." --edge-case "..." --predicted-output "..."
 aiv svp probe 42 --verifier alice --assessment "..." --why-question "..."
 aiv svp status 42
 ```
+
+Full protocol reference: [`SPECIFICATION.md`](SPECIFICATION.md)
 
 ## CLI Commands
 
@@ -226,6 +269,46 @@ Cognitive verification commands for the Systematic Verifier Protocol:
 | **F** | Provenance   | Artifact integrity and chain-of-custody        |    |    | ○  | ✓  |
 
 **Legend:** ✓ = Required | ○ = Optional
+
+### What Valid Evidence Looks Like
+
+**Class A (Execution)** — Link to a CI run or paste local test output:
+```markdown
+- CI Run: https://github.com/org/repo/actions/runs/12345678
+- Local: pytest — 454 passed, 0 failed in 38s
+```
+
+**Class B (Referential)** — SHA-pinned GitHub permalinks (branch URLs like `/blob/main/` are rejected):
+```markdown
+**Scope Inventory** (SHA: [`abc1234`](https://github.com/org/repo/tree/abc1234def5678))
+- Modified: [`src/auth.py#L42-L58`](https://github.com/org/repo/blob/abc1234/src/auth.py#L42-L58)
+```
+
+**Class C (Negative)** — Describe what you searched for and didn't find:
+```markdown
+- Searched all test files for deleted assertions or `@pytest.mark.skip` additions — none found.
+- Ran full regression suite (454 tests) — no failures.
+```
+
+**Class D (Differential)** — Show what changed in API, state, or config:
+```markdown
+- API surface: `login()` signature unchanged. New optional param `timeout: int = 30` added.
+- No breaking changes to existing callers.
+```
+
+**Class E (Intent)** — SHA-pinned link to the spec, issue, or directive that motivated the change:
+```markdown
+- **Link:** [`SPECIFICATION.md#L120-L135`](https://github.com/org/repo/blob/abc1234/SPECIFICATION.md#L120-L135)
+- **Requirements Verified:** Section 4.2 requires token expiry handling.
+```
+
+**Class F (Provenance)** — Chain-of-custody for bug fixes or security changes:
+```markdown
+- No test files modified or deleted. Full test suite passes.
+- Commit signed with GPG key `2A55...52C6`.
+```
+
+Full specification: [`SPECIFICATION.md`](SPECIFICATION.md)
 
 ### Cognitive Verification (Class G — Optional)
 
