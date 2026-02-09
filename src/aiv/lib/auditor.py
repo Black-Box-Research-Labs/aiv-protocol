@@ -16,6 +16,12 @@ quality issues that the validation pipeline does not catch:
 - SUMMARY_TODO: Summary section is TODO.
 - FIX_NO_CLASS_F: Claims mention fix/bug but no Class F section.
 
+Evidence-level claim checks (``_check_claim_matrix``):
+
+- EVIDENCE_UNVERIFIED_CLAIM: A claim in the matrix has FAIL UNVERIFIED verdict.
+- EVIDENCE_HIGH_UNVERIFIED: >50% of bindable claims are UNVERIFIED.
+- EVIDENCE_MANUAL_REVIEW: Claims need human review (no automatic binding).
+
 Git-history audit (``audit_commits``):
 
 - HOOK_BYPASS: Functional file committed without a paired verification packet.
@@ -586,6 +592,81 @@ class PacketAuditor:
                         message="Summary section is still TODO.",
                     )
                 )
+
+        # 9-11. Claim Verification Matrix checks
+        findings.extend(self._check_claim_matrix(name, body, tier))
+
+        return findings
+
+    def _check_claim_matrix(
+        self,
+        name: str,
+        body: str,
+        tier: str | None,
+    ) -> list[AuditFinding]:
+        """Check the Claim Verification Matrix for unverified or unresolved claims.
+
+        Checks:
+        - EVIDENCE_UNVERIFIED_CLAIM: any claim with FAIL UNVERIFIED verdict
+        - EVIDENCE_HIGH_UNVERIFIED: >50% of bindable claims are unverified
+        - EVIDENCE_MANUAL_REVIEW: claims needing human review
+        """
+        findings: list[AuditFinding] = []
+
+        # Parse matrix rows: | N | claim text | type | evidence | VERDICT |
+        matrix_rows = re.findall(
+            r"\|\s*(\d+)\s*\|[^|]*\|[^|]*\|[^|]*\|\s*(PASS VERIFIED|FAIL UNVERIFIED|REVIEW MANUAL REVIEW)\s*\|",
+            body,
+        )
+        if not matrix_rows:
+            return findings
+
+        unverified = [(num, verdict) for num, verdict in matrix_rows if verdict == "FAIL UNVERIFIED"]
+        manual_review = [(num, verdict) for num, verdict in matrix_rows if verdict == "REVIEW MANUAL REVIEW"]
+        bindable = [r for r in matrix_rows if r[1] != "REVIEW MANUAL REVIEW"]
+
+        # 9. EVIDENCE_UNVERIFIED_CLAIM: flag each unverified claim
+        for claim_num, _ in unverified:
+            findings.append(
+                AuditFinding(
+                    packet_name=name,
+                    finding_type="EVIDENCE_UNVERIFIED_CLAIM",
+                    severity=AuditSeverity.WARNING,
+                    message=f"Claim {claim_num} is UNVERIFIED -- no tests cover the claimed behavior.",
+                )
+            )
+
+        # 10. EVIDENCE_HIGH_UNVERIFIED: >50% of bindable claims unverified
+        if bindable:
+            pct = len(unverified) / len(bindable) * 100
+            if pct > 50:
+                findings.append(
+                    AuditFinding(
+                        packet_name=name,
+                        finding_type="EVIDENCE_HIGH_UNVERIFIED",
+                        severity=AuditSeverity.WARNING,
+                        message=(
+                            f"{len(unverified)}/{len(bindable)} bindable claims "
+                            f"are UNVERIFIED ({pct:.0f}%). "
+                            f"This evidence file should not have passed the commit gate."
+                        ),
+                    )
+                )
+
+        # 11. EVIDENCE_MANUAL_REVIEW: claims needing human attention
+        if manual_review:
+            findings.append(
+                AuditFinding(
+                    packet_name=name,
+                    finding_type="EVIDENCE_MANUAL_REVIEW",
+                    severity=AuditSeverity.WARNING,
+                    message=(
+                        f"{len(manual_review)} claim(s) require MANUAL REVIEW -- "
+                        f"no automatic binding was possible. A human verifier "
+                        f"should inspect these claims."
+                    ),
+                )
+            )
 
         return findings
 
