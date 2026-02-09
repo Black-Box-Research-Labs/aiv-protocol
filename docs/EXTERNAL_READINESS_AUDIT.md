@@ -215,13 +215,13 @@ discover this only by getting an error.
 
 | # | Issue | Files | Risk | Effort | Status |
 |---|-------|-------|------|--------|--------|
-| P0-1 | Configurable functional prefixes | config.py, pre_commit.py, main.py | Medium | Medium | TODO |
-| P0-2 | Remove project-specific root files | pre_commit.py | Low | Small | TODO |
-| P1-3 | Error code reference | docs/ERROR_CODES.md, README.md | None | Medium | TODO |
-| P1-4 | Fix Class F README example | README.md | None | Small | TODO |
-| P1-5 | Complete packet example | README.md | None | Small | TODO |
-| P2-6 | Better aiv init template | main.py | Low | Small | TODO |
-| P2-7 | Document required flags | README.md | None | Small | TODO |
+| P0-1 | Configurable functional prefixes | config.py, pre_commit.py, main.py | Medium | Medium | DONE (249ecde) |
+| P0-2 | Remove project-specific root files | pre_commit.py | Low | Small | DONE (249ecde) |
+| P1-3 | Error code reference | docs/ERROR_CODES.md, README.md | None | Medium | DONE (917b23b) |
+| P1-4 | Fix Class F README example | README.md | None | Small | DONE (917b23b) |
+| P1-5 | Complete packet example | README.md | None | Small | DONE |
+| P2-6 | Better aiv init template | main.py | Low | Small | DONE (249ecde) |
+| P2-7 | Document required flags | README.md | None | Small | DONE (917b23b) |
 
 ---
 
