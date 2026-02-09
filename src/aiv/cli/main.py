@@ -1197,7 +1197,15 @@ def commit_cmd(
     skip_checks: bool = typer.Option(
         False,
         "--skip-checks",
-        help="Skip local checks (pytest/ruff/mypy). ONLY allowed for R0 (trivial) tier.",
+        help="Skip local checks (pytest/ruff/mypy). ONLY allowed for R0 (trivial) tier. "
+        "Requires --skip-reason to document why checks were skipped.",
+    ),
+    skip_reason: str = typer.Option(
+        "",
+        "--skip-reason",
+        help="REQUIRED when --skip-checks is used. Documents why local checks were skipped. "
+        "Stamped into the evidence file's Class A section. "
+        "Example: --skip-reason 'Help text only, no logic changes'",
     ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Generate packet and validate but don't commit"),
     force: str = typer.Option("", "--force", help="Override R3 unverified-claim block (requires justification string)"),
@@ -1271,6 +1279,15 @@ def commit_cmd(
             f"  You requested {tier_upper}, which REQUIRES execution evidence.\n"
             f"  Evidence without proof is verification theater.\n"
             f"  Remove --skip-checks or downgrade to --tier R0."
+        )
+        raise typer.Exit(1)
+
+    # --- Require --skip-reason when --skip-checks is used ---
+    if skip_checks and not skip_reason:
+        console.print(
+            "[red]Error:[/red] --skip-checks requires --skip-reason to document why checks were skipped.\n"
+            '  Example: --skip-reason "Help text only, no logic changes"\n'
+            "  This justification is stamped into the evidence file."
         )
         raise typer.Exit(1)
 
@@ -1404,9 +1421,10 @@ def commit_cmd(
         class_a_md = class_a_data.to_markdown()
         console.print(f"  Tests covering changed file: {len(class_a_data.relevant_tests)}")
     else:
-        class_a_md = """### Class A (Execution Evidence)
+        class_a_md = f"""### Class A (Execution Evidence)
 
-- Local checks skipped (--skip-checks)."""
+- Local checks skipped (--skip-checks).
+- **Skip reason:** {skip_reason}"""
 
     # Class C: COLLECTED from scanning diff for regression indicators (R2+)
     class_c_md = ""
@@ -1516,7 +1534,8 @@ def commit_cmd(
     # --- Build methodology text (must reflect reality) ---
     if skip_checks:
         methodology_text = (
-            "**R0 (trivial) — local checks skipped.**\n"
+            "**R0 (trivial) -- local checks skipped.**\n"
+            f"**Reason:** {skip_reason}\n"
             "Only git diff scope inventory was collected. No execution evidence."
         )
     else:
