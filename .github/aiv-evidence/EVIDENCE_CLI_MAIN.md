@@ -1,8 +1,9 @@
 # AIV Evidence File (v1.0)
 
 **File:** `src/aiv/cli/main.py`
-**Commit:** `88ea4b4`
-**Generated:** 2026-02-09T05:14:27Z
+**Commit:** `06ad610`
+**Previous:** `38c2c0c`
+**Generated:** 2026-02-09T05:30:49Z
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
 ---
@@ -11,21 +12,19 @@
 
 ```yaml
 classification:
-  risk_tier: R1
+  risk_tier: R0
   sod_mode: S0
   critical_surfaces: []
   blast_radius: "src/aiv/cli/main.py"
-  classification_rationale: "Core CLI changes, standard logic"
+  classification_rationale: "Trivial string change, no logic"
   classified_by: "ImmortalDemonGod"
-  classified_at: "2026-02-09T05:14:27Z"
+  classified_at: "2026-02-09T05:30:49Z"
 ```
 
 ## Claim(s)
 
-1. aiv begin creates .aiv/change.json with validated change name
-2. aiv close aggregates commits into Layer 2 packet in .github/aiv-packets/
-3. aiv commit outputs evidence files to .github/aiv-evidence/ without overwrite prompt
-4. No existing tests were modified or deleted during this change.
+1. aiv init tip message now directs users to aiv begin instead of aiv generate
+2. No existing tests were modified or deleted during this change.
 
 ---
 
@@ -33,34 +32,14 @@ classification:
 
 ### Class E (Intent Alignment)
 
-- **Link:** [https://github.com/ImmortalDemonGod/aiv-protocol/blob/main/docs/TWO_LAYER_VERIFICATION_ARCHITECTURE.md](https://github.com/ImmortalDemonGod/aiv-protocol/blob/main/docs/TWO_LAYER_VERIFICATION_ARCHITECTURE.md)
-- **Requirements Verified:** Design doc sections 7.1-7.4: CLI commands
+- **Link:** [https://github.com/ImmortalDemonGod/aiv-protocol/blob/main/README.md](https://github.com/ImmortalDemonGod/aiv-protocol/blob/main/README.md)
+- **Requirements Verified:** README quickstart references aiv begin as primary workflow
 
 ### Class B (Referential Evidence)
 
-**Scope Inventory** (SHA: [`88ea4b4`](https://github.com/ImmortalDemonGod/aiv-protocol/tree/88ea4b4e611b2044e9de241128be6833e882a6cb))
+**Scope Inventory** (SHA: [`06ad610`](https://github.com/ImmortalDemonGod/aiv-protocol/tree/06ad610005f1f48afbd87d43e6967c1e3c5eb253))
 
-- [`src/aiv/cli/main.py#L145`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/88ea4b4e611b2044e9de241128be6833e882a6cb/src/aiv/cli/main.py#L145)
-- [`src/aiv/cli/main.py#L153-L160`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/88ea4b4e611b2044e9de241128be6833e882a6cb/src/aiv/cli/main.py#L153-L160)
-- [`src/aiv/cli/main.py#L793-L1147`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/88ea4b4e611b2044e9de241128be6833e882a6cb/src/aiv/cli/main.py#L793-L1147)
-- [`src/aiv/cli/main.py#L1249-L1272`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/88ea4b4e611b2044e9de241128be6833e882a6cb/src/aiv/cli/main.py#L1249-L1272)
-- [`src/aiv/cli/main.py#L1274-L1282`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/88ea4b4e611b2044e9de241128be6833e882a6cb/src/aiv/cli/main.py#L1274-L1282)
-- [`src/aiv/cli/main.py#L1313`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/88ea4b4e611b2044e9de241128be6833e882a6cb/src/aiv/cli/main.py#L1313)
-- [`src/aiv/cli/main.py#L1323`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/88ea4b4e611b2044e9de241128be6833e882a6cb/src/aiv/cli/main.py#L1323)
-- [`src/aiv/cli/main.py#L1331`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/88ea4b4e611b2044e9de241128be6833e882a6cb/src/aiv/cli/main.py#L1331)
-- [`src/aiv/cli/main.py#L1339`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/88ea4b4e611b2044e9de241128be6833e882a6cb/src/aiv/cli/main.py#L1339)
-- [`src/aiv/cli/main.py#L1355`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/88ea4b4e611b2044e9de241128be6833e882a6cb/src/aiv/cli/main.py#L1355)
-- [`src/aiv/cli/main.py#L1390`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/88ea4b4e611b2044e9de241128be6833e882a6cb/src/aiv/cli/main.py#L1390)
-- [`src/aiv/cli/main.py#L1395`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/88ea4b4e611b2044e9de241128be6833e882a6cb/src/aiv/cli/main.py#L1395)
-- [`src/aiv/cli/main.py#L1492-L1494`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/88ea4b4e611b2044e9de241128be6833e882a6cb/src/aiv/cli/main.py#L1492-L1494)
-- [`src/aiv/cli/main.py#L1496-L1498`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/88ea4b4e611b2044e9de241128be6833e882a6cb/src/aiv/cli/main.py#L1496-L1498)
-- [`src/aiv/cli/main.py#L1510`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/88ea4b4e611b2044e9de241128be6833e882a6cb/src/aiv/cli/main.py#L1510)
-- [`src/aiv/cli/main.py#L1543-L1546`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/88ea4b4e611b2044e9de241128be6833e882a6cb/src/aiv/cli/main.py#L1543-L1546)
-- [`src/aiv/cli/main.py#L1548-L1549`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/88ea4b4e611b2044e9de241128be6833e882a6cb/src/aiv/cli/main.py#L1548-L1549)
-- [`src/aiv/cli/main.py#L1555-L1557`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/88ea4b4e611b2044e9de241128be6833e882a6cb/src/aiv/cli/main.py#L1555-L1557)
-- [`src/aiv/cli/main.py#L1560-L1561`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/88ea4b4e611b2044e9de241128be6833e882a6cb/src/aiv/cli/main.py#L1560-L1561)
-- [`src/aiv/cli/main.py#L1564-L1565`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/88ea4b4e611b2044e9de241128be6833e882a6cb/src/aiv/cli/main.py#L1564-L1565)
-- [`src/aiv/cli/main.py#L1594-L1615`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/88ea4b4e611b2044e9de241128be6833e882a6cb/src/aiv/cli/main.py#L1594-L1615)
+- [`src/aiv/cli/main.py#L229`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/06ad610005f1f48afbd87d43e6967c1e3c5eb253/src/aiv/cli/main.py#L229)
 
 ### Class A (Execution Evidence)
 
@@ -79,4 +58,4 @@ Evidence was collected by `aiv commit` running: git diff, pytest -v, ruff, mypy,
 
 ## Summary
 
-Add begin/close/abandon/status lifecycle commands; update commit to write Layer 1 evidence with Previous header
+Update aiv init tip from aiv generate to aiv begin

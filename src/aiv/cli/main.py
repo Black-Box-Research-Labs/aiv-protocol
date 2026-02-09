@@ -226,7 +226,7 @@ def init(
                 console.print(f"[green]Installed:[/green] pre-push hook → {push_hook_file}")
 
     console.print(f"[green][OK] AIV Protocol initialized in {path}[/green]")
-    console.print("[dim]Tip: Use [bold]aiv generate <name>[/bold] to create a verification packet.[/dim]")
+    console.print("[dim]Tip: Use [bold]aiv begin <name>[/bold] to start a tracked change, then [bold]aiv commit[/bold] for each file.[/dim]")
 
 
 @app.command()
