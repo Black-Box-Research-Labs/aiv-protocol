@@ -59,24 +59,53 @@ class ClassAEvidence:
     ruff_errors: int
     mypy_clean: bool
     mypy_summary: str
+    symbol_coverage: list[SymbolCoverage] = field(default_factory=list)
 
     def to_markdown(self) -> str:
         """Render as markdown including specific test names and tool output.
 
-        Emits a WARNING if no tests are found that reference the changed file,
-        making coverage gaps visible rather than hidden.
+        When AST symbol coverage is available, renders per-symbol analysis
+        showing which tests import AND call each changed symbol.
+        Emits WARNINGs for uncovered symbols.
         """
         lines = ["### Class A (Execution Evidence)\n"]
         lines.append(f"- **pytest:** {self.total_passed} passed, {self.total_failed} failed in {self.duration}")
-        if self.relevant_tests:
+
+        if self.symbol_coverage:
+            # Per-symbol AST coverage (deterministic, not keyword-based)
+            lines.append("\n**Per-symbol test coverage (AST analysis):**\n")
+            for sc in self.symbol_coverage:
+                lines.append(f"- **`{sc.symbol}`** (changed at {sc.line_range}):")
+                if sc.calling_tests:
+                    lines.append(f"  - {sc.coverage_verdict}")
+                    for ct in sc.calling_tests[:10]:
+                        lines.append(f"  - `{ct}`")
+                elif sc.importing_test_files:
+                    lines.append(f"  - {sc.coverage_verdict}")
+                    for tf in sc.importing_test_files[:5]:
+                        lines.append(f"  - Imported by: `{tf}`")
+                else:
+                    lines.append(f"  - {sc.coverage_verdict}")
+        elif self.relevant_tests:
+            # Fallback: grep-based test list (non-.py files, etc.)
             lines.append(f"- **Tests covering changed file** ({len(self.relevant_tests)}):")
-            for t in self.relevant_tests[:20]:  # cap at 20 to avoid huge packets
+            for t in self.relevant_tests[:20]:
                 lines.append(f"  - `{t}`")
         else:
             lines.append("- **WARNING:** No tests found that directly import or reference the changed file.")
+
         lines.append(f"- **ruff:** {'All checks passed' if self.ruff_clean else f'{self.ruff_errors} error(s)'}")
         lines.append(f"- **mypy:** {self.mypy_summary}")
         return "\n".join(lines)
+
+
+@dataclass
+class DownstreamCaller:
+    """A caller of a changed symbol found via AST analysis."""
+
+    file: str
+    function: str
+    symbol_called: str
 
 
 @dataclass
@@ -88,6 +117,7 @@ class ClassCEvidence:
     assertions_removed: list[str]  # lines where assert was deleted
     skip_markers_added: list[str]  # lines where @skip was added
     anti_cheat_clean: bool
+    downstream_callers: list[DownstreamCaller] = field(default_factory=list)
 
     def to_markdown(self) -> str:
         """Render as markdown documenting search methodology and findings.
@@ -95,6 +125,9 @@ class ClassCEvidence:
         Reports what was searched for (assertions, test deletions, skip markers)
         and whether each indicator was found or absent. ALERTs are emitted for
         any regression indicator detected.
+
+        When downstream caller analysis is available, shows which functions
+        across src/ call the changed symbols (impact scope).
         """
         lines = ["### Class C (Negative Evidence)\n"]
         lines.append("**Search methodology:** Ran `git diff --cached` and scanned for regression indicators.\n")
@@ -126,6 +159,19 @@ class ClassCEvidence:
             lines.append(f"- **ALERT:** {len(self.skip_markers_added)} skip marker(s) added:")
             for s in self.skip_markers_added:
                 lines.append(f"  - `{s}`")
+
+        if self.downstream_callers:
+            lines.append("\n**Downstream impact analysis (AST):**\n")
+            # Group by symbol
+            by_symbol: dict[str, list[DownstreamCaller]] = {}
+            for dc in self.downstream_callers:
+                by_symbol.setdefault(dc.symbol_called, []).append(dc)
+            for sym, callers in by_symbol.items():
+                lines.append(f"- `{sym}` is called by:")
+                for c in callers[:10]:
+                    lines.append(f"  - `{c.file}::{c.function}`")
+                if len(callers) > 10:
+                    lines.append(f"  - ... and {len(callers) - 10} more")
 
         return "\n".join(lines)
 
@@ -750,3 +796,67 @@ def find_covering_tests(
         ))
 
     return results
+
+
+# ---------------------------------------------------------------------------
+# Phase 4: Downstream caller analysis for Class C
+# ---------------------------------------------------------------------------
+
+
+def find_downstream_callers(
+    changed_symbols: list[str],
+    src_dir: str = "src/",
+    exclude_file: str = "",
+) -> list[DownstreamCaller]:
+    """Find all functions in src/ that call any of the changed symbols.
+
+    Uses the same AST import/call analysis as the test graph but scans
+    production code (``src/``) instead of tests. Excludes the file being
+    committed (since it's the source of the change, not a downstream caller).
+
+    Args:
+        changed_symbols: Symbol names from ``resolve_changed_symbols``.
+        src_dir: Root directory to scan for callers.
+        exclude_file: File path to exclude (the file being committed).
+
+    Returns:
+        List of ``DownstreamCaller`` records.
+    """
+    callers: list[DownstreamCaller] = []
+    src_root = Path(src_dir)
+    if not src_root.exists():
+        return callers
+
+    exclude_posix = exclude_file.replace("\\", "/")
+
+    for py_file in src_root.rglob("*.py"):
+        rel_path = str(py_file).replace("\\", "/")
+        if rel_path == exclude_posix:
+            continue
+
+        try:
+            source = py_file.read_text(encoding="utf-8")
+            tree = ast.parse(source, filename=str(py_file))
+        except Exception:
+            continue
+
+        # Extract imports
+        iv = _ImportVisitor()
+        iv.visit(tree)
+        imported = iv.symbols
+
+        # For each function in this file, check if it calls any changed symbol
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+                cv = _CallVisitor()
+                cv.visit(node)
+                for symbol in changed_symbols:
+                    bare = symbol.split(".")[-1] if "." in symbol else symbol
+                    if bare in cv.called and bare in imported:
+                        callers.append(DownstreamCaller(
+                            file=rel_path,
+                            function=node.name,
+                            symbol_called=symbol,
+                        ))
+
+    return callers
