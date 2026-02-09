@@ -750,14 +750,18 @@ def commit_cmd(
             -r "Standard bug fix in auth module" \\
             -s "Handle expired JWT tokens with proper 401 response"
     """
+    import re
     import subprocess
     from datetime import datetime, timezone
 
     from aiv.lib.evidence_collector import (
+        build_test_graph,
         collect_class_a,
         collect_class_b,
         collect_class_c,
         collect_class_f,
+        find_covering_tests,
+        resolve_changed_symbols,
     )
 
     # --- Validate tier ---
@@ -847,16 +851,46 @@ def commit_cmd(
     console.print(f"  Found {len(class_b_data.hunks)} changed hunk(s)")
 
     # Class A: COLLECTED from running pytest, ruff, mypy
+    class_a_data = None
     if not skip_checks:
         console.print("[dim]Collecting Class A (execution) — running pytest, ruff, mypy...[/dim]")
         class_a_data = collect_class_a(file_posix)
-        class_a_md = class_a_data.to_markdown()
         console.print(
             f"  pytest: {class_a_data.total_passed} passed, {class_a_data.total_failed} failed"
         )
-        console.print(f"  Tests covering changed file: {len(class_a_data.relevant_tests)}")
         console.print(f"  ruff: {'clean' if class_a_data.ruff_clean else 'errors'}")
         console.print(f"  mypy: {class_a_data.mypy_summary}")
+
+        # AST analysis: per-symbol test coverage (Python files only)
+        if file_posix.endswith(".py"):
+            console.print("[dim]Running AST analysis — symbol resolver + test graph...[/dim]")
+            # Parse hunks like "src/aiv/lib/foo.py#L42-L58" → (42, 58)
+            line_ranges: list[tuple[int, int]] = []
+            hunk_labels: list[str] = []
+            for hunk in class_b_data.hunks:
+                m_range = re.search(r"#L(\d+)-L(\d+)$", hunk)
+                m_single = re.search(r"#L(\d+)$", hunk)
+                if m_range:
+                    line_ranges.append((int(m_range.group(1)), int(m_range.group(2))))
+                    hunk_labels.append(f"L{m_range.group(1)}-L{m_range.group(2)}")
+                elif m_single:
+                    line_ranges.append((int(m_single.group(1)), int(m_single.group(1))))
+                    hunk_labels.append(f"L{m_single.group(1)}")
+
+            if line_ranges:
+                changed_symbols = resolve_changed_symbols(file_posix, line_ranges)
+                test_graph = build_test_graph("tests/")
+                symbol_cov = find_covering_tests(changed_symbols, test_graph, hunk_labels)
+                class_a_data.symbol_coverage = symbol_cov
+                console.print(f"  Changed symbols: {', '.join(changed_symbols)}")
+                for sc in symbol_cov:
+                    if "WARNING" in sc.coverage_verdict:
+                        console.print(f"  [yellow]{sc.coverage_verdict}[/yellow]")
+                    else:
+                        console.print(f"  {sc.coverage_verdict}")
+
+        class_a_md = class_a_data.to_markdown()
+        console.print(f"  Tests covering changed file: {len(class_a_data.relevant_tests)}")
     else:
         class_a_md = """### Class A (Execution Evidence)
 
@@ -867,7 +901,6 @@ def commit_cmd(
     if tier_upper in ("R2", "R3"):
         console.print("[dim]Collecting Class C (negative) — scanning diff for regressions...[/dim]")
         class_c_data = collect_class_c()
-        class_c_md = class_c_data.to_markdown()
         if class_c_data.assertions_removed:
             console.print(
                 f"  [yellow]WARNING:[/yellow] {len(class_c_data.assertions_removed)} assertion(s) removed"
@@ -878,6 +911,22 @@ def commit_cmd(
             )
         if class_c_data.anti_cheat_clean:
             console.print("  No regression indicators found.")
+
+        # Downstream impact analysis (AST) — find callers of changed symbols in src/
+        if file_posix.endswith(".py") and not skip_checks and "changed_symbols" in dir():
+            console.print("[dim]Scanning downstream callers of changed symbols...[/dim]")
+            from aiv.lib.evidence_collector import find_downstream_callers
+
+            downstream = find_downstream_callers(
+                changed_symbols, src_dir="src/", exclude_file=file_posix
+            )
+            class_c_data.downstream_callers = downstream
+            if downstream:
+                console.print(f"  {len(downstream)} downstream caller(s) found")
+            else:
+                console.print("  No downstream callers found (change is self-contained)")
+
+        class_c_md = class_c_data.to_markdown()
 
     # Class D (R3): not yet auto-collectible
     class_d_md = ""

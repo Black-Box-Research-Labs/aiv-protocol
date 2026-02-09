@@ -1,6 +1,6 @@
 # AIV Verification Packet (v2.1)
 
-**Commit:** `f81b6e6`
+**Commit:** `e405110`
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
 ---
@@ -13,15 +13,15 @@ classification:
   sod_mode: S1
   critical_surfaces: []
   blast_radius: "src/aiv/cli/main.py"
-  classification_rationale: "Class F was redundant with Class C and A — now shows distinct chain-of-custody provenance"
+  classification_rationale: "Completes the integration of AST evidence pipeline into the CLI command"
   classified_by: "ImmortalDemonGod"
-  classified_at: "2026-02-09T02:10:20Z"
+  classified_at: "2026-02-09T02:20:50Z"
 ```
 
 ## Claim(s)
 
-1. commit_cmd extracts unique test file paths from Class A relevant_tests and passes them to collect_class_f
-2. Class F now shows git log chain-of-custody for the specific test files that cover the changed code
+1. aiv commit now runs resolve_changed_symbols + build_test_graph + find_covering_tests for Python files, populating per-symbol AST coverage in Class A
+2. aiv commit now runs find_downstream_callers for Class C at R2+, showing which src/ functions call the changed symbols
 3. No existing tests were modified or deleted during this change.
 
 ---
@@ -31,39 +31,27 @@ classification:
 ### Class E (Intent Alignment)
 
 - **Link:** [https://github.com/ImmortalDemonGod/aiv-protocol/blob/3e48e90/docs/CLAIM_AWARE_EVIDENCE_PLAN.md](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3e48e90/docs/CLAIM_AWARE_EVIDENCE_PLAN.md)
-- **Requirements Verified:** CLAIM_AWARE_EVIDENCE_PLAN.md Phase 0: Class F must use git log --follow on covering test files, not restate Class C+A
+- **Requirements Verified:** CLAIM_AWARE_EVIDENCE_PLAN.md: aiv commit must run AST pipeline for Python files and render per-symbol coverage
 
 ### Class B (Referential Evidence)
 
-**Scope Inventory** (SHA: [`f81b6e6`](https://github.com/ImmortalDemonGod/aiv-protocol/tree/f81b6e629c2e1f2665b0d9f9eb6c5d001a67af99))
+**Scope Inventory** (SHA: [`e405110`](https://github.com/ImmortalDemonGod/aiv-protocol/tree/e405110c2a60bdfb1f99f267381051380310ff03))
 
-- [`src/aiv/cli/main.py#L889`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/f81b6e629c2e1f2665b0d9f9eb6c5d001a67af99/src/aiv/cli/main.py#L889)
-- [`src/aiv/cli/main.py#L892-L903`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/f81b6e629c2e1f2665b0d9f9eb6c5d001a67af99/src/aiv/cli/main.py#L892-L903)
+- [`src/aiv/cli/main.py#L753`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/e405110c2a60bdfb1f99f267381051380310ff03/src/aiv/cli/main.py#L753)
+- [`src/aiv/cli/main.py#L758`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/e405110c2a60bdfb1f99f267381051380310ff03/src/aiv/cli/main.py#L758)
+- [`src/aiv/cli/main.py#L763-L764`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/e405110c2a60bdfb1f99f267381051380310ff03/src/aiv/cli/main.py#L763-L764)
+- [`src/aiv/cli/main.py#L854`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/e405110c2a60bdfb1f99f267381051380310ff03/src/aiv/cli/main.py#L854)
+- [`src/aiv/cli/main.py#L863-L893`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/e405110c2a60bdfb1f99f267381051380310ff03/src/aiv/cli/main.py#L863-L893)
+- [`src/aiv/cli/main.py#L915-L930`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/e405110c2a60bdfb1f99f267381051380310ff03/src/aiv/cli/main.py#L915-L930)
 
 ### Class A (Execution Evidence)
 
-- **pytest:** 543 passed, 0 failed in 25.07s
-- **Tests covering changed file** (73):
-  - `tests/integration/test_e2e_compliance.py::test_every_real_packet_passes_lenient`
-  - `tests/integration/test_e2e_compliance.py::test_every_real_packet_parses_classification`
-  - `tests/integration/test_e2e_compliance.py::test_cli_subprocess_check_passes`
-  - `tests/integration/test_e2e_compliance.py::test_cli_subprocess_check_rejects_garbage`
-  - `tests/integration/test_e2e_compliance.py::test_todo_only_evidence_section_not_counted`
-  - `tests/integration/test_e2e_compliance.py::test_r3_with_empty_sections_fails`
-  - `tests/integration/test_e2e_compliance.py::test_r3_with_substantive_sections_passes`
-  - `tests/integration/test_e2e_compliance.py::test_r0_scaffold_passes_without_optional`
-  - `tests/integration/test_e2e_compliance.py::test_r2_missing_required_class_fails`
-  - `tests/integration/test_e2e_compliance.py::test_bugfix_claims_require_class_f`
-  - `tests/integration/test_e2e_compliance.py::test_class_a_code_blob_link_warns`
-  - `tests/integration/test_e2e_compliance.py::test_class_a_ci_link_no_e020`
-  - `tests/integration/test_e2e_compliance.py::test_bugfix_claims_with_class_f_passes`
-  - `tests/integration/test_e2e_compliance.py::test_mutable_github_link_blocked`
-  - `tests/integration/test_e2e_compliance.py::test_sha_pinned_link_passes`
-  - `tests/integration/test_e2e_compliance.py::test_deleted_assertion_in_diff_blocked`
-  - `tests/integration/test_e2e_compliance.py::test_added_skip_decorator_blocked`
-  - `tests/integration/test_e2e_compliance.py::test_deleted_test_file_blocked`
-  - `tests/integration/test_e2e_compliance.py::test_clean_diff_passes`
-  - `tests/integration/test_e2e_compliance.py::test_class_f_justification_overrides_anticheat`
+- **pytest:** 551 passed, 0 failed in 29.66s
+
+**Per-symbol test coverage (AST analysis):**
+
+- **`commit_cmd`** (changed at L753):
+  - WARNING: No tests import or call `commit_cmd`
 - **ruff:** All checks passed
 - **mypy:** Success: no issues found in 1 source file
 
@@ -88,11 +76,11 @@ classification:
 **Recent test directory history** (`git log --oneline -5 -- tests/`):
 
 ```
+e405110 test(lib): 39 tests â€” AST coverage, downstream callers, retro-test for xdist
 f81b6e6 test(lib): 31 tests for AST symbol resolver, test graph, and semantic coverage
 9547980 test(auditor): 3 tests for evidence TODO severity escalation â€” the exact bar
 2985156 test(lib): 18 tests for evidence collector module
 c88bb9c test(hooks): 41 tests for portable pre-commit hook
-157ccbb style: fix ruff format, lint, and mypy strict errors for CI
 ```
 
 ---
@@ -106,4 +94,4 @@ Evidence was collected by `aiv commit` running: git diff, pytest -v, ruff, mypy,
 
 ## Summary
 
-Wire collect_class_f to receive covering test file paths from Class A evidence
+Wire AST symbol resolver, test graph, and downstream caller analysis into aiv commit
