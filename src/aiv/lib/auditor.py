@@ -39,8 +39,10 @@ if TYPE_CHECKING:
 _PACKET_PREFIXES = (
     ".github/aiv-packets/VERIFICATION_PACKET_",
     ".github/VERIFICATION_PACKET_",
+    ".github/aiv-packets/PACKET_",
 )
 _PACKET_SUFFIX = ".md"
+_EVIDENCE_PREFIX = ".github/aiv-evidence/EVIDENCE_"
 
 # Default functional prefixes (mirrors pre_commit.py defaults)
 _FUNCTIONAL_PREFIXES = (
@@ -313,9 +315,23 @@ class PacketAuditor:
         # 3. TODO remnants in content
         # TODOs in evidence sections are errors (they mean the evidence is missing).
         # TODOs in classification rationale are warnings (soft guidance).
+        # TODOs inside fenced code blocks are skipped (commit messages, etc.).
         evidence_section = False
+        in_fence = False
+        fence_is_yaml = False
         for i, line in enumerate(body.split("\n"), 1):
             stripped = line.strip()
+            if stripped.startswith("```"):
+                if not in_fence:
+                    in_fence = True
+                    fence_is_yaml = stripped.startswith("```yaml")
+                else:
+                    in_fence = False
+                    fence_is_yaml = False
+                continue
+            # Skip content in non-yaml fences (git log, etc.)
+            if in_fence and not fence_is_yaml:
+                continue
             if stripped.startswith("## Evidence"):
                 evidence_section = True
             elif stripped.startswith("## ") and evidence_section:
@@ -445,10 +461,11 @@ class PacketAuditor:
 
     @staticmethod
     def _is_packet_path(path: str) -> bool:
-        return (
-            any(path.startswith(p) for p in _PACKET_PREFIXES)
-            and path.endswith(_PACKET_SUFFIX)
-        )
+        return any(path.startswith(p) for p in _PACKET_PREFIXES) and path.endswith(_PACKET_SUFFIX)
+
+    @staticmethod
+    def _is_evidence_path(path: str) -> bool:
+        return path.startswith(_EVIDENCE_PREFIX) and path.endswith(_PACKET_SUFFIX)
 
     @staticmethod
     def _is_functional_path(path: str) -> bool:
@@ -467,6 +484,11 @@ class PacketAuditor:
         Detects:
         - HOOK_BYPASS: functional file(s) committed without a verification packet
         - ATOMIC_VIOLATION: commit has >1 functional file (multi-file bundle)
+
+        Two-Layer Architecture aware: if the scan range contains any Layer 2
+        packet (PACKET_*.md) or Layer 1 evidence file (EVIDENCE_*.md),
+        functional-only commits are considered covered by aggregate evidence
+        and multi-file commits are allowed (change context was active).
         """
         result = AuditResult()
 
@@ -506,17 +528,24 @@ class PacketAuditor:
 
         result.packets_scanned = len(commits)
 
+        # Two-Layer Architecture: check if any commit in the scan range
+        # contains a packet or evidence file (aggregate coverage).
+        range_has_evidence = any(
+            self._is_packet_path(f) or self._is_evidence_path(f) for _, files in commits for f in files
+        )
+
         for sha, files in commits:
             short = sha[:7]
             packets = [f for f in files if self._is_packet_path(f)]
+            evidence = [f for f in files if self._is_evidence_path(f)]
             functional = [f for f in files if self._is_functional_path(f)]
 
             # Skip commits with no functional files (docs-only, etc.)
             if not functional:
                 continue
 
-            # HOOK_BYPASS: functional files but no packet
-            if functional and not packets:
+            # HOOK_BYPASS: functional files but no packet/evidence
+            if not packets and not evidence and not range_has_evidence:
                 result.findings.append(
                     AuditFinding(
                         packet_name=f"commit:{short}",
@@ -531,7 +560,10 @@ class PacketAuditor:
                 )
 
             # ATOMIC_VIOLATION: more than 1 functional file in a commit
-            if len(functional) > 1:
+            # Suppressed for functional-only commits when range has evidence
+            # (change context allows multi-file). If the commit itself has a
+            # packet, the old-style atomic rule applies.
+            if len(functional) > 1 and (packets or not range_has_evidence):
                 result.findings.append(
                     AuditFinding(
                         packet_name=f"commit:{short}",

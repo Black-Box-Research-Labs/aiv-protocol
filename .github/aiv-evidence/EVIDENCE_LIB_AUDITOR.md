@@ -1,8 +1,9 @@
 # AIV Evidence File (v1.0)
 
 **File:** `src/aiv/lib/auditor.py`
-**Commit:** `68f312c`
-**Generated:** 2026-02-09T05:20:47Z
+**Commit:** `6c9681d`
+**Previous:** `38d4e49`
+**Generated:** 2026-02-09T08:00:42Z
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
 ---
@@ -15,15 +16,17 @@ classification:
   sod_mode: S0
   critical_surfaces: []
   blast_radius: "src/aiv/lib/auditor.py"
-  classification_rationale: "Minimal auditor change, standard risk"
+  classification_rationale: "Auditor enforcement logic and false-positive reduction"
   classified_by: "ImmortalDemonGod"
-  classified_at: "2026-02-09T05:20:47Z"
+  classified_at: "2026-02-09T08:00:42Z"
 ```
 
 ## Claim(s)
 
-1. PacketAuditor.audit scans both VERIFICATION_PACKET_*.md and PACKET_*.md glob patterns
-2. No existing tests were modified or deleted during this change.
+1. Auditor audit_commits suppresses HOOK_BYPASS when evidence exists in scan range
+2. Auditor audit_commits suppresses ATOMIC_VIOLATION for functional-only commits when range has evidence
+3. Auditor TODO scanner skips content inside non-yaml fenced code blocks
+4. No existing tests were modified or deleted during this change.
 
 ---
 
@@ -32,14 +35,23 @@ classification:
 ### Class E (Intent Alignment)
 
 - **Link:** [https://github.com/ImmortalDemonGod/aiv-protocol/blob/main/docs/TWO_LAYER_VERIFICATION_ARCHITECTURE.md](https://github.com/ImmortalDemonGod/aiv-protocol/blob/main/docs/TWO_LAYER_VERIFICATION_ARCHITECTURE.md)
-- **Requirements Verified:** Auditor must recognize Layer 2 packet naming convention
+- **Requirements Verified:** Two-Layer Architecture requires auditor to recognize range-level evidence coverage
 
 ### Class B (Referential Evidence)
 
-**Scope Inventory** (SHA: [`68f312c`](https://github.com/ImmortalDemonGod/aiv-protocol/tree/68f312c3b50cbe79238010149840d787efe838f6))
+**Scope Inventory** (SHA: [`6c9681d`](https://github.com/ImmortalDemonGod/aiv-protocol/tree/6c9681d9261f1723b6ba30b7bc6436b276aa79d0))
 
-- [`src/aiv/lib/auditor.py#L221`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/68f312c3b50cbe79238010149840d787efe838f6/src/aiv/lib/auditor.py#L221)
-- [`src/aiv/lib/auditor.py#L225-L227`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/68f312c3b50cbe79238010149840d787efe838f6/src/aiv/lib/auditor.py#L225-L227)
+- [`src/aiv/lib/auditor.py#L42`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/6c9681d9261f1723b6ba30b7bc6436b276aa79d0/src/aiv/lib/auditor.py#L42)
+- [`src/aiv/lib/auditor.py#L45`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/6c9681d9261f1723b6ba30b7bc6436b276aa79d0/src/aiv/lib/auditor.py#L45)
+- [`src/aiv/lib/auditor.py#L318`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/6c9681d9261f1723b6ba30b7bc6436b276aa79d0/src/aiv/lib/auditor.py#L318)
+- [`src/aiv/lib/auditor.py#L320-L321`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/6c9681d9261f1723b6ba30b7bc6436b276aa79d0/src/aiv/lib/auditor.py#L320-L321)
+- [`src/aiv/lib/auditor.py#L324-L334`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/6c9681d9261f1723b6ba30b7bc6436b276aa79d0/src/aiv/lib/auditor.py#L324-L334)
+- [`src/aiv/lib/auditor.py#L464-L468`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/6c9681d9261f1723b6ba30b7bc6436b276aa79d0/src/aiv/lib/auditor.py#L464-L468)
+- [`src/aiv/lib/auditor.py#L487-L491`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/6c9681d9261f1723b6ba30b7bc6436b276aa79d0/src/aiv/lib/auditor.py#L487-L491)
+- [`src/aiv/lib/auditor.py#L531-L536`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/6c9681d9261f1723b6ba30b7bc6436b276aa79d0/src/aiv/lib/auditor.py#L531-L536)
+- [`src/aiv/lib/auditor.py#L540`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/6c9681d9261f1723b6ba30b7bc6436b276aa79d0/src/aiv/lib/auditor.py#L540)
+- [`src/aiv/lib/auditor.py#L547-L548`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/6c9681d9261f1723b6ba30b7bc6436b276aa79d0/src/aiv/lib/auditor.py#L547-L548)
+- [`src/aiv/lib/auditor.py#L563-L566`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/6c9681d9261f1723b6ba30b7bc6436b276aa79d0/src/aiv/lib/auditor.py#L563-L566)
 
 ### Class A (Execution Evidence)
 
@@ -58,4 +70,4 @@ Evidence was collected by `aiv commit` running: git diff, pytest -v, ruff, mypy,
 
 ## Summary
 
-Add PACKET_*.md glob to auditor scan to support Layer 2 packet naming
+Auditor understands Two-Layer coverage and skips TODO in code fences
