@@ -128,10 +128,16 @@ class TestClassAEvidence:
         md = ev.to_markdown()
         assert "test_login" in md
         assert "test_expired_token" in md
-        assert "100 passed" in md
-        assert "0 failed" in md
-        assert "5.0s" in md
+        # Global "N passed" is no longer in Class A (it's theater — identical for no-op)
+        assert "100 passed" not in md
         assert "Tests covering changed file" in md
+        # ruff/mypy now in separate code_quality_markdown(), not to_markdown()
+        assert "ruff" not in md
+        assert "mypy" not in md
+        cq = ev.code_quality_markdown()
+        assert "ruff" in cq
+        assert "mypy" in cq
+        assert "Code Quality" in cq
 
     def test_to_markdown_warns_no_tests(self):
         ev = ClassAEvidence(
@@ -161,8 +167,11 @@ class TestClassAEvidence:
             mypy_clean=True,
             mypy_summary="Success",
         )
+        # ruff errors now in code_quality_markdown(), not to_markdown()
         md = ev.to_markdown()
-        assert "3 error(s)" in md
+        assert "ruff" not in md  # Not in Class A
+        cq = ev.code_quality_markdown()
+        assert "3 error(s)" in cq
 
 
 # ---------------------------------------------------------------------------
@@ -775,7 +784,8 @@ class TestClassAGlobalMetricSuppression:
         assert "PASS" in md
         assert "1/1 symbols verified" in md
 
-    def test_global_metric_present_when_no_ast(self):
+    def test_global_metric_absent_when_no_ast(self):
+        """Global 'N passed' is theater — must NOT appear even without AST data."""
         ev = ClassAEvidence(
             total_passed=200,
             total_failed=0,
@@ -789,7 +799,8 @@ class TestClassAGlobalMetricSuppression:
             symbol_coverage=[],
         )
         md = ev.to_markdown()
-        assert "200 passed" in md
+        assert "200 passed" not in md
+        assert "test_a" in md  # Shows relevant tests, not global count
 
     def test_coverage_summary_counts_correctly(self):
         ev = ClassAEvidence(
