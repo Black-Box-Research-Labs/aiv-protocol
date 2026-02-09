@@ -653,10 +653,21 @@ def _run_local_checks() -> str:
     except Exception:
         results.append("- pytest: TODO (run manually)")
 
-    # ruff check
+    # ruff check (scoped to staged files if any, else full repo)
+    ruff_targets = ["src/", "tests/"]
+    try:
+        staged = subprocess.run(
+            ["git", "diff", "--cached", "--name-only", "--diff-filter=ACMR"],
+            capture_output=True, text=True, timeout=10,
+        )
+        staged_py = [f for f in staged.stdout.strip().splitlines() if f.endswith(".py")]
+        if staged_py:
+            ruff_targets = staged_py
+    except Exception:
+        pass
     try:
         r = subprocess.run(
-            ["python", "-m", "ruff", "check", "src/", "tests/"],
+            ["python", "-m", "ruff", "check", *ruff_targets],
             capture_output=True,
             text=True,
             timeout=30,
@@ -927,11 +938,53 @@ def close(
     except Exception:
         pass
 
-    # Build evidence references table
+    # Build evidence references table + extract real claims from evidence files
+    import re as _re
+
     evidence_ref_rows = []
+    all_claims: list[str] = []
+    all_class_b_refs: list[str] = []
+    evidence_dir = Path(".github/aiv-evidence")
+
     for i, commit in enumerate(ctx.commits):
         for ev in commit.evidence:
-            classes = "A, B"  # Default; could be enriched by reading evidence files
+            # Try to read evidence file and extract classes + claims
+            classes = "A, B"
+            ev_path = evidence_dir / ev if not ev.startswith(".github") else Path(ev)
+            if ev_path.exists():
+                try:
+                    ev_body = ev_path.read_text(encoding="utf-8")
+                    # Detect which evidence classes are present
+                    found_classes = []
+                    for cls_letter, cls_name in [
+                        ("A", "Class A"), ("B", "Class B"), ("C", "Class C"),
+                        ("D", "Class D"), ("E", "Class E"), ("F", "Class F"),
+                    ]:
+                        if f"### {cls_name}" in ev_body:
+                            found_classes.append(cls_letter)
+                    if found_classes:
+                        classes = ", ".join(found_classes)
+
+                    # Extract claims
+                    claims_match = _re.search(
+                        r"## Claim\(s\)\s*\n(.*?)(?=\n---|\n## )", ev_body, _re.DOTALL
+                    )
+                    if claims_match:
+                        for line in claims_match.group(1).strip().splitlines():
+                            line = line.strip()
+                            if line and _re.match(r"\d+\.\s+", line):
+                                claim_text = _re.sub(r"^\d+\.\s+", "", line)
+                                if claim_text not in all_claims:
+                                    all_claims.append(claim_text)
+
+                    # Extract Class B file refs
+                    for m in _re.finditer(r"\[`([^`]+#L\d+[^`]*)`\]", ev_body):
+                        ref = m.group(1)
+                        if ref not in all_class_b_refs:
+                            all_class_b_refs.append(ref)
+                except Exception:
+                    pass
+
             evidence_ref_rows.append(f"| {i + 1} | {ev} | `{commit.sha[:7]}` | {classes} |")
 
     evidence_refs_md = (
@@ -943,15 +996,29 @@ def close(
         else "No evidence files recorded."
     )
 
-    # Build claims from evidence files (aggregate)
-    claims_lines = []
-    for i, f in enumerate(ctx.files_changed, 1):
-        claims_lines.append(f"{i}. Changes to `{f}` are verified by collected evidence.")
-    claims_lines.append(f"{len(ctx.files_changed) + 1}. No existing tests were modified or deleted during this change.")
+    # Build claims: use real claims from evidence files, fall back to generic
+    if all_claims:
+        claims_lines = [f"{i}. {c}" for i, c in enumerate(all_claims, 1)]
+    else:
+        claims_lines = []
+        for i, f in enumerate(ctx.files_changed, 1):
+            claims_lines.append(f"{i}. Changes to `{f}` are verified by collected evidence.")
+        claims_lines.append(
+            f"{len(ctx.files_changed) + 1}. No existing tests were modified or deleted during this change."
+        )
     claims_md = "\n".join(claims_lines)
 
     # Build commit range
     commit_range_md = ", ".join(f"`{s[:7]}`" for s in commit_shas)
+
+    # Class B refs from evidence files
+    if all_class_b_refs:
+        class_b_refs_md = (
+            f"**Scope Inventory** (from {len(all_class_b_refs)} file references across evidence files)\n\n"
+            + "\n".join(f"- `{ref}`" for ref in all_class_b_refs)
+        )
+    else:
+        class_b_refs_md = "See individual evidence files for file-level references."
 
     # Class E (Intent)
     class_e_md = ""
@@ -1010,6 +1077,10 @@ classification:
 {evidence_refs_md}
 
 {class_e_md}
+
+### Class B (Referential Evidence)
+
+{class_b_refs_md}
 
 ---
 
