@@ -64,35 +64,40 @@ class ClassAEvidence:
     def to_markdown(self) -> str:
         """Render as markdown including specific test names and tool output.
 
-        When AST symbol coverage is available, renders per-symbol analysis
-        showing which tests import AND call each changed symbol.
-        Emits WARNINGs for uncovered symbols.
+        When AST symbol coverage is available, renders per-symbol verdicts
+        showing which tests import AND call each changed symbol, with a
+        coverage summary. The global "N passed" metric is suppressed when
+        per-symbol data is available (it adds no claim-specific signal).
         """
         lines = ["### Class A (Execution Evidence)\n"]
-        lines.append(f"- **pytest:** {self.total_passed} passed, {self.total_failed} failed in {self.duration}")
 
         if self.symbol_coverage:
             # Per-symbol AST coverage (deterministic, not keyword-based)
-            lines.append("\n**Per-symbol test coverage (AST analysis):**\n")
+            lines.append("**Per-symbol test coverage (AST analysis):**\n")
+            covered = 0
+            total = len(self.symbol_coverage)
             for sc in self.symbol_coverage:
-                lines.append(f"- **`{sc.symbol}`** (changed at {sc.line_range}):")
+                has_tests = len(sc.calling_tests) > 0
+                if has_tests:
+                    covered += 1
+                icon = "PASS" if has_tests else "FAIL"
+                lines.append(f"- **`{sc.symbol}`** ({sc.line_range}): {icon} — {sc.coverage_verdict}")
                 if sc.calling_tests:
-                    lines.append(f"  - {sc.coverage_verdict}")
                     for ct in sc.calling_tests[:10]:
                         lines.append(f"  - `{ct}`")
                 elif sc.importing_test_files:
-                    lines.append(f"  - {sc.coverage_verdict}")
                     for tf in sc.importing_test_files[:5]:
                         lines.append(f"  - Imported by: `{tf}`")
-                else:
-                    lines.append(f"  - {sc.coverage_verdict}")
-        elif self.relevant_tests:
-            # Fallback: grep-based test list (non-.py files, etc.)
-            lines.append(f"- **Tests covering changed file** ({len(self.relevant_tests)}):")
-            for t in self.relevant_tests[:20]:
-                lines.append(f"  - `{t}`")
+            lines.append(f"\n**Coverage summary:** {covered}/{total} symbols verified by tests.")
         else:
-            lines.append("- **WARNING:** No tests found that directly import or reference the changed file.")
+            # Fallback: global metric for non-Python files or --skip-checks
+            lines.append(f"- **pytest:** {self.total_passed} passed, {self.total_failed} failed in {self.duration}")
+            if self.relevant_tests:
+                lines.append(f"- **Tests covering changed file** ({len(self.relevant_tests)}):")
+                for t in self.relevant_tests[:20]:
+                    lines.append(f"  - `{t}`")
+            else:
+                lines.append("- **WARNING:** No tests found that directly import or reference the changed file.")
 
         lines.append(f"- **ruff:** {'All checks passed' if self.ruff_clean else f'{self.ruff_errors} error(s)'}")
         lines.append(f"- **mypy:** {self.mypy_summary}")
@@ -860,3 +865,200 @@ def find_downstream_callers(
                         ))
 
     return callers
+
+
+# ---------------------------------------------------------------------------
+# Phase 6: Claim Verification Matrix — claim→evidence binding
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class ClaimVerification:
+    """Result of binding a single claim to evidence."""
+
+    claim_index: int
+    claim_text: str
+    claim_type: str  # "symbol", "structural", "tooling", "unresolved"
+    matched_symbols: list[str]
+    evidence_detail: str
+    verdict: str  # "VERIFIED", "UNVERIFIED", "MANUAL REVIEW"
+
+
+_STRUCTURAL_PATTERNS = [
+    re.compile(r"no.*(test|assertion|file).*(delet|modif|remov|chang)", re.IGNORECASE),
+    re.compile(r"no.*(regression|breaking)", re.IGNORECASE),
+    re.compile(r"existing.*(test|suite).*(pass|green|intact)", re.IGNORECASE),
+]
+
+_TOOLING_PATTERNS = [
+    re.compile(r"\bruff\b", re.IGNORECASE),
+    re.compile(r"\bmypy\b", re.IGNORECASE),
+    re.compile(r"\blint", re.IGNORECASE),
+    re.compile(r"\btype.?check", re.IGNORECASE),
+    re.compile(r"\bformat", re.IGNORECASE),
+]
+
+
+def bind_claims_to_evidence(
+    claims: list[str],
+    symbol_coverage: list[SymbolCoverage] | None = None,
+    class_c: ClassCEvidence | None = None,
+    class_a: ClassAEvidence | None = None,
+) -> list[ClaimVerification]:
+    """Bind each claim to the evidence that verifies or refutes it.
+
+    Classification priority (applied in order per claim):
+    1. **Symbol** — claim text contains a changed symbol name (AST identifiers)
+    2. **Structural** — claim matches structural patterns (verified by Class C)
+    3. **Tooling** — claim mentions ruff/mypy/lint/format (verified by Class A)
+    4. **Unresolved** — none of the above; marked MANUAL REVIEW
+
+    Args:
+        claims: List of claim strings from ``--claim`` flags.
+        symbol_coverage: Per-symbol coverage from ``find_covering_tests``.
+        class_c: Class C evidence for structural claim verification.
+        class_a: Class A evidence for tooling claim verification.
+
+    Returns:
+        List of ``ClaimVerification`` results, one per claim.
+    """
+    results: list[ClaimVerification] = []
+    # Sort symbols longest-first to avoid partial matches (e.g. "run" before "commit_cmd")
+    sorted_symbols = sorted(
+        (symbol_coverage or []),
+        key=lambda sc: len(sc.symbol),
+        reverse=True,
+    )
+
+    for idx, claim_text in enumerate(claims, 1):
+        claim_lower = claim_text.lower()
+
+        # 1. Symbol match: find changed symbols mentioned in claim text
+        matched_syms: list[str] = []
+        total_tests = 0
+        for sc in sorted_symbols:
+            bare = sc.symbol.split(".")[-1] if "." in sc.symbol else sc.symbol
+            if bare.lower() in claim_lower or sc.symbol.lower() in claim_lower:
+                matched_syms.append(sc.symbol)
+                total_tests += len(sc.calling_tests)
+
+        if matched_syms:
+            if total_tests > 0:
+                detail = f"{total_tests} test(s) call {', '.join(f'`{s}`' for s in matched_syms)}"
+                verdict = "VERIFIED"
+            else:
+                detail = f"0 tests call {', '.join(f'`{s}`' for s in matched_syms)}"
+                verdict = "UNVERIFIED"
+            results.append(ClaimVerification(
+                claim_index=idx,
+                claim_text=claim_text,
+                claim_type="symbol",
+                matched_symbols=matched_syms,
+                evidence_detail=detail,
+                verdict=verdict,
+            ))
+            continue
+
+        # 2. Structural match: verified by Class C
+        if any(p.search(claim_text) for p in _STRUCTURAL_PATTERNS):
+            if class_c:
+                is_clean = (
+                    not class_c.test_files_deleted
+                    and not class_c.assertions_removed
+                    and not class_c.skip_markers_added
+                )
+                detail = (
+                    "Class C: all structural indicators clean"
+                    if is_clean
+                    else "Class C: regression indicators found"
+                )
+                verdict = "VERIFIED" if is_clean else "UNVERIFIED"
+            else:
+                detail = "Class C not collected"
+                verdict = "MANUAL REVIEW"
+            results.append(ClaimVerification(
+                claim_index=idx,
+                claim_text=claim_text,
+                claim_type="structural",
+                matched_symbols=[],
+                evidence_detail=detail,
+                verdict=verdict,
+            ))
+            continue
+
+        # 3. Tooling match: verified by Class A linter/mypy output
+        if any(p.search(claim_text) for p in _TOOLING_PATTERNS):
+            if class_a:
+                tools_ok = True
+                parts = []
+                if re.search(r"\bruff\b", claim_text, re.IGNORECASE):
+                    parts.append(f"ruff: {'clean' if class_a.ruff_clean else 'errors'}")
+                    if not class_a.ruff_clean:
+                        tools_ok = False
+                if re.search(r"\bmypy\b", claim_text, re.IGNORECASE):
+                    parts.append(f"mypy: {'clean' if class_a.mypy_clean else 'errors'}")
+                    if not class_a.mypy_clean:
+                        tools_ok = False
+                if not parts:
+                    parts.append(f"ruff: {'clean' if class_a.ruff_clean else 'errors'}")
+                    parts.append(f"mypy: {'clean' if class_a.mypy_clean else 'errors'}")
+                    tools_ok = class_a.ruff_clean and class_a.mypy_clean
+                detail = "Class A: " + ", ".join(parts)
+                verdict = "VERIFIED" if tools_ok else "UNVERIFIED"
+            else:
+                detail = "Class A not collected"
+                verdict = "MANUAL REVIEW"
+            results.append(ClaimVerification(
+                claim_index=idx,
+                claim_text=claim_text,
+                claim_type="tooling",
+                matched_symbols=[],
+                evidence_detail=detail,
+                verdict=verdict,
+            ))
+            continue
+
+        # 4. Unresolved fallback
+        results.append(ClaimVerification(
+            claim_index=idx,
+            claim_text=claim_text,
+            claim_type="unresolved",
+            matched_symbols=[],
+            evidence_detail="No automatic binding available",
+            verdict="MANUAL REVIEW",
+        ))
+
+    return results
+
+
+def render_claim_matrix(verifications: list[ClaimVerification]) -> str:
+    """Render the Claim Verification Matrix as a markdown section.
+
+    This is its own section in the packet, between Evidence and
+    Verification Methodology.
+    """
+    lines = ["## Claim Verification Matrix\n"]
+    lines.append("| # | Claim | Type | Evidence | Verdict |")
+    lines.append("|---|-------|------|----------|---------|")
+
+    verified = 0
+    unverified = 0
+    manual = 0
+
+    for cv in verifications:
+        truncated = cv.claim_text[:60] + "..." if len(cv.claim_text) > 60 else cv.claim_text
+        if cv.verdict == "VERIFIED":
+            icon = "PASS"
+            verified += 1
+        elif cv.verdict == "UNVERIFIED":
+            icon = "FAIL"
+            unverified += 1
+        else:
+            icon = "REVIEW"
+            manual += 1
+        lines.append(
+            f"| {cv.claim_index} | {truncated} | {cv.claim_type} | {cv.evidence_detail} | {icon} {cv.verdict} |"
+        )
+
+    lines.append(f"\n**Verdict summary:** {verified} verified, {unverified} unverified, {manual} manual review.")
+    return "\n".join(lines)

@@ -7,12 +7,10 @@ is COLLECTED from real tool output, not generated from templates.
 
 from __future__ import annotations
 
-import re
 from unittest.mock import patch
 
-import pytest
-
 from aiv.lib.evidence_collector import (
+    ClaimVerification,
     ClassAEvidence,
     ClassBEvidence,
     ClassCEvidence,
@@ -20,11 +18,12 @@ from aiv.lib.evidence_collector import (
     DownstreamCaller,
     SymbolCoverage,
     TestFileProvenance,
+    bind_claims_to_evidence,
     collect_class_b,
     collect_class_c,
     collect_class_f,
+    render_claim_matrix,
 )
-
 
 # ---------------------------------------------------------------------------
 # Class B — Referential Evidence from git diff
@@ -464,7 +463,6 @@ class TestFindCoveringTests:
             encoding="utf-8",
         )
         from aiv.lib.evidence_collector import (
-            SymbolCoverage,
             build_test_graph,
             find_covering_tests,
         )
@@ -689,3 +687,302 @@ class TestFindDownstreamCallers:
 
         callers = find_downstream_callers(["nonexistent_func"], src_dir=str(src_dir))
         assert len(callers) == 0
+
+
+# ---------------------------------------------------------------------------
+# Phase 5: Class A global metric suppression
+# ---------------------------------------------------------------------------
+
+
+class TestClassAGlobalMetricSuppression:
+    """When symbol_coverage is populated, the global 'N passed' line must
+    be suppressed. Per-symbol verdicts + coverage summary replace it."""
+
+    def test_global_metric_suppressed_when_ast_available(self):
+        ev = ClassAEvidence(
+            total_passed=551, total_failed=0, total_warnings=0,
+            duration="29s", relevant_tests=[], ruff_clean=True,
+            ruff_errors=0, mypy_clean=True, mypy_summary="clean",
+            symbol_coverage=[
+                SymbolCoverage(
+                    symbol="foo", line_range="L10",
+                    importing_test_files=["t.py"],
+                    calling_tests=["t.py::test_foo"],
+                    coverage_verdict="1 test(s) call `foo` directly",
+                ),
+            ],
+        )
+        md = ev.to_markdown()
+        assert "551 passed" not in md
+        assert "PASS" in md
+        assert "1/1 symbols verified" in md
+
+    def test_global_metric_present_when_no_ast(self):
+        ev = ClassAEvidence(
+            total_passed=200, total_failed=0, total_warnings=0,
+            duration="10s", relevant_tests=["t.py::test_a"],
+            ruff_clean=True, ruff_errors=0, mypy_clean=True,
+            mypy_summary="clean", symbol_coverage=[],
+        )
+        md = ev.to_markdown()
+        assert "200 passed" in md
+
+    def test_coverage_summary_counts_correctly(self):
+        ev = ClassAEvidence(
+            total_passed=100, total_failed=0, total_warnings=0,
+            duration="5s", relevant_tests=[], ruff_clean=True,
+            ruff_errors=0, mypy_clean=True, mypy_summary="clean",
+            symbol_coverage=[
+                SymbolCoverage(
+                    symbol="covered", line_range="L1",
+                    importing_test_files=["t.py"],
+                    calling_tests=["t.py::test_x"],
+                    coverage_verdict="1 test(s) call `covered` directly",
+                ),
+                SymbolCoverage(
+                    symbol="uncovered", line_range="L20",
+                    importing_test_files=[],
+                    calling_tests=[],
+                    coverage_verdict="WARNING: No tests import or call `uncovered`",
+                ),
+            ],
+        )
+        md = ev.to_markdown()
+        assert "1/2 symbols verified" in md
+        assert "PASS" in md
+        assert "FAIL" in md
+
+    def test_uncovered_symbol_shows_fail(self):
+        ev = ClassAEvidence(
+            total_passed=100, total_failed=0, total_warnings=0,
+            duration="5s", relevant_tests=[], ruff_clean=True,
+            ruff_errors=0, mypy_clean=True, mypy_summary="clean",
+            symbol_coverage=[
+                SymbolCoverage(
+                    symbol="to_markdown", line_range="L67",
+                    importing_test_files=[],
+                    calling_tests=[],
+                    coverage_verdict="WARNING: No tests import or call `to_markdown`",
+                ),
+            ],
+        )
+        md = ev.to_markdown()
+        assert "FAIL" in md
+        assert "0/1 symbols verified" in md
+
+
+# ---------------------------------------------------------------------------
+# Phase 6: Claim Verification Matrix — bind_claims_to_evidence
+# ---------------------------------------------------------------------------
+
+
+class TestBindClaimsToEvidence:
+    """Tests for the claim→evidence binding function."""
+
+    def test_symbol_claim_verified(self):
+        sym_cov = [
+            SymbolCoverage(
+                symbol="find_downstream_callers", line_range="L100",
+                importing_test_files=["t.py"],
+                calling_tests=["t.py::test_finds_caller"],
+                coverage_verdict="1 test(s) call `find_downstream_callers` directly",
+            ),
+        ]
+        results = bind_claims_to_evidence(
+            claims=["find_downstream_callers scans src/ AST"],
+            symbol_coverage=sym_cov,
+        )
+        assert len(results) == 1
+        assert results[0].claim_type == "symbol"
+        assert results[0].verdict == "VERIFIED"
+        assert "find_downstream_callers" in results[0].matched_symbols
+
+    def test_symbol_claim_unverified_when_zero_tests(self):
+        sym_cov = [
+            SymbolCoverage(
+                symbol="to_markdown", line_range="L67",
+                importing_test_files=[],
+                calling_tests=[],
+                coverage_verdict="WARNING: No tests import or call `to_markdown`",
+            ),
+        ]
+        results = bind_claims_to_evidence(
+            claims=["to_markdown renders per-symbol coverage"],
+            symbol_coverage=sym_cov,
+        )
+        assert len(results) == 1
+        assert results[0].verdict == "UNVERIFIED"
+
+    def test_structural_claim_verified_when_clean(self):
+        class_c = ClassCEvidence(
+            test_files_modified=[], test_files_deleted=[],
+            assertions_removed=[], skip_markers_added=[],
+            anti_cheat_clean=True,
+        )
+        results = bind_claims_to_evidence(
+            claims=["No existing tests were modified or deleted"],
+            class_c=class_c,
+        )
+        assert len(results) == 1
+        assert results[0].claim_type == "structural"
+        assert results[0].verdict == "VERIFIED"
+
+    def test_structural_claim_unverified_when_deletions(self):
+        class_c = ClassCEvidence(
+            test_files_modified=[], test_files_deleted=["test_foo.py"],
+            assertions_removed=[], skip_markers_added=[],
+            anti_cheat_clean=False,
+        )
+        results = bind_claims_to_evidence(
+            claims=["No test files deleted"],
+            class_c=class_c,
+        )
+        assert results[0].verdict == "UNVERIFIED"
+
+    def test_tooling_claim_verified_ruff(self):
+        class_a = ClassAEvidence(
+            total_passed=100, total_failed=0, total_warnings=0,
+            duration="5s", relevant_tests=[], ruff_clean=True,
+            ruff_errors=0, mypy_clean=True, mypy_summary="clean",
+        )
+        results = bind_claims_to_evidence(
+            claims=["All ruff checks pass"],
+            class_a=class_a,
+        )
+        assert results[0].claim_type == "tooling"
+        assert results[0].verdict == "VERIFIED"
+
+    def test_tooling_claim_unverified_mypy_errors(self):
+        class_a = ClassAEvidence(
+            total_passed=100, total_failed=0, total_warnings=0,
+            duration="5s", relevant_tests=[], ruff_clean=True,
+            ruff_errors=0, mypy_clean=False, mypy_summary="1 error",
+        )
+        results = bind_claims_to_evidence(
+            claims=["mypy type checks pass"],
+            class_a=class_a,
+        )
+        assert results[0].verdict == "UNVERIFIED"
+
+    def test_unresolved_claim_gets_manual_review(self):
+        results = bind_claims_to_evidence(
+            claims=["Improved developer experience"],
+        )
+        assert results[0].claim_type == "unresolved"
+        assert results[0].verdict == "MANUAL REVIEW"
+
+    def test_mixed_claims_classified_correctly(self):
+        sym_cov = [
+            SymbolCoverage(
+                symbol="ClassAEvidence", line_range="L50",
+                importing_test_files=["t.py"],
+                calling_tests=["t.py::test_a"],
+                coverage_verdict="1 test(s) call `ClassAEvidence` directly",
+            ),
+        ]
+        class_c = ClassCEvidence(
+            test_files_modified=[], test_files_deleted=[],
+            assertions_removed=[], skip_markers_added=[],
+            anti_cheat_clean=True,
+        )
+        class_a = ClassAEvidence(
+            total_passed=100, total_failed=0, total_warnings=0,
+            duration="5s", relevant_tests=[], ruff_clean=True,
+            ruff_errors=0, mypy_clean=True, mypy_summary="clean",
+        )
+        results = bind_claims_to_evidence(
+            claims=[
+                "ClassAEvidence renders per-symbol coverage",
+                "No existing tests were modified or deleted",
+                "All ruff checks pass",
+                "Improved code quality",
+            ],
+            symbol_coverage=sym_cov,
+            class_c=class_c,
+            class_a=class_a,
+        )
+        assert len(results) == 4
+        assert results[0].claim_type == "symbol"
+        assert results[1].claim_type == "structural"
+        assert results[2].claim_type == "tooling"
+        assert results[3].claim_type == "unresolved"
+
+    def test_longest_symbol_matched_first(self):
+        """Ensures 'ClassAEvidence.to_markdown' matches before 'to_markdown'."""
+        sym_cov = [
+            SymbolCoverage(
+                symbol="ClassAEvidence.to_markdown", line_range="L67",
+                importing_test_files=[], calling_tests=[],
+                coverage_verdict="WARNING: 0 tests",
+            ),
+            SymbolCoverage(
+                symbol="run", line_range="L10",
+                importing_test_files=["t.py"],
+                calling_tests=["t.py::test_run"],
+                coverage_verdict="1 test(s)",
+            ),
+        ]
+        results = bind_claims_to_evidence(
+            claims=["ClassAEvidence.to_markdown renders coverage"],
+            symbol_coverage=sym_cov,
+        )
+        assert "ClassAEvidence.to_markdown" in results[0].matched_symbols
+
+
+# ---------------------------------------------------------------------------
+# Phase 6: render_claim_matrix
+# ---------------------------------------------------------------------------
+
+
+class TestRenderClaimMatrix:
+    """Tests for the markdown rendering of the Claim Verification Matrix."""
+
+    def test_renders_table_headers(self):
+        verifications = [
+            ClaimVerification(
+                claim_index=1, claim_text="foo does bar",
+                claim_type="symbol", matched_symbols=["foo"],
+                evidence_detail="1 test(s) call `foo`",
+                verdict="VERIFIED",
+            ),
+        ]
+        md = render_claim_matrix(verifications)
+        assert "## Claim Verification Matrix" in md
+        assert "| # | Claim | Type | Evidence | Verdict |" in md
+
+    def test_renders_verdict_icons(self):
+        verifications = [
+            ClaimVerification(
+                claim_index=1, claim_text="verified claim",
+                claim_type="symbol", matched_symbols=["x"],
+                evidence_detail="1 test", verdict="VERIFIED",
+            ),
+            ClaimVerification(
+                claim_index=2, claim_text="unverified claim",
+                claim_type="symbol", matched_symbols=["y"],
+                evidence_detail="0 tests", verdict="UNVERIFIED",
+            ),
+            ClaimVerification(
+                claim_index=3, claim_text="review claim",
+                claim_type="unresolved", matched_symbols=[],
+                evidence_detail="No binding", verdict="MANUAL REVIEW",
+            ),
+        ]
+        md = render_claim_matrix(verifications)
+        assert "PASS VERIFIED" in md
+        assert "FAIL UNVERIFIED" in md
+        assert "REVIEW MANUAL REVIEW" in md
+        assert "1 verified, 1 unverified, 1 manual review" in md
+
+    def test_truncates_long_claims(self):
+        long_claim = "A" * 80
+        verifications = [
+            ClaimVerification(
+                claim_index=1, claim_text=long_claim,
+                claim_type="unresolved", matched_symbols=[],
+                evidence_detail="No binding", verdict="MANUAL REVIEW",
+            ),
+        ]
+        md = render_claim_matrix(verifications)
+        assert "A" * 60 + "..." in md
+        assert "A" * 80 not in md

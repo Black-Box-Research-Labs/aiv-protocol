@@ -734,6 +734,7 @@ def commit_cmd(
     summary: str = typer.Option("", "--summary", "-s", help="One-line summary (required)"),
     skip_checks: bool = typer.Option(False, "--skip-checks", help="Skip running local checks (pytest/ruff/mypy)"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Generate packet and validate but don't commit"),
+    force: str = typer.Option("", "--force", help="Override R3 unverified-claim block (requires justification string)"),
 ) -> None:
     """
     Atomic commit with COLLECTED evidence — not templates.
@@ -755,12 +756,14 @@ def commit_cmd(
     from datetime import datetime, timezone
 
     from aiv.lib.evidence_collector import (
+        bind_claims_to_evidence,
         build_test_graph,
         collect_class_a,
         collect_class_b,
         collect_class_c,
         collect_class_f,
         find_covering_tests,
+        render_claim_matrix,
         resolve_changed_symbols,
     )
 
@@ -928,12 +931,24 @@ def commit_cmd(
 
         class_c_md = class_c_data.to_markdown()
 
-    # Class D (R3): not yet auto-collectible
+    # Class D (R3): auto-collected from git diff --stat
     class_d_md = ""
     if tier_upper == "R3":
-        class_d_md = """### Class D (Differential Evidence)
-
-- See Class B scope inventory for line-range change details."""
+        try:
+            diff_stat_result = subprocess.run(
+                ["git", "diff", "--cached", "--stat", str(file)],
+                capture_output=True, text=True, timeout=10,
+            )
+            diff_stat = diff_stat_result.stdout.strip() if diff_stat_result.returncode == 0 else "(unavailable)"
+        except Exception:
+            diff_stat = "(unavailable)"
+        if diff_stat and diff_stat != "(unavailable)":
+            class_d_md = (
+                "### Class D (Differential Evidence)\n\n"
+                "**Change summary** (`git diff --cached --stat`):\n\n"
+                f"```\n{diff_stat}\n```"
+            )
+        # Omit Class D entirely if no stat available (honest > pointer)
 
     # Class F: COLLECTED from git log chain-of-custody on covering test files (R2+)
     class_f_md = ""
@@ -951,6 +966,47 @@ def commit_cmd(
                     covering_files.append(tf)
         class_f_data = collect_class_f(covering_test_files=covering_files if covering_files else None)
         class_f_md = class_f_data.to_markdown()
+
+    # --- Claim Verification Matrix (Phase 6) ---
+    claim_matrix_md = ""
+    claim_verifications = []
+    if not skip_checks:
+        console.print("[dim]Binding claims to evidence...[/dim]")
+        sym_cov = class_a_data.symbol_coverage if class_a_data else []
+        class_c_obj = class_c_data if tier_upper in ("R2", "R3") and "class_c_data" in dir() else None
+        claim_verifications = bind_claims_to_evidence(
+            claims=list(claim) + ["No existing tests were modified or deleted during this change."],
+            symbol_coverage=sym_cov if sym_cov else None,
+            class_c=class_c_obj,
+            class_a=class_a_data,
+        )
+        claim_matrix_md = render_claim_matrix(claim_verifications)
+        for cv in claim_verifications:
+            if cv.verdict == "UNVERIFIED":
+                console.print(f"  [red]FAIL[/red] Claim {cv.claim_index}: {cv.evidence_detail}")
+            elif cv.verdict == "MANUAL REVIEW":
+                console.print(f"  [yellow]REVIEW[/yellow] Claim {cv.claim_index}: {cv.evidence_detail}")
+            else:
+                console.print(f"  [green]PASS[/green] Claim {cv.claim_index}: {cv.evidence_detail}")
+
+    # --- Phase 7: R3 blocking on unverified claims ---
+    unverified = [cv for cv in claim_verifications if cv.verdict == "UNVERIFIED"]
+    if tier_upper == "R3" and unverified and not force:
+        console.print(f"\n[red]ERROR: R3 commit has {len(unverified)} unverified claim(s):[/red]")
+        for cv in unverified:
+            console.print(f"  Claim {cv.claim_index}: \"{cv.claim_text[:60]}\" — {cv.evidence_detail}")
+        console.print("\n[dim]Options:[/dim]")
+        console.print("  1. Add tests that call the uncovered symbol(s)")
+        console.print("  2. Reclassify to R2 if this is not a critical surface")
+        console.print('  3. Use --force "justification" to override (recorded in packet)')
+        raise typer.Exit(1)
+
+    force_section = ""
+    if force and unverified:
+        force_lines = ["\n**Acknowledged gaps (--force override):**\n"]
+        for cv in unverified:
+            force_lines.append(f"- Claim {cv.claim_index}: UNVERIFIED — {cv.evidence_detail} (justification: {force})")
+        force_section = "\n".join(force_lines)
 
     # --- Assemble evidence from collected artifacts ---
     evidence_parts = [class_e_md, class_b_md, class_a_md]
@@ -993,6 +1049,8 @@ classification:
 
 {evidence_sections}
 
+{claim_matrix_md}
+{force_section}
 ---
 
 ## Verification Methodology
