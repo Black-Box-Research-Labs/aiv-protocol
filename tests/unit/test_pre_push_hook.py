@@ -8,6 +8,7 @@ that bypassed the pre-commit hook via ``git commit --no-verify``.
 from unittest.mock import patch
 
 from aiv.hooks.pre_push import (
+    _is_evidence,
     _is_functional,
     _is_packet,
     check_commits,
@@ -81,19 +82,57 @@ class TestCheckCommits:
 
         assert len(violations) == 0
 
-    def test_multiple_commits_mixed(self) -> None:
-        """Multiple commits: one clean, one violating."""
+    def test_multiple_commits_covered_by_range_packet(self) -> None:
+        """Two-Layer: functional-only commit is covered by a packet elsewhere in the range."""
         with patch("aiv.hooks.pre_push._get_commit_files") as mock_files:
             mock_files.side_effect = [
-                # Commit 1: clean
+                # Commit 1: has a packet (covers the range)
                 ["src/foo.py", ".github/aiv-packets/VERIFICATION_PACKET_FOO.md"],
-                # Commit 2: violation
+                # Commit 2: functional-only, but covered by range evidence
                 ["src/bar.py"],
             ]
             violations = check_commits(["d" * 40, "e" * 40])
 
-        assert len(violations) == 1
-        assert violations[0][0] == "e" * 7
+        assert len(violations) == 0
+
+    def test_multiple_commits_no_evidence_anywhere(self) -> None:
+        """No evidence in range: all functional-only commits are violations."""
+        with patch("aiv.hooks.pre_push._get_commit_files") as mock_files:
+            mock_files.side_effect = [
+                ["src/foo.py"],
+                ["src/bar.py"],
+            ]
+            violations = check_commits(["d" * 40, "e" * 40])
+
+        assert len(violations) == 2
+
+    def test_layer2_packet_covers_range(self) -> None:
+        """A PACKET_*.md in the range covers functional-only commits."""
+        with patch("aiv.hooks.pre_push._get_commit_files") as mock_files:
+            mock_files.side_effect = [
+                # Commit 1: functional-only
+                ["src/aiv/lib/change.py"],
+                # Commit 2: functional-only
+                ["src/aiv/hooks/pre_commit.py"],
+                # Commit 3: Layer 2 packet only
+                [".github/aiv-packets/PACKET_feature.md"],
+            ]
+            violations = check_commits(["a" * 40, "b" * 40, "c" * 40])
+
+        assert len(violations) == 0
+
+    def test_evidence_file_covers_range(self) -> None:
+        """An EVIDENCE_*.md in the range covers functional-only commits."""
+        with patch("aiv.hooks.pre_push._get_commit_files") as mock_files:
+            mock_files.side_effect = [
+                # Commit 1: functional + evidence (aiv commit)
+                ["src/foo.py", ".github/aiv-evidence/EVIDENCE_FOO.md"],
+                # Commit 2: functional-only, covered by range evidence
+                ["src/bar.py"],
+            ]
+            violations = check_commits(["d" * 40, "e" * 40])
+
+        assert len(violations) == 0
 
 
 # ---------------------------------------------------------------------------
