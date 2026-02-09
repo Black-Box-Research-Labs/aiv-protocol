@@ -355,6 +355,7 @@ aiv-protocol/
 │   │   ├── config.py                # .aiv.yml configuration
 │   │   ├── errors.py                # Exception hierarchy
 │   │   ├── auditor.py               # Packet quality auditor
+│   │   ├── evidence_collector.py    # AST-based evidence collection for aiv commit
 │   │   └── validators/
 │   │       ├── pipeline.py          # 8-stage validation orchestrator
 │   │       ├── base.py              # Base validator class
@@ -363,6 +364,8 @@ aiv-protocol/
 │   │       ├── links.py             # SHA-pinned immutability + link vitality (E021)
 │   │       ├── zero_touch.py        # Zero-Touch mandate (E008)
 │   │       └── anti_cheat.py        # Test manipulation scanner (E011)
+│   ├── hooks/
+│   │   └── pre_commit.py            # Python pre-commit hook logic
 │   ├── guard/                       # Python AIV Guard (CI module)
 │   │   ├── models.py                # Guard-specific Pydantic models
 │   │   ├── github_api.py            # GitHub API client
@@ -378,7 +381,7 @@ aiv-protocol/
 │   │       └── validators/
 │   │           └── session.py       # Session rules S001–S016
 │   └── __main__.py                  # python -m aiv support
-├── tests/                           # 454 tests (unit + integration)
+├── tests/                           # 553 tests (unit + integration)
 │   ├── unit/
 │   │   ├── test_models.py
 │   │   ├── test_parser.py
@@ -386,6 +389,8 @@ aiv-protocol/
 │   │   ├── test_guard.py            # Guard module tests
 │   │   ├── test_svp.py              # SVP module tests
 │   │   ├── test_auditor.py          # Auditor module tests
+│   │   ├── test_evidence_collector.py # Evidence collector tests
+│   │   ├── test_pre_commit_hook.py  # Pre-commit hook tests
 │   │   └── test_coverage.py         # Coverage gap tests
 │   └── integration/
 │       ├── test_full_workflow.py
@@ -396,9 +401,10 @@ aiv-protocol/
 │   │   ├── aiv-guard-python.yml     # PR validation — Python (live)
 │   │   ├── ci.yml                   # CI: lint, format, type-check, test
 │   │   └── verify-architecture.yml  # Evidence generation (disabled)
-│   └── aiv-packets/                 # 75 verification packets (+ 1 template)
+│   └── aiv-packets/                 # 83 verification packets (+ 1 template)
 ├── docs/
 │   ├── AIV_SVP_PROTOCOL_USER_STORY.md  # Problem statement and user story
+│   ├── CLAIM_AWARE_EVIDENCE_PLAN.md    # Evidence collector design doc
 │   └── specs/
 │       ├── AIV-SUITE-SPEC-V1.0-CANONICAL_2025-12-19.md
 │       ├── SVP-SUITE-SPEC-V1.0-CANONICAL-2025-12-20.md
