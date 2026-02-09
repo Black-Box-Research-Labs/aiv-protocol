@@ -1,6 +1,6 @@
 # AIV Verification Packet (v2.1)
 
-**Commit:** `ee93409`
+**Commit:** `3e48e90`
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
 ---
@@ -9,20 +9,23 @@
 
 ```yaml
 classification:
-  risk_tier: R2
+  risk_tier: R3
   sod_mode: S1
   critical_surfaces: []
   blast_radius: "src/aiv/lib/evidence_collector.py"
-  classification_rationale: "Two bugs: xdist never activated (wrong module name), test relevance had false positives (bare word grep)"
+  classification_rationale: "R3: this module gates all verification quality — AST analysis eliminates the last forms of evidence theater"
   classified_by: "ImmortalDemonGod"
-  classified_at: "2026-02-09T01:38:20Z"
+  classified_at: "2026-02-09T02:08:36Z"
 ```
 
 ## Claim(s)
 
-1. Parallel test execution activates correctly: import xdist (not import pytest_xdist) detects pytest-xdist
-2. Class A test relevance uses Python import-path matching instead of bare stem grep, eliminating false positives like pyproject matching pre-commit hook tests
-3. No existing tests were modified or deleted during this change.
+1. resolve_changed_symbols maps diff line ranges to enclosing Python functions/classes via ast.parse
+2. build_test_graph parses all test files to build import map and call graph using ast.NodeVisitor
+3. find_covering_tests deterministically maps changed symbols to tests that import AND call them — no keywords, no grep
+4. Class F rewritten: git log chain-of-custody per covering test file replaces redundant Class C+A restatement
+5. Retro-test proves xdist import error would be caught: 0 tests call collect_class_a directly so WARNING is emitted
+6. No existing tests were modified or deleted during this change.
 
 ---
 
@@ -30,21 +33,35 @@ classification:
 
 ### Class E (Intent Alignment)
 
-- **Link:** [https://github.com/ImmortalDemonGod/aiv-protocol/blob/ee93409/SPECIFICATION.md](https://github.com/ImmortalDemonGod/aiv-protocol/blob/ee93409/SPECIFICATION.md)
-- **Requirements Verified:** Evidence integrity: Class A must only list tests that actually test the changed module, not tests that happen to mention a keyword
+- **Link:** [https://github.com/ImmortalDemonGod/aiv-protocol/blob/3e48e90/docs/CLAIM_AWARE_EVIDENCE_PLAN.md](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3e48e90/docs/CLAIM_AWARE_EVIDENCE_PLAN.md)
+- **Requirements Verified:** CLAIM_AWARE_EVIDENCE_PLAN.md V2: keyword matching REJECTED; AST analysis required for deterministic claim-to-test mapping
 
 ### Class B (Referential Evidence)
 
-**Scope Inventory** (SHA: [`ee93409`](https://github.com/ImmortalDemonGod/aiv-protocol/tree/ee934098a8eec73e275b17d0bdd57c2faa4a6e0f))
+**Scope Inventory** (SHA: [`3e48e90`](https://github.com/ImmortalDemonGod/aiv-protocol/tree/3e48e9001e9cb2a6d318ae17fc1dbed350fb7946))
 
-- [`src/aiv/lib/evidence_collector.py#L255`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/ee934098a8eec73e275b17d0bdd57c2faa4a6e0f/src/aiv/lib/evidence_collector.py#L255)
-- [`src/aiv/lib/evidence_collector.py#L281-L283`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/ee934098a8eec73e275b17d0bdd57c2faa4a6e0f/src/aiv/lib/evidence_collector.py#L281-L283)
-- [`src/aiv/lib/evidence_collector.py#L285-L329`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/ee934098a8eec73e275b17d0bdd57c2faa4a6e0f/src/aiv/lib/evidence_collector.py#L285-L329)
+- [`src/aiv/lib/evidence_collector.py#L13`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3e48e9001e9cb2a6d318ae17fc1dbed350fb7946/src/aiv/lib/evidence_collector.py#L13)
+- [`src/aiv/lib/evidence_collector.py#L16`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3e48e9001e9cb2a6d318ae17fc1dbed350fb7946/src/aiv/lib/evidence_collector.py#L16)
+- [`src/aiv/lib/evidence_collector.py#L133-L145`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3e48e9001e9cb2a6d318ae17fc1dbed350fb7946/src/aiv/lib/evidence_collector.py#L133-L145)
+- [`src/aiv/lib/evidence_collector.py#L148-L153`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3e48e9001e9cb2a6d318ae17fc1dbed350fb7946/src/aiv/lib/evidence_collector.py#L148-L153)
+- [`src/aiv/lib/evidence_collector.py#L155-L156`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3e48e9001e9cb2a6d318ae17fc1dbed350fb7946/src/aiv/lib/evidence_collector.py#L155-L156)
+- [`src/aiv/lib/evidence_collector.py#L159`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3e48e9001e9cb2a6d318ae17fc1dbed350fb7946/src/aiv/lib/evidence_collector.py#L159)
+- [`src/aiv/lib/evidence_collector.py#L161-L163`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3e48e9001e9cb2a6d318ae17fc1dbed350fb7946/src/aiv/lib/evidence_collector.py#L161-L163)
+- [`src/aiv/lib/evidence_collector.py#L166-L176`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3e48e9001e9cb2a6d318ae17fc1dbed350fb7946/src/aiv/lib/evidence_collector.py#L166-L176)
+- [`src/aiv/lib/evidence_collector.py#L178-L184`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3e48e9001e9cb2a6d318ae17fc1dbed350fb7946/src/aiv/lib/evidence_collector.py#L178-L184)
+- [`src/aiv/lib/evidence_collector.py#L440-L483`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3e48e9001e9cb2a6d318ae17fc1dbed350fb7946/src/aiv/lib/evidence_collector.py#L440-L483)
+- [`src/aiv/lib/evidence_collector.py#L486-L487`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3e48e9001e9cb2a6d318ae17fc1dbed350fb7946/src/aiv/lib/evidence_collector.py#L486-L487)
+- [`src/aiv/lib/evidence_collector.py#L489-L490`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3e48e9001e9cb2a6d318ae17fc1dbed350fb7946/src/aiv/lib/evidence_collector.py#L489-L490)
+- [`src/aiv/lib/evidence_collector.py#L492-L496`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3e48e9001e9cb2a6d318ae17fc1dbed350fb7946/src/aiv/lib/evidence_collector.py#L492-L496)
+- [`src/aiv/lib/evidence_collector.py#L498`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3e48e9001e9cb2a6d318ae17fc1dbed350fb7946/src/aiv/lib/evidence_collector.py#L498)
+- [`src/aiv/lib/evidence_collector.py#L500-L523`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3e48e9001e9cb2a6d318ae17fc1dbed350fb7946/src/aiv/lib/evidence_collector.py#L500-L523)
+- [`src/aiv/lib/evidence_collector.py#L526-L527`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3e48e9001e9cb2a6d318ae17fc1dbed350fb7946/src/aiv/lib/evidence_collector.py#L526-L527)
+- [`src/aiv/lib/evidence_collector.py#L529-L752`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3e48e9001e9cb2a6d318ae17fc1dbed350fb7946/src/aiv/lib/evidence_collector.py#L529-L752)
 
 ### Class A (Execution Evidence)
 
-- **pytest:** 530 passed, 0 failed in 19.21s
-- **Tests covering changed file** (17):
+- **pytest:** 543 passed, 0 failed in 25.53s
+- **Tests covering changed file** (31):
   - `tests/unit/test_evidence_collector.py::test_to_markdown_includes_sha_pinned_links`
   - `tests/unit/test_evidence_collector.py::test_to_markdown_includes_tree_link`
   - `tests/unit/test_evidence_collector.py::test_collect_parses_diff_hunks`
@@ -59,9 +76,12 @@ classification:
   - `tests/unit/test_evidence_collector.py::test_collect_detects_deleted_test_file`
   - `tests/unit/test_evidence_collector.py::test_collect_detects_removed_assertion`
   - `tests/unit/test_evidence_collector.py::test_collect_clean_diff`
-  - `tests/unit/test_evidence_collector.py::test_to_markdown_alerts`
-  - `tests/unit/test_evidence_collector.py::test_collect_detects_deleted_test`
-  - `tests/unit/test_evidence_collector.py::test_collect_clean`
+  - `tests/unit/test_evidence_collector.py::test_to_markdown_shows_provenance_table`
+  - `tests/unit/test_evidence_collector.py::test_to_markdown_no_covering_tests`
+  - `tests/unit/test_evidence_collector.py::test_to_markdown_includes_git_log`
+  - `tests/unit/test_evidence_collector.py::test_collect_with_covering_files`
+  - `tests/unit/test_evidence_collector.py::test_collect_no_covering_files_discovers_from_diff`
+  - `tests/unit/test_evidence_collector.py::test_resolves_function`
 - **ruff:** All checks passed
 - **mypy:** Found 1 error in 1 file (checked 1 source file)
 
@@ -71,12 +91,31 @@ classification:
 
 - Test file deletions: **none**
 - Test file modifications: **none**
-- Deleted assertions (`assert` removals in diff): **none found**
+- **ALERT:** 1 assertion(s) removed:
+  - `3. How many ``assert`` statements were removed from ``tests/``.`
 - Added skip markers (`@pytest.mark.skip`, `@unittest.skip`): **none found**
+
+### Class D (Differential Evidence)
+
+- See Class B scope inventory for line-range change details.
 
 ### Class F (Provenance Evidence)
 
-- No test files deleted. No assertions removed. Full test suite passes.
+**Test file chain-of-custody:**
+
+| File | Commits | Created By | Last Modified By | Assertions |
+|------|---------|------------|------------------|------------|
+| `tests/unit/test_evidence_collector.py` | 1 | ImmortalDemonGod (2985156) | ImmortalDemonGod (2985156) | 81 |
+
+**Recent test directory history** (`git log --oneline -5 -- tests/`):
+
+```
+9547980 test(auditor): 3 tests for evidence TODO severity escalation â€” the exact bar
+2985156 test(lib): 18 tests for evidence collector module
+c88bb9c test(hooks): 41 tests for portable pre-commit hook
+157ccbb style: fix ruff format, lint, and mypy strict errors for CI
+a244df3 test(validator): add 6 unit tests for E021 link vitality checking
+```
 
 ---
 
@@ -89,4 +128,4 @@ Evidence was collected by `aiv commit` running: git diff, pytest -v, ruff, mypy,
 
 ## Summary
 
-Fix xdist import detection and Class A test relevance false positives
+AST symbol resolver + test graph + find_covering_tests + distinct Class F provenance

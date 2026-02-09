@@ -10,9 +10,10 @@ or raises if the evidence cannot be collected.
 
 from __future__ import annotations
 
+import ast
 import re
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 
@@ -130,29 +131,57 @@ class ClassCEvidence:
 
 
 @dataclass
-class ClassFEvidence:
-    """Provenance evidence: chain-of-custody proof from git diff on test files."""
+class TestFileProvenance:
+    """Chain-of-custody record for a single test file."""
 
-    test_files_in_diff: list[str]
-    test_assertions_deleted: int
-    test_files_deleted: int
+    path: str
+    commit_count: int
+    created_by: str
+    created_sha: str
+    last_modified_by: str
+    last_modified_sha: str
+    assertion_count: int
+
+
+@dataclass
+class ClassFEvidence:
+    """Provenance evidence: git-log chain-of-custody for covering test files.
+
+    DISTINCT from Class C (diff scan) and Class A (test results).
+    Class F answers: "What is the history of the test files that cover this code?"
+    Not: "Did tests pass?" (Class A) or "Were tests deleted?" (Class C).
+    """
+
+    test_provenance: list[TestFileProvenance]
+    recent_test_log: str  # git log --oneline output for tests/
 
     def to_markdown(self) -> str:
-        """Render as markdown documenting test file chain-of-custody.
+        """Render as markdown with per-file chain-of-custody table and git log.
 
-        Reports whether any test files were deleted or any assertions removed
-        in the staged diff, providing cryptographic-grade provenance via git.
+        Shows creation date, commit count, last modifier, and assertion count
+        for each covering test file. This is information that Class C (diff scan)
+        and Class A (test results) do not provide.
         """
         lines = ["### Class F (Provenance Evidence)\n"]
-        if self.test_files_deleted == 0 and self.test_assertions_deleted == 0:
-            lines.append("- No test files deleted. No assertions removed. Full test suite passes.")
+        lines.append("**Test file chain-of-custody:**\n")
+        if self.test_provenance:
+            lines.append("| File | Commits | Created By | Last Modified By | Assertions |")
+            lines.append("|------|---------|------------|------------------|------------|")
+            for tp in self.test_provenance:
+                lines.append(
+                    f"| `{tp.path}` | {tp.commit_count} "
+                    f"| {tp.created_by} ({tp.created_sha[:7]}) "
+                    f"| {tp.last_modified_by} ({tp.last_modified_sha[:7]}) "
+                    f"| {tp.assertion_count} |"
+                )
         else:
-            if self.test_files_deleted > 0:
-                lines.append(f"- **ALERT:** {self.test_files_deleted} test file(s) deleted in this commit.")
-            if self.test_assertions_deleted > 0:
-                lines.append(f"- **ALERT:** {self.test_assertions_deleted} assertion(s) removed in this commit.")
-        if self.test_files_in_diff:
-            lines.append(f"- Test files touched: {', '.join(f'`{t}`' for t in self.test_files_in_diff)}")
+            lines.append("No covering test files found.")
+
+        if self.recent_test_log:
+            lines.append("\n**Recent test directory history** (`git log --oneline -5 -- tests/`):\n")
+            lines.append("```")
+            lines.append(self.recent_test_log)
+            lines.append("```")
         return "\n".join(lines)
 
 
@@ -408,44 +437,316 @@ def collect_class_c() -> ClassCEvidence:
     )
 
 
-def collect_class_f() -> ClassFEvidence:
-    """Collect Class F (provenance) evidence by verifying test file integrity.
+def _get_test_file_provenance(test_path: str) -> TestFileProvenance:
+    """Build chain-of-custody record for a single test file using git log."""
+    # Commit count
+    log_output = _run_git("log", "--oneline", "--follow", "--", test_path)
+    commits = [ln for ln in log_output.splitlines() if ln.strip()]
+    commit_count = len(commits)
 
-    Scans ``git diff --cached`` for:
+    # Created by (oldest commit)
+    created_by = "unknown"
+    created_sha = "unknown"
+    if commits:
+        oldest = commits[-1].split(" ", 1)
+        created_sha = oldest[0] if oldest else "unknown"
+        blame_first = _run_git("log", "--format=%an", "--follow", "--diff-filter=A", "--", test_path)
+        created_by = blame_first.splitlines()[0].strip() if blame_first.strip() else "unknown"
 
-    1. Test files present in the diff (any file with "test" in path).
-    2. How many of those are deletions.
-    3. How many ``assert`` statements were removed from ``tests/``.
+    # Last modified by (newest commit)
+    last_modified_by = "unknown"
+    last_modified_sha = "unknown"
+    if commits:
+        newest = commits[0].split(" ", 1)
+        last_modified_sha = newest[0] if newest else "unknown"
+        last_author = _run_git("log", "-1", "--format=%an", "--", test_path)
+        last_modified_by = last_author.strip() if last_author.strip() else "unknown"
 
-    This provides chain-of-custody proof that the test suite was not
-    weakened by the commit.
+    # Count assertions in current file
+    assertion_count = 0
+    try:
+        content = Path(test_path).read_text(encoding="utf-8")
+        for line in content.splitlines():
+            if re.search(r"\bassert\b", line) and not line.strip().startswith("#"):
+                assertion_count += 1
+    except Exception:
+        pass
+
+    return TestFileProvenance(
+        path=test_path,
+        commit_count=commit_count,
+        created_by=created_by,
+        created_sha=created_sha,
+        last_modified_by=last_modified_by,
+        last_modified_sha=last_modified_sha,
+        assertion_count=assertion_count,
+    )
+
+
+def collect_class_f(covering_test_files: list[str] | None = None) -> ClassFEvidence:
+    """Collect Class F (provenance) evidence via git log chain-of-custody.
+
+    DISTINCT from Class C and Class A. This answers:
+    "What is the history of the test files that cover this code?"
+
+    For each covering test file, collects:
+    - Number of commits (via ``git log --follow``)
+    - Who created it and in which commit
+    - Who last modified it and in which commit
+    - Current assertion count
+
+    Also includes recent ``git log --oneline -5 -- tests/`` output.
+
+    Args:
+        covering_test_files: List of test file paths that cover the changed code.
+            If None, discovers test files from the staged diff.
 
     Returns:
-        ClassFEvidence with test file lists and deletion/assertion counts.
+        ClassFEvidence with per-file provenance and recent test log.
     """
-    name_status = _run_git("diff", "--cached", "--name-status")
+    if covering_test_files is None:
+        # Fallback: discover from staged diff
+        name_status = _run_git("diff", "--cached", "--name-status")
+        covering_test_files = []
+        for line in name_status.splitlines():
+            parts = line.split("\t", 1)
+            if len(parts) == 2:
+                _status, path = parts
+                if "test" in path.lower() and path.endswith(".py"):
+                    covering_test_files.append(path)
 
-    test_files: list[str] = []
-    deleted_count = 0
-    for line in name_status.splitlines():
-        parts = line.split("\t", 1)
-        if len(parts) == 2:
-            status, path = parts
-            if "test" in path.lower():
-                test_files.append(path)
-                if status.startswith("D"):
-                    deleted_count += 1
+    provenance: list[TestFileProvenance] = []
+    for tf in covering_test_files[:10]:  # cap to avoid slow git log on many files
+        provenance.append(_get_test_file_provenance(tf))
 
-    # Count removed assertions in test files
-    diff = _run_git("diff", "--cached", "--", "tests/")
-    assertions_deleted = 0
-    for line in diff.splitlines():
-        if line.startswith("-") and not line.startswith("---"):
-            if re.search(r"\bassert\b", line):
-                assertions_deleted += 1
+    # Recent test directory history
+    recent_log = _run_git("log", "--oneline", "-5", "--", "tests/")
 
     return ClassFEvidence(
-        test_files_in_diff=test_files,
-        test_assertions_deleted=assertions_deleted,
-        test_files_deleted=deleted_count,
+        test_provenance=provenance,
+        recent_test_log=recent_log,
     )
+
+
+# ---------------------------------------------------------------------------
+# Phase 1: AST Symbol Resolver — map diff hunks to enclosing symbols
+# ---------------------------------------------------------------------------
+
+
+def resolve_changed_symbols(
+    file_path: str, line_ranges: list[tuple[int, int]]
+) -> list[str]:
+    """Parse a Python file's AST and map line ranges to enclosing function/class names.
+
+    For each line range, finds the innermost ``FunctionDef``, ``AsyncFunctionDef``,
+    or ``ClassDef`` whose ``lineno..end_lineno`` contains any line in the range.
+
+    Args:
+        file_path: Path to the Python source file.
+        line_ranges: List of (start_line, end_line) tuples from diff hunks.
+
+    Returns:
+        De-duplicated list of symbol names (e.g. ``["collect_class_a", "ClassBEvidence"]``).
+        Returns ``["<module>"]`` if changes are at module level (outside any function/class).
+    """
+    try:
+        source = Path(file_path).read_text(encoding="utf-8")
+        tree = ast.parse(source, filename=file_path)
+    except Exception:
+        return ["<parse-error>"]
+
+    # Collect all function/class nodes with their line ranges
+    symbols: list[tuple[str, int, int]] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            start = node.lineno
+            end = node.end_lineno or node.lineno
+            name = node.name
+            # For methods inside classes, prefix with class name
+            for parent in ast.walk(tree):
+                if isinstance(parent, ast.ClassDef) and node in ast.iter_child_nodes(parent):
+                    name = f"{parent.name}.{node.name}"
+                    break
+            symbols.append((name, start, end))
+
+    matched: list[str] = []
+    for hunk_start, hunk_end in line_ranges:
+        best_match: str | None = None
+        best_size = float("inf")
+        for name, sym_start, sym_end in symbols:
+            # Check if any line in the hunk falls within this symbol
+            if sym_start <= hunk_end and sym_end >= hunk_start:
+                size = sym_end - sym_start
+                if size < best_size:
+                    best_size = size
+                    best_match = name
+        if best_match and best_match not in matched:
+            matched.append(best_match)
+
+    if not matched:
+        matched.append("<module>")
+    return matched
+
+
+# ---------------------------------------------------------------------------
+# Phase 2: AST Test Graph — import + call graph for test files
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class TestGraph:
+    """Maps test files to the symbols they import and the calls each test makes."""
+
+    # test_file → set of imported symbol names
+    imports: dict[str, set[str]] = field(default_factory=dict)
+    # test_file → { test_function_name → set of called symbol names }
+    calls: dict[str, dict[str, set[str]]] = field(default_factory=dict)
+
+
+class _ImportVisitor(ast.NodeVisitor):
+    """Extract all imported symbol names from a module."""
+
+    def __init__(self) -> None:
+        self.symbols: set[str] = set()
+
+    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:  # noqa: N802
+        if node.names:
+            for alias in node.names:
+                self.symbols.add(alias.name)
+        self.generic_visit(node)
+
+    def visit_Import(self, node: ast.Import) -> None:  # noqa: N802
+        for alias in node.names:
+            name = alias.asname or alias.name
+            self.symbols.add(name.split(".")[-1])
+        self.generic_visit(node)
+
+
+class _CallVisitor(ast.NodeVisitor):
+    """Extract all called names within a function body."""
+
+    def __init__(self) -> None:
+        self.called: set[str] = set()
+
+    def visit_Call(self, node: ast.Call) -> None:  # noqa: N802
+        if isinstance(node.func, ast.Name):
+            self.called.add(node.func.id)
+        elif isinstance(node.func, ast.Attribute):
+            self.called.add(node.func.attr)
+        self.generic_visit(node)
+
+
+def build_test_graph(test_dir: str = "tests/") -> TestGraph:
+    """Parse all test files and build import + call relationships.
+
+    For each ``*.py`` file under ``test_dir``:
+    1. Extract all imported symbols via ``ast.ImportFrom`` / ``ast.Import``.
+    2. For each ``test_*`` function, extract all called symbol names.
+
+    Args:
+        test_dir: Root directory to scan for test files.
+
+    Returns:
+        TestGraph with import and call maps.
+    """
+    graph = TestGraph()
+    test_root = Path(test_dir)
+    if not test_root.exists():
+        return graph
+
+    for py_file in test_root.rglob("*.py"):
+        rel_path = str(py_file).replace("\\", "/")
+        try:
+            source = py_file.read_text(encoding="utf-8")
+            tree = ast.parse(source, filename=str(py_file))
+        except Exception:
+            continue
+
+        # Extract imports
+        iv = _ImportVisitor()
+        iv.visit(tree)
+        graph.imports[rel_path] = iv.symbols
+
+        # Extract calls per test function
+        file_calls: dict[str, set[str]] = {}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+                if node.name.startswith("test_"):
+                    cv = _CallVisitor()
+                    cv.visit(node)
+                    file_calls[node.name] = cv.called
+        if file_calls:
+            graph.calls[rel_path] = file_calls
+
+    return graph
+
+
+@dataclass
+class SymbolCoverage:
+    """Per-symbol test coverage result from AST analysis."""
+
+    symbol: str
+    line_range: str  # e.g. "L254-L259"
+    importing_test_files: list[str]
+    calling_tests: list[str]  # "file::test_name" format
+    coverage_verdict: str  # e.g. "4 tests call this symbol" or "WARNING: 0 tests"
+
+
+def find_covering_tests(
+    changed_symbols: list[str],
+    test_graph: TestGraph,
+    hunks: list[str] | None = None,
+) -> list[SymbolCoverage]:
+    """For each changed symbol, find tests that import AND call it.
+
+    This is the core of semantic Class A: deterministic, AST-based
+    claim-to-test mapping. No keywords, no grep, no heuristics.
+
+    Args:
+        changed_symbols: Symbol names from ``resolve_changed_symbols``.
+        test_graph: The ``TestGraph`` built by ``build_test_graph``.
+        hunks: Optional hunk strings from Class B for line range display.
+
+    Returns:
+        List of ``SymbolCoverage`` results, one per changed symbol.
+    """
+    results: list[SymbolCoverage] = []
+
+    for idx, symbol in enumerate(changed_symbols):
+        # Strip class prefix for matching (e.g. "ClassA.to_markdown" → also match "to_markdown")
+        bare_name = symbol.split(".")[-1] if "." in symbol else symbol
+        line_range = hunks[idx] if hunks and idx < len(hunks) else "unknown"
+
+        importing_files: list[str] = []
+        calling_tests: list[str] = []
+
+        for test_file, imported_symbols in test_graph.imports.items():
+            # Check if this test file imports the symbol (or any symbol from the module)
+            if bare_name in imported_symbols or symbol in imported_symbols:
+                importing_files.append(test_file)
+
+                # Check which test functions in this file call the symbol
+                file_calls = test_graph.calls.get(test_file, {})
+                for test_name, called_symbols in file_calls.items():
+                    if bare_name in called_symbols or symbol in called_symbols:
+                        calling_tests.append(f"{test_file}::{test_name}")
+
+        if calling_tests:
+            verdict = f"{len(calling_tests)} test(s) call `{bare_name}` directly"
+        elif importing_files:
+            verdict = (
+                f"WARNING: {len(importing_files)} file(s) import `{bare_name}` "
+                f"but 0 tests call it directly"
+            )
+        else:
+            verdict = f"WARNING: No tests import or call `{bare_name}`"
+
+        results.append(SymbolCoverage(
+            symbol=symbol,
+            line_range=line_range,
+            importing_test_files=importing_files,
+            calling_tests=calling_tests,
+            coverage_verdict=verdict,
+        ))
+
+    return results
