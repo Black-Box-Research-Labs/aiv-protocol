@@ -692,6 +692,9 @@ class _CallVisitor(ast.NodeVisitor):
 
     Also detects subprocess-based CLI invocations like:
         subprocess.run([sys.executable, "-m", "aiv", "commit", ...])
+    or the variable-assignment pattern:
+        base = [sys.executable, "-m", "aiv", "commit", ...]
+        subprocess.run(base, ...)
     and maps them to the corresponding CLI function name (e.g. "commit_cmd").
     """
 
@@ -705,18 +708,23 @@ class _CallVisitor(ast.NodeVisitor):
             self.called.add(node.func.attr)
             # Detect subprocess.run / subprocess.call / subprocess.Popen
             if node.func.attr in ("run", "call", "Popen") and node.args:
-                self._extract_cli_command(node.args[0])
+                self._extract_cli_from_list(node.args[0])
         self.generic_visit(node)
 
-    def _extract_cli_command(self, arg_node: ast.expr) -> None:
-        """Extract CLI command from subprocess args like [sys.executable, '-m', 'aiv', 'commit', ...]."""
+    def visit_List(self, node: ast.List) -> None:  # noqa: N802
+        # Scan all list literals for CLI patterns (handles variable assignment)
+        self._extract_cli_from_list(node)
+        self.generic_visit(node)
+
+    def _extract_cli_from_list(self, arg_node: ast.expr) -> None:
+        """Extract CLI command from a list like [sys.executable, '-m', 'aiv', 'commit', ...]."""
         if not isinstance(arg_node, ast.List):
             return
         strings = []
         for elt in arg_node.elts:
             if isinstance(elt, ast.Constant) and isinstance(elt.value, str):
                 strings.append(elt.value)
-        # Look for pattern: ... "-m" "aiv" "<command>" ...
+        # Look for pattern: ... "aiv" "<command>" ...
         for i, s in enumerate(strings):
             if s == "aiv" and i + 1 < len(strings):
                 cmd = strings[i + 1]
