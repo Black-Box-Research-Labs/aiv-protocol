@@ -263,9 +263,13 @@ def load_hook_config(
             with open(path) as f:
                 data = yaml.safe_load(f) or {}
             hook_data = data.get("hook", {})
-            prefixes = tuple(hook_data.get("functional_prefixes", _DEFAULT_FUNCTIONAL_PREFIXES))
-            root_files = set(hook_data.get("functional_root_files", _DEFAULT_FUNCTIONAL_ROOT_FILES))
-            return prefixes, root_files
+            raw_prefixes = hook_data.get("functional_prefixes", _DEFAULT_FUNCTIONAL_PREFIXES)
+            raw_root_files = hook_data.get("functional_root_files", _DEFAULT_FUNCTIONAL_ROOT_FILES)
+            if not isinstance(raw_prefixes, (list, tuple)):
+                raw_prefixes = _DEFAULT_FUNCTIONAL_PREFIXES
+            if not isinstance(raw_root_files, (list, tuple, set)):
+                raw_root_files = _DEFAULT_FUNCTIONAL_ROOT_FILES
+            return tuple(raw_prefixes), set(raw_root_files)
     except Exception:
         pass
     return _DEFAULT_FUNCTIONAL_PREFIXES, _DEFAULT_FUNCTIONAL_ROOT_FILES
