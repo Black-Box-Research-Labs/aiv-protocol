@@ -53,13 +53,13 @@ from aiv.lib.config import (
 
 def _run_git(*args: str) -> str:
     """
-    Run a git command and return its standard output trimmed of leading and trailing whitespace.
+    Execute a git command and return its standard output with surrounding whitespace removed.
     
     Parameters:
-        *args (str): Arguments passed to the git command (for example, 'status', '--porcelain').
+        *args (str): Arguments to pass to the git command (for example, 'status', '--porcelain').
     
     Returns:
-        stdout (str): The command's standard output with surrounding whitespace removed.
+        stdout (str): The command's standard output with leading and trailing whitespace stripped.
     """
     result = subprocess.run(
         ["git", *args],

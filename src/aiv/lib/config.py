@@ -240,18 +240,16 @@ _DEFAULT_FUNCTIONAL_ROOT_FILES: set[str] = set(HookConfig().functional_root_file
 def load_hook_config(
     config_path: Path | None = None,
 ) -> tuple[tuple[str, ...], set[str]]:
-    """Load functional prefixes and root files from .aiv.yml if available.
-
-    This is the **single shared implementation** used by all enforcement layers:
-    pre-commit hook, pre-push hook, and CI auditor. Having one function ensures
-    consistent classification of functional vs non-functional files.
-
-    Args:
-        config_path: Path to .aiv.yml. Defaults to .aiv.yml in the current directory.
-
+    """
+    Load functional file prefixes and root-file names from an AIV hook configuration.
+    
+    If a YAML file exists at `config_path` (or `./.aiv.yml` when `None`), extract the `hook.functional_prefixes` and `hook.functional_root_files` values; otherwise, return the built-in HookConfig defaults.
+    
+    Parameters:
+        config_path (Path | None): Path to the `.aiv.yml` file; when `None`, defaults to `./.aiv.yml`.
+    
     Returns:
-        Tuple of (functional_prefixes, functional_root_files).
-        Falls back to HookConfig defaults if no config file is found.
+        tuple[tuple[str, ...], set[str]]: A pair where the first element is a tuple of functional prefixes and the second is a set of functional root-file names.
     """
     try:
         path = config_path or Path(".aiv.yml")

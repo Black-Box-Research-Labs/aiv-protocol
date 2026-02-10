@@ -493,7 +493,11 @@ class TestIsFunctionalPath:
         assert auditor._is_functional_path("src/main.py", custom_prefixes, custom_roots) is False
 
     def test_custom_root_files_respected(self) -> None:
-        """P0-4: _is_functional_path accepts custom root files from .aiv.yml."""
+        """
+        Verify that _is_functional_path recognizes custom root filenames from configuration.
+        
+        Asserts that a filename present in the provided root set is treated as a functional path and a filename not in the set is not.
+        """
         auditor = PacketAuditor()
         custom_prefixes: tuple[str, ...] = ()
         custom_roots = {"Makefile", "Dockerfile"}
