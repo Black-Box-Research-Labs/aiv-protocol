@@ -38,6 +38,12 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING
 
+from aiv.lib.config import (
+    _DEFAULT_FUNCTIONAL_PREFIXES,
+    _DEFAULT_FUNCTIONAL_ROOT_FILES,
+    load_hook_config,
+)
+
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -49,13 +55,6 @@ _PACKET_PREFIXES = (
 )
 _PACKET_SUFFIX = ".md"
 _EVIDENCE_PREFIX = ".github/aiv-evidence/EVIDENCE_"
-
-# Import shared config loader (single source of truth for all enforcement layers)
-from aiv.lib.config import (
-    _DEFAULT_FUNCTIONAL_PREFIXES,
-    _DEFAULT_FUNCTIONAL_ROOT_FILES,
-    load_hook_config,
-)
 
 
 class AuditSeverity(str, Enum):
@@ -700,10 +699,10 @@ class PacketAuditor:
     def _is_evidence_path(path: str) -> bool:
         """
         Check whether a file path points to a Layer 1 evidence Markdown file.
-        
+
         Parameters:
             path (str): File path to evaluate.
-        
+
         Returns:
             True if the path starts with ".github/aiv-evidence/EVIDENCE_" and ends with ".md", False otherwise.
         """
@@ -717,14 +716,17 @@ class PacketAuditor:
     ) -> bool:
         """
         Determine whether a file path is considered "functional" based on configured path prefixes or root files.
-        
+
         Parameters:
             path (str): File path to evaluate.
-            prefixes (tuple[str, ...] | None): Optional sequence of path prefixes to treat as functional; when None, module defaults are used.
-            root_files (set[str] | None): Optional set of root-level file paths considered functional; when None, module defaults are used.
-        
+            prefixes (tuple[str, ...] | None): Optional sequence of path prefixes
+                to treat as functional; when None, module defaults are used.
+            root_files (set[str] | None): Optional set of root-level file paths
+                considered functional; when None, module defaults are used.
+
         Returns:
-            bool: `True` if the path matches any functional prefix or exactly equals a configured root file, `False` otherwise.
+            bool: `True` if the path matches any functional prefix or exactly
+                equals a configured root file, `False` otherwise.
         """
         _prefixes = _DEFAULT_FUNCTIONAL_PREFIXES if prefixes is None else prefixes
         _root_files = _DEFAULT_FUNCTIONAL_ROOT_FILES if root_files is None else root_files
@@ -740,18 +742,18 @@ class PacketAuditor:
     ) -> AuditResult:
         """
         Scan recent git commits for protocol violations.
-        
+
         Inspects up to `num_commits` recent commits to detect:
         - HOOK_BYPASS: functional file(s) committed without a verification packet or evidence.
         - ATOMIC_VIOLATION: a commit that modifies more than one functional file.
-        
+
         Respects the two-layer architecture: if any packet (PACKET_*.md) or evidence (EVIDENCE_*.md)
         appears anywhere in the scanned range, functional-only commits in that range are
         treated as covered by aggregate evidence and multi-file commits are allowed.
-        
+
         Parameters:
             num_commits (int): Number of recent commits to examine (most recent first).
-        
+
         Returns:
             AuditResult: Aggregate results including scanned commit count, per-commit findings,
             and counts of packets with issues.
