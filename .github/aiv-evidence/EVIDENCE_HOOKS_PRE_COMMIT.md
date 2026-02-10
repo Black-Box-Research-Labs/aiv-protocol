@@ -1,8 +1,9 @@
 # AIV Evidence File (v1.0)
 
 **File:** `src/aiv/hooks/pre_commit.py`
-**Commit:** `38c2c0c`
-**Generated:** 2026-02-09T05:14:38Z
+**Commit:** `b7fbe77`
+**Previous:** `8903a45`
+**Generated:** 2026-02-10T03:16:01Z
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
 ---
@@ -15,17 +16,15 @@ classification:
   sod_mode: S0
   critical_surfaces: []
   blast_radius: "src/aiv/hooks/pre_commit.py"
-  classification_rationale: "Hook logic changes, standard enforcement layer"
-  classified_by: "ImmortalDemonGod"
-  classified_at: "2026-02-09T05:14:38Z"
+  classification_rationale: "R0: import reordering only"
+  classified_by: "Miguel Ingram"
+  classified_at: "2026-02-10T03:16:01Z"
 ```
 
 ## Claim(s)
 
-1. Pre-commit hook allows multi-file commits when active change context exists
-2. Evidence-only commits always pass without requiring a change context
-3. Protected branch gate blocks functional files without change context or packet
-4. No existing tests were modified or deleted during this change.
+1. Consolidated and moved aiv.lib.config import to top of pre_commit.py
+2. No existing tests were modified or deleted during this change.
 
 ---
 
@@ -33,29 +32,22 @@ classification:
 
 ### Class E (Intent Alignment)
 
-- **Link:** [https://github.com/ImmortalDemonGod/aiv-protocol/blob/38c2c0cb07b6f8addbf74803d69f75e3642e13d6/docs/TWO_LAYER_VERIFICATION_ARCHITECTURE.md](https://github.com/ImmortalDemonGod/aiv-protocol/blob/38c2c0cb07b6f8addbf74803d69f75e3642e13d6/docs/TWO_LAYER_VERIFICATION_ARCHITECTURE.md)
-- **Requirements Verified:** Design doc section 8: Hook Behavior
+- **Link:** [https://github.com/ImmortalDemonGod/aiv-protocol/blob/655e5ab/docs/EXTERNAL_READINESS_AUDIT.md](https://github.com/ImmortalDemonGod/aiv-protocol/blob/655e5ab/docs/EXTERNAL_READINESS_AUDIT.md)
+- **Requirements Verified:** CI lint compliance for PR #1
 
 ### Class B (Referential Evidence)
 
-**Scope Inventory** (SHA: [`38c2c0c`](https://github.com/ImmortalDemonGod/aiv-protocol/tree/38c2c0cb07b6f8addbf74803d69f75e3642e13d6))
+**Scope Inventory** (SHA: [`b7fbe77`](https://github.com/ImmortalDemonGod/aiv-protocol/tree/b7fbe77165c1224798cad68389031ad9e2fdb5b4))
 
-- [`src/aiv/hooks/pre_commit.py#L38`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/38c2c0cb07b6f8addbf74803d69f75e3642e13d6/src/aiv/hooks/pre_commit.py#L38)
-- [`src/aiv/hooks/pre_commit.py#L40`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/38c2c0cb07b6f8addbf74803d69f75e3642e13d6/src/aiv/hooks/pre_commit.py#L40)
-- [`src/aiv/hooks/pre_commit.py#L119-L122`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/38c2c0cb07b6f8addbf74803d69f75e3642e13d6/src/aiv/hooks/pre_commit.py#L119-L122)
-- [`src/aiv/hooks/pre_commit.py#L124`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/38c2c0cb07b6f8addbf74803d69f75e3642e13d6/src/aiv/hooks/pre_commit.py#L124)
-- [`src/aiv/hooks/pre_commit.py#L300-L318`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/38c2c0cb07b6f8addbf74803d69f75e3642e13d6/src/aiv/hooks/pre_commit.py#L300-L318)
-- [`src/aiv/hooks/pre_commit.py#L338`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/38c2c0cb07b6f8addbf74803d69f75e3642e13d6/src/aiv/hooks/pre_commit.py#L338)
-- [`src/aiv/hooks/pre_commit.py#L347-L363`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/38c2c0cb07b6f8addbf74803d69f75e3642e13d6/src/aiv/hooks/pre_commit.py#L347-L363)
-- [`src/aiv/hooks/pre_commit.py#L368-L372`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/38c2c0cb07b6f8addbf74803d69f75e3642e13d6/src/aiv/hooks/pre_commit.py#L368-L372)
-- [`src/aiv/hooks/pre_commit.py#L403-L432`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/38c2c0cb07b6f8addbf74803d69f75e3642e13d6/src/aiv/hooks/pre_commit.py#L403-L432)
-- [`src/aiv/hooks/pre_commit.py#L443`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/38c2c0cb07b6f8addbf74803d69f75e3642e13d6/src/aiv/hooks/pre_commit.py#L443)
+- [`src/aiv/hooks/pre_commit.py#L38-L45`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/b7fbe77165c1224798cad68389031ad9e2fdb5b4/src/aiv/hooks/pre_commit.py#L38-L45)
+- [`src/aiv/hooks/pre_commit.py#L58`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/b7fbe77165c1224798cad68389031ad9e2fdb5b4/src/aiv/hooks/pre_commit.py#L58)
+- [`src/aiv/hooks/pre_commit.py#L61`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/b7fbe77165c1224798cad68389031ad9e2fdb5b4/src/aiv/hooks/pre_commit.py#L61)
+- [`src/aiv/hooks/pre_commit.py#L441`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/b7fbe77165c1224798cad68389031ad9e2fdb5b4/src/aiv/hooks/pre_commit.py#L441)
 
 ### Class A (Execution Evidence)
 
 - Local checks skipped (--skip-checks).
-- **Skip reason:** Legacy evidence file; predates anti-theater gates.
-
+- **Skip reason:** Lint-only: moved import statement to top of file, no logic change
 
 
 ---
@@ -63,11 +55,11 @@ classification:
 ## Verification Methodology
 
 **R0 (trivial) -- local checks skipped.**
-Legacy evidence file; predates anti-theater gates.
+**Reason:** Lint-only: moved import statement to top of file, no logic change
 Only git diff scope inventory was collected. No execution evidence.
 
 ---
 
 ## Summary
 
-Add change-context awareness: evidence recognition, active-change multi-file allowance, protected branch gate
+Move config import to top of pre_commit.py for ruff E402
