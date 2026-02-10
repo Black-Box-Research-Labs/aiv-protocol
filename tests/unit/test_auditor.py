@@ -502,7 +502,18 @@ class TestIsFunctionalPath:
 
 
 def _make_git_log_output(commits: list[tuple[str, list[str]]]) -> str:
-    """Build fake git log --format=%H --name-only output."""
+    """
+    Build a fake git log output using the format produced by `git log --format=%H --name-only`.
+    
+    Parameters:
+        commits (list[tuple[str, list[str]]]): Sequence of commits where each item is a tuple
+            (commit_sha, file_paths). `commit_sha` is the commit hash string; `file_paths`
+            is a list of file path strings changed in that commit.
+    
+    Returns:
+        str: A single string where each commit appears as the SHA on its own line followed by
+        its file paths on separate lines, and commits are separated by a blank line.
+    """
     parts = []
     for sha, files in commits:
         parts.append(sha)

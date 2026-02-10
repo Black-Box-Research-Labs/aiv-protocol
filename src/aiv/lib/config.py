@@ -200,7 +200,20 @@ class AIVConfig(BaseSettings):
 
     @classmethod
     def from_file(cls, path: Path) -> AIVConfig:
-        """Load configuration from YAML file."""
+        """
+        Load AIV configuration from a YAML file.
+        
+        If the file does not exist, returns a default AIVConfig instance. On successful parse and validation, returns an AIVConfig populated from the YAML contents.
+        
+        Parameters:
+            path (Path): Filesystem path to the YAML configuration file.
+        
+        Returns:
+            AIVConfig: Configuration loaded from the file, or a default instance if the file is missing.
+        
+        Raises:
+            ConfigurationError: If the YAML cannot be parsed or the file contents are invalid for AIVConfig.
+        """
         if not path.exists():
             return cls()
 

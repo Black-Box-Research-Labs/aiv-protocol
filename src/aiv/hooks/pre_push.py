@@ -48,6 +48,12 @@ from aiv.lib.config import (
 
 
 def _is_packet(path: str) -> bool:
+    """
+    Determine whether a file path references a verification packet.
+    
+    Returns:
+        True if the path starts with any defined packet prefix and ends with the packet suffix, False otherwise.
+    """
     return any(path.startswith(p) for p in PACKET_PREFIXES) and path.endswith(PACKET_SUFFIX)
 
 
@@ -56,6 +62,19 @@ def _is_functional(
     prefixes: tuple[str, ...] | None = None,
     root_files: set[str] | None = None,
 ) -> bool:
+    """
+    Determine whether a file path should be treated as a functional file for AIV checks.
+    
+    Parameters:
+        path (str): File path to evaluate.
+        prefixes (tuple[str, ...] | None): Optional sequence of functional path prefixes to match against;
+            when `None`, the configured default functional prefixes are used.
+        root_files (set[str] | None): Optional set of root file paths considered functional;
+            when `None`, the configured default functional root files are used.
+    
+    Returns:
+        bool: `True` if the path starts with any functional prefix or is present in the functional root files, `False` otherwise.
+    """
     _prefixes = prefixes or _DEFAULT_FUNCTIONAL_PREFIXES
     _root_files = root_files or _DEFAULT_FUNCTIONAL_ROOT_FILES
     if any(path.startswith(p) for p in _prefixes):
@@ -64,7 +83,23 @@ def _is_functional(
 
 
 def _get_commits_in_range(local_sha: str, remote_sha: str) -> list[str]:
-    """Return list of commit SHAs in the push range."""
+    """
+    Determine the list of commit SHAs introduced by a push range.
+    
+    When local_sha is the all-zero SHA (branch deletion) this returns an empty list.
+    When remote_sha is the all-zero SHA (new branch) this returns commits reachable from
+    local_sha that are not present on any remote. Otherwise this returns commits in the
+    range `remote_sha..local_sha`. On git failures, timeouts, or if there are no commits,
+    an empty list is returned.
+    
+    Parameters:
+        local_sha (str): The local commit SHA at the tip of the pushed ref.
+        remote_sha (str): The remote commit SHA that the ref pointed to before the push.
+    
+    Returns:
+        list[str]: A list of full commit SHAs in the push range, or an empty list if none
+        are found or on error.
+    """
     # Zero SHA means new branch or deleted branch
     zero = "0" * 40
     if local_sha == zero:
@@ -128,13 +163,17 @@ def _is_evidence(path: str) -> bool:
 
 
 def check_commits(commits: list[str]) -> list[tuple[str, list[str]]]:
-    """Check a list of commit SHAs for protocol violations.
-
-    Returns a list of (short_sha, functional_files) tuples for violating commits.
-
-    Two-Layer Architecture aware: if the push range contains any Layer 2
-    packet (PACKET_*.md) or Layer 1 evidence file (EVIDENCE_*.md), functional
-    commits in the same range are considered covered by aggregate evidence.
+    """
+    Check a list of commit SHAs for AIV protocol violations.
+    
+    Commits that contain functional files but lack a verification packet in the same commit,
+    and are not covered by any packet or evidence file elsewhere in the push range, are
+    considered violations and reported.
+    
+    Returns:
+        list[tuple[str, list[str]]]: List of tuples (short_sha, functional_files) where
+            short_sha is the first 7 characters of the commit SHA and functional_files
+            is the list of functional file paths in that commit.
     """
     # Load config from .aiv.yml (consistent with pre-commit hook and CI auditor)
     func_prefixes, func_root_files = load_hook_config()
