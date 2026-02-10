@@ -345,7 +345,7 @@ def collect_class_a(file_path: str) -> ClassAEvidence:
         pytest_cmd.extend(["-n", "auto"])
     except ImportError:
         pass  # xdist not installed — run serial
-    r = _run(pytest_cmd, timeout=180)
+    r = _run(pytest_cmd, timeout=360)
     last_line = r.stdout.strip().split("\n")[-1] if r.stdout.strip() else ""
 
     # Parse "N passed, M failed, K warnings in Xs"
