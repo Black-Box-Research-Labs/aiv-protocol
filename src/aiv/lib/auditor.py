@@ -698,6 +698,15 @@ class PacketAuditor:
 
     @staticmethod
     def _is_evidence_path(path: str) -> bool:
+        """
+        Check whether a file path points to a Layer 1 evidence Markdown file.
+        
+        Parameters:
+            path (str): File path to evaluate.
+        
+        Returns:
+            True if the path starts with ".github/aiv-evidence/EVIDENCE_" and ends with ".md", False otherwise.
+        """
         return path.startswith(_EVIDENCE_PREFIX) and path.endswith(_PACKET_SUFFIX)
 
     @staticmethod
@@ -706,6 +715,17 @@ class PacketAuditor:
         prefixes: tuple[str, ...] | None = None,
         root_files: set[str] | None = None,
     ) -> bool:
+        """
+        Determine whether a file path is considered "functional" based on configured path prefixes or root files.
+        
+        Parameters:
+            path (str): File path to evaluate.
+            prefixes (tuple[str, ...] | None): Optional sequence of path prefixes to treat as functional; when None, module defaults are used.
+            root_files (set[str] | None): Optional set of root-level file paths considered functional; when None, module defaults are used.
+        
+        Returns:
+            bool: `True` if the path matches any functional prefix or exactly equals a configured root file, `False` otherwise.
+        """
         _prefixes = prefixes or _DEFAULT_FUNCTIONAL_PREFIXES
         _root_files = root_files or _DEFAULT_FUNCTIONAL_ROOT_FILES
         if any(path.startswith(p) for p in _prefixes):
