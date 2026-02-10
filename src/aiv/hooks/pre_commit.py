@@ -43,49 +43,12 @@ PACKET_PREFIXES = (
 PACKET_SUFFIX = ".md"
 EVIDENCE_PREFIX = ".github/aiv-evidence/EVIDENCE_"
 
-# Defaults used when no .aiv.yml is present (kept in sync with HookConfig)
-_DEFAULT_FUNCTIONAL_PREFIXES = (
-    "src/",
-    "lib/",
-    "app/",
-    "pkg/",
-    "cmd/",
-    "internal/",
-    "engine/",
-    "infrastructure/",
-    "scripts/",
-    "tests/",
-    ".github/workflows/",
-    ".husky/",
+# Import shared config loader (single source of truth for all enforcement layers)
+from aiv.lib.config import (
+    _DEFAULT_FUNCTIONAL_PREFIXES,
+    _DEFAULT_FUNCTIONAL_ROOT_FILES,
+    load_hook_config as _load_hook_config,
 )
-
-_DEFAULT_FUNCTIONAL_ROOT_FILES = {
-    "pyproject.toml",
-    "setup.py",
-    "setup.cfg",
-    "package.json",
-    "package-lock.json",
-    ".gitignore",
-    ".env.example",
-}
-
-
-def _load_hook_config() -> tuple[tuple[str, ...], set[str]]:
-    """Load functional prefixes and root files from .aiv.yml if available."""
-    try:
-        config_path = Path(".aiv.yml")
-        if config_path.exists():
-            import yaml
-
-            with open(config_path) as f:
-                data = yaml.safe_load(f) or {}
-            hook_data = data.get("hook", {})
-            prefixes = tuple(hook_data.get("functional_prefixes", _DEFAULT_FUNCTIONAL_PREFIXES))
-            root_files = set(hook_data.get("functional_root_files", _DEFAULT_FUNCTIONAL_ROOT_FILES))
-            return prefixes, root_files
-    except Exception:
-        pass
-    return _DEFAULT_FUNCTIONAL_PREFIXES, _DEFAULT_FUNCTIONAL_ROOT_FILES
 
 
 def _run_git(*args: str) -> str:

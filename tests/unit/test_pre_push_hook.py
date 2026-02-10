@@ -45,10 +45,51 @@ class TestIsFunctional:
         assert _is_functional("docs/guide.md") is False
         assert _is_functional("README.md") is False
 
+    def test_custom_prefixes_respected(self) -> None:
+        """P0-4: _is_functional accepts custom prefixes from .aiv.yml."""
+        custom_prefixes = ("backend/", "frontend/")
+        custom_roots: set[str] = set()
+        assert _is_functional("backend/api.py", custom_prefixes, custom_roots) is True
+        assert _is_functional("frontend/app.ts", custom_prefixes, custom_roots) is True
+        assert _is_functional("src/main.py", custom_prefixes, custom_roots) is False
+
+    def test_custom_root_files_respected(self) -> None:
+        """P0-4: _is_functional accepts custom root files from .aiv.yml."""
+        custom_prefixes: tuple[str, ...] = ()
+        custom_roots = {"Makefile", "Dockerfile"}
+        assert _is_functional("Makefile", custom_prefixes, custom_roots) is True
+        assert _is_functional("pyproject.toml", custom_prefixes, custom_roots) is False
+
 
 # ---------------------------------------------------------------------------
 # check_commits tests
 # ---------------------------------------------------------------------------
+
+
+class TestCheckCommitsConfigPropagation:
+    """P0-4: check_commits reads .aiv.yml via load_hook_config."""
+
+    def test_custom_prefix_detected_as_functional(self) -> None:
+        """A file under a custom prefix from .aiv.yml is treated as functional."""
+        custom_cfg = (("backend/",), set())
+        with (
+            patch("aiv.hooks.pre_push._get_commit_files") as mock_files,
+            patch("aiv.hooks.pre_push.load_hook_config", return_value=custom_cfg),
+        ):
+            mock_files.return_value = ["backend/api.py"]
+            violations = check_commits(["a" * 40])
+        assert len(violations) == 1  # functional without packet = violation
+
+    def test_default_prefix_ignored_with_custom_config(self) -> None:
+        """src/ is NOT functional when .aiv.yml only lists backend/."""
+        custom_cfg = (("backend/",), set())
+        with (
+            patch("aiv.hooks.pre_push._get_commit_files") as mock_files,
+            patch("aiv.hooks.pre_push.load_hook_config", return_value=custom_cfg),
+        ):
+            mock_files.return_value = ["src/main.py"]
+            violations = check_commits(["a" * 40])
+        assert len(violations) == 0  # not functional = no violation
 
 
 class TestCheckCommits:

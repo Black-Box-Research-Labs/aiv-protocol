@@ -6,8 +6,6 @@ Configuration models for customizing validation behavior.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings
 
@@ -16,10 +14,9 @@ try:
 except ImportError as _yaml_err:
     raise ImportError("PyYAML is required for AIV configuration. Install it with: pip install PyYAML") from _yaml_err
 
-from .errors import ConfigurationError
+from pathlib import Path
 
-if TYPE_CHECKING:
-    from pathlib import Path
+from .errors import ConfigurationError
 
 
 class ZeroTouchConfig(BaseModel):
@@ -217,3 +214,41 @@ class AIVConfig(BaseSettings):
             return cls(**data)
         except Exception as e:
             raise ConfigurationError(f"Invalid configuration in {path}: {e}") from e
+
+
+# ---------------------------------------------------------------------------
+# Shared hook config loader (single source of truth for all enforcement layers)
+# ---------------------------------------------------------------------------
+
+_DEFAULT_FUNCTIONAL_PREFIXES: tuple[str, ...] = tuple(HookConfig().functional_prefixes)
+_DEFAULT_FUNCTIONAL_ROOT_FILES: set[str] = set(HookConfig().functional_root_files)
+
+
+def load_hook_config(
+    config_path: Path | None = None,
+) -> tuple[tuple[str, ...], set[str]]:
+    """Load functional prefixes and root files from .aiv.yml if available.
+
+    This is the **single shared implementation** used by all enforcement layers:
+    pre-commit hook, pre-push hook, and CI auditor. Having one function ensures
+    consistent classification of functional vs non-functional files.
+
+    Args:
+        config_path: Path to .aiv.yml. Defaults to .aiv.yml in the current directory.
+
+    Returns:
+        Tuple of (functional_prefixes, functional_root_files).
+        Falls back to HookConfig defaults if no config file is found.
+    """
+    try:
+        path = config_path or Path(".aiv.yml")
+        if path.exists():
+            with open(path) as f:
+                data = yaml.safe_load(f) or {}
+            hook_data = data.get("hook", {})
+            prefixes = tuple(hook_data.get("functional_prefixes", _DEFAULT_FUNCTIONAL_PREFIXES))
+            root_files = set(hook_data.get("functional_root_files", _DEFAULT_FUNCTIONAL_ROOT_FILES))
+            return prefixes, root_files
+    except Exception:
+        pass
+    return _DEFAULT_FUNCTIONAL_PREFIXES, _DEFAULT_FUNCTIONAL_ROOT_FILES
