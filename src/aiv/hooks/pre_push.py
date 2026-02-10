@@ -27,6 +27,12 @@ from __future__ import annotations
 import subprocess
 import sys
 
+from aiv.lib.config import (
+    _DEFAULT_FUNCTIONAL_PREFIXES,
+    _DEFAULT_FUNCTIONAL_ROOT_FILES,
+    load_hook_config,
+)
+
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
@@ -39,18 +45,11 @@ PACKET_PREFIXES = (
 PACKET_SUFFIX = ".md"
 EVIDENCE_PREFIX = ".github/aiv-evidence/EVIDENCE_"
 
-# Import shared config loader (single source of truth for all enforcement layers)
-from aiv.lib.config import (
-    _DEFAULT_FUNCTIONAL_PREFIXES,
-    _DEFAULT_FUNCTIONAL_ROOT_FILES,
-    load_hook_config,
-)
-
 
 def _is_packet(path: str) -> bool:
     """
     Check whether a file path refers to a verification packet.
-    
+
     Returns:
         `True` if the path starts with a defined packet prefix and ends with the packet suffix, `False` otherwise.
     """
@@ -64,16 +63,17 @@ def _is_functional(
 ) -> bool:
     """
     Determine whether a file path should be treated as a functional file for AIV checks.
-    
+
     Parameters:
         path (str): File path to evaluate.
         prefixes (tuple[str, ...] | None): Optional sequence of functional path prefixes to match against;
             when `None`, the configured default functional prefixes are used.
         root_files (set[str] | None): Optional set of root file paths considered functional;
             when `None`, the configured default functional root files are used.
-    
+
     Returns:
-        bool: `True` if the path starts with any functional prefix or is present in the functional root files, `False` otherwise.
+        bool: `True` if the path starts with any functional prefix or is
+            present in the functional root files, `False` otherwise.
     """
     _prefixes = _DEFAULT_FUNCTIONAL_PREFIXES if prefixes is None else prefixes
     _root_files = _DEFAULT_FUNCTIONAL_ROOT_FILES if root_files is None else root_files
@@ -85,17 +85,17 @@ def _is_functional(
 def _get_commits_in_range(local_sha: str, remote_sha: str) -> list[str]:
     """
     Determine the list of commit SHAs introduced by a push range.
-    
+
     When local_sha is the all-zero SHA (branch deletion) this returns an empty list.
     When remote_sha is the all-zero SHA (new branch) this returns commits reachable from
     local_sha that are not present on any remote. Otherwise this returns commits in the
     range `remote_sha..local_sha`. On git failures, timeouts, or if there are no commits,
     an empty list is returned.
-    
+
     Parameters:
         local_sha (str): The local commit SHA at the tip of the pushed ref.
         remote_sha (str): The remote commit SHA that the ref pointed to before the push.
-    
+
     Returns:
         list[str]: A list of full commit SHAs in the push range, or an empty list if none
         are found or on error.
@@ -165,15 +165,15 @@ def _is_evidence(path: str) -> bool:
 def check_commits(commits: list[str]) -> list[tuple[str, list[str]]]:
     """
     Identify commits that modify functional files but lack verification packet or evidence coverage.
-    
+
     For each provided commit SHA, determines whether the commit contains functional files and,
     if so, whether those files are covered by a verification packet or evidence file in the
     same commit or elsewhere in the push range. Commits that contain functional files with
     no such coverage are reported as violations.
-    
+
     Parameters:
         commits (list[str]): Commit SHAs comprising the push range to validate.
-    
+
     Returns:
         list[tuple[str, list[str]]]: Tuples of (short_sha, functional_files) for violating commits.
             `short_sha` is the first 7 characters of the commit SHA; `functional_files` is the list
