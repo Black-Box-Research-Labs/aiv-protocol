@@ -16,6 +16,7 @@ project and use it autonomously?
 |-----|------|--------|---------|
 | 1.0 | 2026-02-09 | main | Initial audit — 8 findings (P0-1 through P2-7) |
 | 2.0 | 2026-02-09 | `feat/external-readiness-polyglot` | Phase 2 — codebase re-audit found P0-1 only partially fixed (pre_push.py and auditor.py still hardcoded). Added P0-4 (config propagation), P1-6/7/8 (polyglot evidence gaps). This revision is the Class E intent for PR #1. |
+| 3.0 | 2026-02-10 | `feat/polyglot-evidence-collection` | Phase 3 — P1-6/7/8 implemented via tree-sitter LanguageDriver. JS/TS/TSX/JSX get per-symbol evidence. Class E intent for PR #2. |
 
 ---
 
@@ -443,9 +444,9 @@ should include a `find_callers()` method.
 | # | Issue | Files | Risk | Effort | Depends On | Status |
 |---|-------|-------|------|--------|------------|--------|
 | P0-4 | Config propagation to all enforcement layers | config.py, pre_push.py, auditor.py | Medium | Small | — | DONE (16b1c97) |
-| P1-6 | Polyglot symbol resolution (tree-sitter) | evidence_collector.py, lang/*.py | Low | Large | — | TODO |
-| P1-7 | Polyglot test graph builder | evidence_collector.py, lang/*.py | Low | Medium | P1-6 | TODO |
-| P1-8 | Polyglot downstream caller analysis | evidence_collector.py, lang/*.py | Low | Medium | P1-6 | TODO |
+| P1-6 | Polyglot symbol resolution (tree-sitter) | language_drivers/*.py, main.py | Low | Large | — | **DONE** (PR #2) |
+| P1-7 | Polyglot test graph builder | language_drivers/treesitter_driver.py | Low | Medium | P1-6 | **DONE** (PR #2) |
+| P1-8 | Polyglot downstream caller analysis | language_drivers/treesitter_driver.py | Low | Medium | P1-6 | **DONE** (PR #2) |
 
 ---
 
