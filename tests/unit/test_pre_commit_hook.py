@@ -353,3 +353,14 @@ class TestLoadHookConfig:
         prefixes, root_files = _load_hook_config()
         assert prefixes == _DEFAULT_FUNCTIONAL_PREFIXES
         assert root_files == _DEFAULT_FUNCTIONAL_ROOT_FILES
+
+    def test_string_prefixes_falls_back_to_defaults(self, tmp_path, monkeypatch) -> None:
+        """SVP probe: string value for functional_prefixes should not be character-split."""
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / ".aiv.yml").write_text(
+            'version: "1.0"\nhook:\n  functional_prefixes: "src/"\n',
+            encoding="utf-8",
+        )
+        prefixes, root_files = _load_hook_config()
+        assert prefixes == _DEFAULT_FUNCTIONAL_PREFIXES
+        assert "s" not in prefixes
