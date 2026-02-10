@@ -1,9 +1,9 @@
 # AIV Evidence File (v1.0)
 
 **File:** `src/aiv/hooks/pre_push.py`
-**Commit:** `20e6a60`
-**Previous:** `270abf2`
-**Generated:** 2026-02-09T07:48:44Z
+**Commit:** `3d4dd9b`
+**Previous:** `8903a45`
+**Generated:** 2026-02-10T03:16:13Z
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
 ---
@@ -16,16 +16,15 @@ classification:
   sod_mode: S0
   critical_surfaces: []
   blast_radius: "src/aiv/hooks/pre_push.py"
-  classification_rationale: "Hook enforcement logic change affecting push blocking behavior"
-  classified_by: "ImmortalDemonGod"
-  classified_at: "2026-02-09T07:48:44Z"
+  classification_rationale: "R0: import reordering and docstring wrapping only"
+  classified_by: "Miguel Ingram"
+  classified_at: "2026-02-10T03:16:13Z"
 ```
 
 ## Claim(s)
 
-1. Pre-push hook allows functional-only commits when Layer 2 packets or evidence files exist in the push range
-2. Pre-push hook still blocks functional-only commits when no evidence exists anywhere in the push range
-3. No existing tests were modified or deleted during this change.
+1. Moved aiv.lib.config import to top of pre_push.py and wrapped E501 docstring
+2. No existing tests were modified or deleted during this change.
 
 ---
 
@@ -33,25 +32,30 @@ classification:
 
 ### Class E (Intent Alignment)
 
-- **Link:** [https://github.com/ImmortalDemonGod/aiv-protocol/blob/20e6a60778a83826efbd22fcb05d88170ebea102/docs/TWO_LAYER_VERIFICATION_ARCHITECTURE.md](https://github.com/ImmortalDemonGod/aiv-protocol/blob/20e6a60778a83826efbd22fcb05d88170ebea102/docs/TWO_LAYER_VERIFICATION_ARCHITECTURE.md)
-- **Requirements Verified:** Two-Layer Architecture requires pre-push hook to recognize range-level evidence coverage
+- **Link:** [https://github.com/ImmortalDemonGod/aiv-protocol/blob/655e5ab/docs/EXTERNAL_READINESS_AUDIT.md](https://github.com/ImmortalDemonGod/aiv-protocol/blob/655e5ab/docs/EXTERNAL_READINESS_AUDIT.md)
+- **Requirements Verified:** CI lint compliance for PR #1
 
 ### Class B (Referential Evidence)
 
-**Scope Inventory** (SHA: [`20e6a60`](https://github.com/ImmortalDemonGod/aiv-protocol/tree/20e6a60778a83826efbd22fcb05d88170ebea102))
+**Scope Inventory** (SHA: [`3d4dd9b`](https://github.com/ImmortalDemonGod/aiv-protocol/tree/3d4dd9b2eaf9e7087f3485ba91fe657316f31d16))
 
-- [`src/aiv/hooks/pre_push.py#L140-L143`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/20e6a60778a83826efbd22fcb05d88170ebea102/src/aiv/hooks/pre_push.py#L140-L143)
-- [`src/aiv/hooks/pre_push.py#L148-L151`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/20e6a60778a83826efbd22fcb05d88170ebea102/src/aiv/hooks/pre_push.py#L148-L151)
-- [`src/aiv/hooks/pre_push.py#L155-L156`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/20e6a60778a83826efbd22fcb05d88170ebea102/src/aiv/hooks/pre_push.py#L155-L156)
-- [`src/aiv/hooks/pre_push.py#L158-L169`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/20e6a60778a83826efbd22fcb05d88170ebea102/src/aiv/hooks/pre_push.py#L158-L169)
-- [`src/aiv/hooks/pre_push.py#L172-L183`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/20e6a60778a83826efbd22fcb05d88170ebea102/src/aiv/hooks/pre_push.py#L172-L183)
-- [`src/aiv/hooks/pre_push.py#L185-L186`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/20e6a60778a83826efbd22fcb05d88170ebea102/src/aiv/hooks/pre_push.py#L185-L186)
+- [`src/aiv/hooks/pre_push.py#L30-L35`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3d4dd9b2eaf9e7087f3485ba91fe657316f31d16/src/aiv/hooks/pre_push.py#L30-L35)
+- [`src/aiv/hooks/pre_push.py#L52`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3d4dd9b2eaf9e7087f3485ba91fe657316f31d16/src/aiv/hooks/pre_push.py#L52)
+- [`src/aiv/hooks/pre_push.py#L66`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3d4dd9b2eaf9e7087f3485ba91fe657316f31d16/src/aiv/hooks/pre_push.py#L66)
+- [`src/aiv/hooks/pre_push.py#L73`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3d4dd9b2eaf9e7087f3485ba91fe657316f31d16/src/aiv/hooks/pre_push.py#L73)
+- [`src/aiv/hooks/pre_push.py#L75-L76`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3d4dd9b2eaf9e7087f3485ba91fe657316f31d16/src/aiv/hooks/pre_push.py#L75-L76)
+- [`src/aiv/hooks/pre_push.py#L88`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3d4dd9b2eaf9e7087f3485ba91fe657316f31d16/src/aiv/hooks/pre_push.py#L88)
+- [`src/aiv/hooks/pre_push.py#L94`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3d4dd9b2eaf9e7087f3485ba91fe657316f31d16/src/aiv/hooks/pre_push.py#L94)
+- [`src/aiv/hooks/pre_push.py#L98`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3d4dd9b2eaf9e7087f3485ba91fe657316f31d16/src/aiv/hooks/pre_push.py#L98)
+- [`src/aiv/hooks/pre_push.py#L168`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3d4dd9b2eaf9e7087f3485ba91fe657316f31d16/src/aiv/hooks/pre_push.py#L168)
+- [`src/aiv/hooks/pre_push.py#L173`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3d4dd9b2eaf9e7087f3485ba91fe657316f31d16/src/aiv/hooks/pre_push.py#L173)
+- [`src/aiv/hooks/pre_push.py#L176`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3d4dd9b2eaf9e7087f3485ba91fe657316f31d16/src/aiv/hooks/pre_push.py#L176)
+- [`src/aiv/hooks/pre_push.py#L334`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/3d4dd9b2eaf9e7087f3485ba91fe657316f31d16/src/aiv/hooks/pre_push.py#L334)
 
 ### Class A (Execution Evidence)
 
 - Local checks skipped (--skip-checks).
-- **Skip reason:** Legacy evidence file; predates anti-theater gates.
-
+- **Skip reason:** Lint-only: moved import to top and wrapped long docstring line
 
 
 ---
@@ -59,11 +63,11 @@ classification:
 ## Verification Methodology
 
 **R0 (trivial) -- local checks skipped.**
-Legacy evidence file; predates anti-theater gates.
+**Reason:** Lint-only: moved import to top and wrapped long docstring line
 Only git diff scope inventory was collected. No execution evidence.
 
 ---
 
 ## Summary
 
-Pre-push hook checks entire push range for evidence before blocking
+Move config import to top of pre_push.py and wrap long docstring
