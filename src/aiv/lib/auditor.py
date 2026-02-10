@@ -738,16 +738,23 @@ class PacketAuditor:
         *,
         num_commits: int = 20,
     ) -> AuditResult:
-        """Scan recent git commits for protocol violations.
-
-        Detects:
-        - HOOK_BYPASS: functional file(s) committed without a verification packet
-        - ATOMIC_VIOLATION: commit has >1 functional file (multi-file bundle)
-
-        Two-Layer Architecture aware: if the scan range contains any Layer 2
-        packet (PACKET_*.md) or Layer 1 evidence file (EVIDENCE_*.md),
-        functional-only commits are considered covered by aggregate evidence
-        and multi-file commits are allowed (change context was active).
+        """
+        Scan recent git commits for protocol violations.
+        
+        Inspects up to `num_commits` recent commits to detect:
+        - HOOK_BYPASS: functional file(s) committed without a verification packet or evidence.
+        - ATOMIC_VIOLATION: a commit that modifies more than one functional file.
+        
+        Respects the two-layer architecture: if any packet (PACKET_*.md) or evidence (EVIDENCE_*.md)
+        appears anywhere in the scanned range, functional-only commits in that range are
+        treated as covered by aggregate evidence and multi-file commits are allowed.
+        
+        Parameters:
+            num_commits (int): Number of recent commits to examine (most recent first).
+        
+        Returns:
+            AuditResult: Aggregate results including scanned commit count, per-commit findings,
+            and counts of packets with issues.
         """
         result = AuditResult()
 
