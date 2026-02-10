@@ -220,16 +220,23 @@ class GuardRunner:
 
         # Check required markdown sections (when no canonical)
         if not has_canonical:
-            required_sections = [
-                "# AIV Verification Packet (v2.1)",
-                "## Claim(s)",
-                "## Evidence",
-                "### Class E (Intent Alignment)",
-                "### Class B (Referential Evidence)",
-                "### Class A (Execution Evidence)",
-                "## Summary",
+            required_sections_with_alts: list[tuple[str, ...]] = [
+                ("# AIV Verification Packet (v2.1)", "# AIV Verification Packet (v2.2)"),
+                ("## Claim(s)", "## Claims"),
+                ("## Evidence", "## Evidence References"),
+                ("### Class E (Intent Alignment)",),
+                ("### Class B (Referential Evidence)",),
+                ("### Class A (Execution Evidence)",),
+                ("## Summary",),
             ]
-            missing = [h for h in required_sections if h not in content]
+            # In v2.2, Class A evidence is covered by the Evidence References table
+            has_evidence_table = "## Evidence References" in content
+            missing = [
+                alts[0]
+                for alts in required_sections_with_alts
+                if not any(alt in content for alt in alts)
+                and not (alts[0] == "### Class A (Execution Evidence)" and has_evidence_table)
+            ]
             optional = ["## Verification Methodology", "## Reproduction"]
             has_optional = any(h in content for h in optional)
 
