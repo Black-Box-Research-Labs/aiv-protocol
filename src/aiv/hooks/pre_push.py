@@ -49,10 +49,10 @@ from aiv.lib.config import (
 
 def _is_packet(path: str) -> bool:
     """
-    Determine whether a file path references a verification packet.
+    Check whether a file path refers to a verification packet.
     
     Returns:
-        True if the path starts with any defined packet prefix and ends with the packet suffix, False otherwise.
+        `True` if the path starts with a defined packet prefix and ends with the packet suffix, `False` otherwise.
     """
     return any(path.startswith(p) for p in PACKET_PREFIXES) and path.endswith(PACKET_SUFFIX)
 
@@ -164,16 +164,20 @@ def _is_evidence(path: str) -> bool:
 
 def check_commits(commits: list[str]) -> list[tuple[str, list[str]]]:
     """
-    Check a list of commit SHAs for AIV protocol violations.
+    Identify commits that modify functional files but lack verification packet or evidence coverage.
     
-    Commits that contain functional files but lack a verification packet in the same commit,
-    and are not covered by any packet or evidence file elsewhere in the push range, are
-    considered violations and reported.
+    For each provided commit SHA, determines whether the commit contains functional files and,
+    if so, whether those files are covered by a verification packet or evidence file in the
+    same commit or elsewhere in the push range. Commits that contain functional files with
+    no such coverage are reported as violations.
+    
+    Parameters:
+        commits (list[str]): Commit SHAs comprising the push range to validate.
     
     Returns:
-        list[tuple[str, list[str]]]: List of tuples (short_sha, functional_files) where
-            short_sha is the first 7 characters of the commit SHA and functional_files
-            is the list of functional file paths in that commit.
+        list[tuple[str, list[str]]]: Tuples of (short_sha, functional_files) for violating commits.
+            `short_sha` is the first 7 characters of the commit SHA; `functional_files` is the list
+            of functional file paths present in that commit.
     """
     # Load config from .aiv.yml (consistent with pre-commit hook and CI auditor)
     func_prefixes, func_root_files = load_hook_config()
