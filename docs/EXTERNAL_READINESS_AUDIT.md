@@ -10,6 +10,15 @@ project and use it autonomously?
 
 ---
 
+## Revision History
+
+| Rev | Date | Branch | Summary |
+|-----|------|--------|---------|
+| 1.0 | 2026-02-09 | main | Initial audit — 8 findings (P0-1 through P2-7) |
+| 2.0 | 2026-02-09 | `feat/external-readiness-polyglot` | Phase 2 — codebase re-audit found P0-1 only partially fixed (pre_push.py and auditor.py still hardcoded). Added P0-4 (config propagation), P1-6/7/8 (polyglot evidence gaps). This revision is the Class E intent for PR #1. |
+
+---
+
 ## Methodology
 
 1. Traced the full external-user journey: `pip install` → `aiv init` →
@@ -289,11 +298,11 @@ evidence and explicit violation documentation.
 
 ---
 
-## Implementation Priority
+## Phase 1 Implementation Status
 
 | # | Issue | Files | Risk | Effort | Status |
 |---|-------|-------|------|--------|--------|
-| P0-1 | Configurable functional prefixes | config.py, pre_commit.py, main.py | Medium | Medium | DONE (249ecde) |
+| P0-1 | Configurable functional prefixes | config.py, pre_commit.py, main.py | Medium | Medium | **PARTIAL** (249ecde) — pre_commit.py reads .aiv.yml but pre_push.py and auditor.py do not (see P0-4) |
 | P0-2 | Remove project-specific root files | pre_commit.py | Low | Small | DONE (249ecde) |
 | P0-3 | Enforcement gap (--no-verify bypass) | pre_push.py, auditor.py, ci.yml, main.py | High | Large | DONE (4-layer defence) |
 | P1-3 | Error code reference | docs/ERROR_CODES.md, README.md | None | Medium | DONE (917b23b) |
@@ -304,20 +313,176 @@ evidence and explicit violation documentation.
 
 ---
 
+## Phase 2 Findings (2026-02-09 — Codebase Re-Audit)
+
+Phase 1 fixed the pre-commit hook but left the other two enforcement layers
+hardcoded. A full codebase audit also identified that AIV's evidence
+collection is Python-exclusive for its most valuable features (AST symbol
+resolution, test graph, downstream impact analysis). Any non-Python project
+(TypeScript, Go, Rust, etc.) receives degraded evidence with no path to
+improvement.
+
+These findings block AIV's value proposition for external adopters — especially
+TypeScript-heavy projects like the Black Box audit platform.
+
+### P0 — Blocks External Use
+
+#### P0-4: Functional prefix config not propagated to pre_push.py and auditor.py
+
+**Files:**
+- `src/aiv/hooks/pre_push.py` lines 42-65
+- `src/aiv/lib/auditor.py` lines 54-77
+
+**Problem:** There are **three independent copies** of `FUNCTIONAL_PREFIXES`
+and `FUNCTIONAL_ROOT_FILES` in the codebase:
+
+| Location | Reads `.aiv.yml`? | Used by |
+|----------|------------------|---------|
+| `pre_commit.py` `_load_hook_config()` | **YES** | Layer 1 (pre-commit hook) |
+| `pre_push.py` lines 42-65 | **NO** (hardcoded) | Layer 2 (pre-push hook) |
+| `auditor.py` lines 54-77 | **NO** (hardcoded) | Layer 3 (CI audit) + `aiv audit` |
+
+For an external project that customizes `.aiv.yml` with non-standard prefixes
+(e.g. `backend/`, `packages/`, `apps/`):
+
+- **pre-commit hook** ✅ respects their config → correctly blocks
+- **pre-push hook** ❌ uses hardcoded defaults → inconsistent classification
+- **CI audit** ❌ uses hardcoded defaults → inconsistent classification
+
+This means a commit that the pre-commit hook correctly blocks could be
+classified differently by the pre-push hook or CI audit, creating
+confusing false positives or false negatives across enforcement layers.
+
+**Root cause:** P0-1 was fixed only in `pre_commit.py`. The config-loading
+logic was not extracted into a shared function.
+
+**Fix:**
+1. Extract `_load_hook_config()` from `pre_commit.py` into `config.py` as a
+   public function (e.g. `load_hook_config()`) so all consumers share one
+   implementation.
+2. Update `pre_push.py` to call `load_hook_config()` instead of using
+   hardcoded constants.
+3. Update `auditor.py` to call `load_hook_config()` instead of using
+   hardcoded constants.
+4. Remove the three redundant constant definitions.
+
+**Verification:** After fix, a project with `.aiv.yml` containing
+`functional_prefixes: ["backend/"]` should see consistent behavior across
+all three enforcement layers.
+
+---
+
+### P1 — Degrades Value for Non-Python Projects
+
+#### P1-6: AST symbol resolution is Python-exclusive
+
+**File:** `src/aiv/lib/evidence_collector.py` line 595-639
+**Gate:** `src/aiv/cli/main.py` line 1615 — `if file_posix_raw.endswith(".py"):`
+
+**Problem:** `resolve_changed_symbols()` uses Python's `ast` module to map
+diff hunks to enclosing function/class names. This is the foundation of
+AIV's most valuable feature — per-symbol test coverage. For any non-Python
+file (`.ts`, `.js`, `.go`, `.rs`, etc.), this analysis is **completely
+skipped** and the evidence falls back to file-level keyword matching.
+
+**Impact:** The Claim Verification Matrix cannot bind claims to specific
+symbols for non-Python files. Instead of "3 tests call `promote` directly"
+the user gets "MANUAL REVIEW — No automatic binding available." This is
+the difference between AIV being a verification engine and a documentation
+tool.
+
+**Fix (tree-sitter approach — keeps everything in-process, no Node.js bridge):**
+1. Add `tree-sitter` and relevant language grammars as optional dependencies
+2. Create `src/aiv/lib/lang/base.py` with a `LanguageDriver` protocol
+3. Create `src/aiv/lib/lang/python_driver.py` wrapping existing `ast` logic
+4. Create `src/aiv/lib/lang/treesitter_driver.py` for JS/TS/Go/Rust
+5. Update `resolve_changed_symbols()` to dispatch by file extension
+6. Update the `.py` gate in `main.py` to check for driver availability
+
+**Why tree-sitter over ts-morph/Node.js bridge:** tree-sitter has Python
+bindings (`py-tree-sitter`), supports 100+ languages with one dependency,
+and avoids subprocess overhead. No Node.js runtime required.
+
+**Verification:** `aiv commit engine/commands/promote.ts` should produce
+per-symbol coverage like `promote()` → "2 tests call this symbol" instead
+of falling back to file-level.
+
+---
+
+#### P1-7: Test graph builder only scans Python test files
+
+**File:** `src/aiv/lib/evidence_collector.py` line 738-791
+
+**Problem:** `build_test_graph()` uses `test_root.rglob("*.py")` and Python
+`ast` to build the import→call graph. Projects with `.test.ts`, `.spec.js`,
+or `_test.go` files are invisible. The entire test graph is empty for
+non-Python test suites.
+
+**Fix:** Same tree-sitter driver approach as P1-6. The `LanguageDriver`
+protocol should include a `build_test_graph()` method. The main
+`build_test_graph()` function should scan for all supported test file
+patterns (not just `*.py`).
+
+---
+
+#### P1-8: Downstream caller analysis is Python-exclusive
+
+**File:** `src/aiv/lib/evidence_collector.py` line 878-936
+
+**Problem:** `find_downstream_callers()` uses `src_root.rglob("*.py")` and
+Python `ast`. Class C downstream impact analysis ("which functions call
+the symbol you changed?") is invisible for non-Python codebases.
+
+**Fix:** Same tree-sitter driver approach. The `LanguageDriver` protocol
+should include a `find_callers()` method.
+
+---
+
+### Phase 2 Implementation Priority
+
+| # | Issue | Files | Risk | Effort | Depends On | Status |
+|---|-------|-------|------|--------|------------|--------|
+| P0-4 | Config propagation to all enforcement layers | config.py, pre_push.py, auditor.py | Medium | Small | — | TODO |
+| P1-6 | Polyglot symbol resolution (tree-sitter) | evidence_collector.py, lang/*.py | Low | Large | — | TODO |
+| P1-7 | Polyglot test graph builder | evidence_collector.py, lang/*.py | Low | Medium | P1-6 | TODO |
+| P1-8 | Polyglot downstream caller analysis | evidence_collector.py, lang/*.py | Low | Medium | P1-6 | TODO |
+
+---
+
 ## How to Use This Document
 
-When committing fixes for any issue above, use this doc as Class E:
+This document is the **Class E intent** for all commits on the
+`feat/external-readiness-polyglot` branch. When committing fixes for any
+issue above, reference this doc:
 
 ```bash
-aiv commit src/aiv/hooks/pre_commit.py \
-  -m "feat(hooks): configurable functional prefixes via .aiv.yml" \
+aiv commit src/aiv/lib/config.py \
+  -m "fix(config): extract shared load_hook_config for all enforcement layers" \
   -t R2 \
-  -c "Hook reads functional_prefixes from .aiv.yml" \
-  -c "Falls back to default prefixes if no config" \
+  -c "load_hook_config() is a single shared function in config.py" \
+  -c "pre_push.py reads .aiv.yml instead of hardcoded prefixes" \
+  -c "auditor.py reads .aiv.yml instead of hardcoded prefixes" \
   -i "https://github.com/ImmortalDemonGod/aiv-protocol/blob/<SHA>/docs/EXTERNAL_READINESS_AUDIT.md" \
-  --requirement "P0-1: FUNCTIONAL_PREFIXES hardcoded" \
-  -r "R2: hook behavior change affects all projects" \
-  -s "Make pre-commit hook configurable for non-src/ projects"
+  --requirement "P0-4: Functional prefix config not propagated" \
+  -r "R2: enforcement consistency affects all adopters" \
+  -s "All three enforcement layers read .aiv.yml for functional prefixes"
 ```
 
-Replace `<SHA>` with the commit SHA of this document.
+Replace `<SHA>` with the commit SHA of this document on the branch.
+
+### PR Scope (feat/external-readiness-polyglot)
+
+This branch addresses Phase 2 findings. Work is atomic — each fix is one
+`aiv commit` referencing the specific P-number as `--requirement`.
+
+**Minimum viable PR (P0-4 only):**
+- Extract `load_hook_config()` into `config.py`
+- Update `pre_push.py` and `auditor.py` to use it
+- Add/update tests for config propagation
+
+**Full PR (P0-4 + P1-6/7/8):**
+- All of the above, plus:
+- Add `tree-sitter` optional dependency
+- Create `LanguageDriver` protocol + Python/tree-sitter implementations
+- Update `evidence_collector.py` to dispatch by file extension
+- Add tests for TypeScript/JavaScript symbol resolution
