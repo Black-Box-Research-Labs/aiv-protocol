@@ -1416,14 +1416,12 @@ def commit_cmd(
 
     from aiv.lib.evidence_collector import (
         bind_claims_to_evidence,
-        build_test_graph,
         collect_class_a,
         collect_class_b,
         collect_class_c,
         collect_class_f,
         find_covering_tests,
         render_claim_matrix,
-        resolve_changed_symbols,
     )
 
     # --- Validate tier ---
@@ -1604,6 +1602,9 @@ def commit_cmd(
 
     # Class A: COLLECTED from running pytest, ruff, mypy
     class_a_data = None
+    from aiv.lib.language_drivers import get_driver
+
+    lang_driver = get_driver(file_posix_raw)
     if not skip_checks:
         console.print("[dim]Collecting Class A (execution) -- running pytest, ruff, mypy...[/dim]")
         class_a_data = collect_class_a(file_posix_raw)
@@ -1611,9 +1612,9 @@ def commit_cmd(
         console.print(f"  ruff: {'clean' if class_a_data.ruff_clean else 'errors'}")
         console.print(f"  mypy: {class_a_data.mypy_summary}")
 
-        # AST analysis: per-symbol test coverage (Python files only)
-        if file_posix_raw.endswith(".py"):
-            console.print("[dim]Running AST analysis -- symbol resolver + test graph...[/dim]")
+        # AST analysis: per-symbol test coverage (polyglot via language drivers)
+        if lang_driver is not None:
+            console.print(f"[dim]Running AST analysis ({lang_driver.name}) -- symbol resolver + test graph...[/dim]")
             # Parse hunks like "src/aiv/lib/foo.py#L42-L58" → (42, 58)
             line_ranges: list[tuple[int, int]] = []
             hunk_labels: list[str] = []
@@ -1628,8 +1629,8 @@ def commit_cmd(
                     hunk_labels.append(f"L{m_single.group(1)}")
 
             if line_ranges:
-                changed_symbols = resolve_changed_symbols(file_posix_raw, line_ranges)
-                test_graph = build_test_graph("tests/")
+                changed_symbols = lang_driver.resolve_symbols(file_posix_raw, line_ranges)
+                test_graph = lang_driver.build_test_graph("tests/")
                 symbol_cov = find_covering_tests(changed_symbols, test_graph, hunk_labels)
                 class_a_data.symbol_coverage = symbol_cov
                 console.print(f"  Changed symbols: {', '.join(changed_symbols)}")
@@ -1660,11 +1661,11 @@ def commit_cmd(
             console.print("  No regression indicators found.")
 
         # Downstream impact analysis (AST) — find callers of changed symbols in src/
-        if file_posix_raw.endswith(".py") and not skip_checks and "changed_symbols" in dir():
+        if lang_driver is not None and not skip_checks and "changed_symbols" in dir():
             console.print("[dim]Scanning downstream callers of changed symbols...[/dim]")
-            from aiv.lib.evidence_collector import find_downstream_callers
-
-            downstream = find_downstream_callers(changed_symbols, src_dir="src/", exclude_file=file_posix_raw)
+            downstream = lang_driver.find_downstream_callers(
+                changed_symbols, src_dir="src/", exclude_file=file_posix_raw
+            )
             class_c_data.downstream_callers = downstream
             if downstream:
                 console.print(f"  {len(downstream)} downstream caller(s) found")
