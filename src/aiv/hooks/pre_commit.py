@@ -80,8 +80,8 @@ def _is_packet(path: str) -> bool:
 
 
 def _is_functional(path: str, prefixes: tuple[str, ...] | None = None, root_files: set[str] | None = None) -> bool:
-    _prefixes = prefixes or _DEFAULT_FUNCTIONAL_PREFIXES
-    _root_files = root_files or _DEFAULT_FUNCTIONAL_ROOT_FILES
+    _prefixes = _DEFAULT_FUNCTIONAL_PREFIXES if prefixes is None else prefixes
+    _root_files = _DEFAULT_FUNCTIONAL_ROOT_FILES if root_files is None else root_files
     if any(path.startswith(p) for p in _prefixes):
         return True
     return path in _root_files

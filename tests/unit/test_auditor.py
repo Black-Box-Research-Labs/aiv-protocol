@@ -504,6 +504,12 @@ class TestIsFunctionalPath:
         assert auditor._is_functional_path("Makefile", custom_prefixes, custom_roots) is True
         assert auditor._is_functional_path("pyproject.toml", custom_prefixes, custom_roots) is False
 
+    def test_empty_prefixes_means_nothing_functional(self) -> None:
+        """Empty tuple/set should mean nothing is functional, not fall back to defaults."""
+        auditor = PacketAuditor()
+        assert auditor._is_functional_path("src/main.py", (), set()) is False
+        assert auditor._is_functional_path("pyproject.toml", (), set()) is False
+
 
 def _make_git_log_output(commits: list[tuple[str, list[str]]]) -> str:
     """

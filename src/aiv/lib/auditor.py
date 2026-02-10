@@ -726,8 +726,8 @@ class PacketAuditor:
         Returns:
             bool: `True` if the path matches any functional prefix or exactly equals a configured root file, `False` otherwise.
         """
-        _prefixes = prefixes or _DEFAULT_FUNCTIONAL_PREFIXES
-        _root_files = root_files or _DEFAULT_FUNCTIONAL_ROOT_FILES
+        _prefixes = _DEFAULT_FUNCTIONAL_PREFIXES if prefixes is None else prefixes
+        _root_files = _DEFAULT_FUNCTIONAL_ROOT_FILES if root_files is None else root_files
         if any(path.startswith(p) for p in _prefixes):
             return True
         return path in _root_files
@@ -795,7 +795,7 @@ class PacketAuditor:
         result.packets_scanned = len(commits)
 
         # Load config from .aiv.yml (consistent with pre-commit and pre-push hooks)
-        func_prefixes, func_root_files = load_hook_config()
+        func_prefixes, func_root_files = load_hook_config(repo_root / ".aiv.yml")
 
         # Two-Layer Architecture: check if any commit in the scan range
         # contains a packet or evidence file (aggregate coverage).

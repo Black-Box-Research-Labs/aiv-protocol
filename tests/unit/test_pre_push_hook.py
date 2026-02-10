@@ -60,6 +60,11 @@ class TestIsFunctional:
         assert _is_functional("Makefile", custom_prefixes, custom_roots) is True
         assert _is_functional("pyproject.toml", custom_prefixes, custom_roots) is False
 
+    def test_empty_prefixes_means_nothing_functional(self) -> None:
+        """Empty tuple/set should mean nothing is functional, not fall back to defaults."""
+        assert _is_functional("src/main.py", (), set()) is False
+        assert _is_functional("pyproject.toml", (), set()) is False
+
 
 # ---------------------------------------------------------------------------
 # check_commits tests
