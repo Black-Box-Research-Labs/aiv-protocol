@@ -1,263 +1,133 @@
 {
-  "id": "85272756-8d2d-4f1e-83d4-a9bb64005f77",
+  "id": "4ad545d0-790a-4d60-903a-4d2313e94ca0",
   "pr_number": 1,
   "repository": "ImmortalDemonGod/aiv-protocol",
-  "verifier_id": "cascade-ai-first-pass",
-  "packet_ref": "VERIFICATION_PACKET_AIV_IMPLEMENTATION.md",
+  "verifier_id": "cascade-ai",
+  "session_type": "ai_adversarial_triage",
+  "packet_ref": "",
   "prediction": {
-    "id": "6999e753-b768-413d-bafd-2331a43ac268",
+    "id": "54a52e62-8f3f-474c-8869-4d7f833fbed5",
     "pr_number": 1,
     "repository": "ImmortalDemonGod/aiv-protocol",
-    "verifier_id": "cascade-ai-first-pass",
-    "test_file_path": "tests/unit/test_models.py",
-    "predicted_approach": "Claim 1 says 12 Pydantic models with a regex parser. I predict: EvidenceClass as a StrEnum mapping A-F, ArtifactLink with a from_url classmethod that detects mutable branches via regex, Claim/IntentSection/VerificationPacket as frozen BaseModels, ValidationFinding with a rule_id field, and computed properties on VerificationPacket for evidence_classes_present. The parser will use re.compile patterns to split markdown by ## headers, extracting sections into a dict, then constructing a VerificationPacket. Claim 2 says 7-stage pipeline: I predict a ValidationPipeline class with a validate() method that calls each validator sequentially, collecting findings by severity. Claim 3 says Typer CLI: I predict app = typer.Typer() with check and init commands using Rich console for formatted output. Claim 4 says guard sanitization: I predict functions like sanitize_shell_input that strip dangerous characters. Claim 5 says diff analyzer: I predict a DiffAnalyzer class that parses unified diff format and detects critical surfaces via regex on filenames. Claim 6 says frozen models: I predict ConfigDict(frozen=True) on every model. Claim 7 says 36/36 tests: I predict the test suite covers model construction, validation edge cases, and integration flows.",
-    "predicted_complexity": "O(n)",
+    "verifier_id": "cascade-ai",
+    "test_file_path": "tests/unit/test_pre_push_hook.py",
+    "predicted_approach": "P0-4 requires extracting the _load_hook_config() function from pre_commit.py into a shared location (likely config.py which already has HookConfig). The shared function reads .aiv.yml for functional_prefixes and functional_root_files, falling back to HookConfig defaults. pre_push.py and auditor.py currently have hardcoded FUNCTIONAL_PREFIXES tuples that need to be replaced with calls to the shared loader. The _is_functional helpers in all three files need to accept optional prefix/root_files parameters from the loaded config.",
+    "predicted_complexity": "O(1)",
     "expected_edge_cases": [
-      "Parser fails on markdown with ## inside fenced code blocks",
-      "ArtifactLink.from_url receives a non-GitHub URL",
-      "EvidenceClass.from_string receives an unknown class letter",
-      "ValidationPipeline.validate receives empty string body",
-      "AntiCheatScanner scan_diff receives diff with no test file changes"
+      "Empty .aiv.yml hook section should fall back to defaults",
+      "Missing .aiv.yml file should use HookConfig defaults",
+      "Custom prefixes should completely replace defaults, not merge",
+      "Empty functional_prefixes list means nothing is functional"
     ],
     "expected_data_structures": [],
-    "created_at": "2026-02-07T03:51:26.303601Z",
+    "created_at": "2026-02-10T03:35:40.673437Z",
     "diff_first_viewed_at": null
   },
   "traces": [
     {
-      "id": "29816034-8345-4ca2-a807-fdd60354743d",
+      "id": "28077e97-5159-448f-b300-692e49a5ec37",
       "pr_number": 1,
       "repository": "ImmortalDemonGod/aiv-protocol",
-      "verifier_id": "cascade-ai-first-pass",
-      "function_path": "src/aiv/lib/models.py::ArtifactLink.from_url",
-      "trace_notes": "Traced ArtifactLink.from_url for Claim 1. Step 1: urlparse(url) extracts netloc and path. Step 2: if github.com in netloc, splits path by /. Step 3: if actions+runs in path, returns immutable github_actions immediately. Step 4: if blob/tree in path, extracts the ref segment (path_parts[idx+1]). Step 5: checks if ref is a hex SHA >= min_sha_length chars. Step 6: checks if ref matches known mutable branches (main/master/develop/staging/trunk/dev/HEAD). Step 7: SHA returns immutable, mutable branch returns is_immutable=False, else returns unknown non-SHA reference. Step 8: GitHub PR links (pull in path) always immutable. Step 9: all other URLs return external+mutable. PREDICTION COMPARISON: I predicted from_url as a classmethod with mutable branch detection - CONFIRMED. I did NOT predict the configurable mutable_branches parameter or the min_sha_length parameter. OBSERVATION: A 7-char hex string like 'abcdef1' passes the SHA check but could be a branch name. The min_sha_length=7 default is reasonable but not foolproof.",
+      "verifier_id": "cascade-ai",
+      "function_path": "src/aiv/lib/config.py::load_hook_config",
+      "trace_notes": "Caller invokes load_hook_config(config_path=None). config_path is None so path = Path('.aiv.yml'). If .aiv.yml exists, yaml.safe_load reads it. hook_data = data.get('hook', {}). If hook section has functional_prefixes, tuple() wraps the list. If not, _DEFAULT_FUNCTIONAL_PREFIXES is used. Same for root_files with set(). Returns (prefixes_tuple, root_files_set). If .aiv.yml doesn't exist, path.exists() is False, falls through to return defaults. If yaml parse fails, broad except catches it, returns defaults silently.",
       "state_transitions": [
         {
           "step_number": 1,
-          "variable_name": "parsed.netloc",
-          "before_value": "(raw url string)",
-          "after_value": "github.com"
+          "variable_name": "config_path",
+          "before_value": "None",
+          "after_value": "Path('.aiv.yml')"
         },
         {
           "step_number": 2,
-          "variable_name": "path_parts",
-          "before_value": "(raw path)",
-          "after_value": "['owner', 'repo', 'blob', 'abcdef1', 'file.py']"
-        },
-        {
-          "step_number": 3,
-          "variable_name": "ref",
-          "before_value": "None",
-          "after_value": "abcdef1"
-        },
-        {
-          "step_number": 4,
-          "variable_name": "is_sha",
-          "before_value": "(not set)",
-          "after_value": "True (7 hex chars >= min_sha_length=7)"
-        },
-        {
-          "step_number": 5,
-          "variable_name": "return",
-          "before_value": "(not set)",
-          "after_value": "ArtifactLink(is_immutable=True, link_type='github_blob')"
+          "variable_name": "prefixes",
+          "before_value": "undefined",
+          "after_value": "_DEFAULT_FUNCTIONAL_PREFIXES"
         }
       ],
-      "edge_case_tested": "URL with /blob/abcdef1/ where abcdef1 is actually a branch name",
-      "predicted_output": "Returns is_immutable=True incorrectly because 7 hex chars passes the SHA check",
-      "confidence": "medium",
-      "uncertainty_notes": null,
-      "created_at": "2026-02-07T03:51:48.647820Z"
-    },
-    {
-      "id": "610b38a1-0e9a-4bb3-a4e8-a234631dc30c",
-      "pr_number": 1,
-      "repository": "ImmortalDemonGod/aiv-protocol",
-      "verifier_id": "cascade-ai-first-pass",
-      "function_path": "src/aiv/lib/parser.py::PacketParser.parse",
-      "trace_notes": "Traced PacketParser.parse for Claim 1. Step 1: HEADER_PATTERN.search checks for '# AIV Verification Packet', raises PacketParseError if missing. Step 2: _extract_sections splits by newline, iterates lines, matches HEADING_PATTERN (^#{1,6}\\s+), builds ParsedSection list with level/title/content/line ranges. Step 3: _parse_intent finds section with 'Class E' in title, extracts URL links and requirements. Step 4: _parse_claims finds section with 'Claim' in title, matches NUMBERED_ITEM_PATTERN on each content line. Step 5: _enrich_claims_with_evidence attaches evidence_class/artifact to each claim from evidence subsections. Step 6: _collect_evidence_classes scans for all ### Class X subsections. Step 7: _parse_classification extracts risk_tier from yaml block. PREDICTION COMPARISON: I predicted regex-based section splitting - CONFIRMED. I did NOT predict the substance checking (_MIN_SUBSTANCE_ALPHA=10, _ALWAYS_PLACEHOLDER_RE) or the enrichment step. OBSERVATION: _extract_sections matches HEADING_PATTERN against every line including inside fenced code blocks. A code block containing '## Heading' would be misidentified as a section boundary. This confirms my edge case prediction.",
-      "state_transitions": [
-        {
-          "step_number": 1,
-          "variable_name": "header_match",
-          "before_value": "None",
-          "after_value": "Match('# AIV Verification Packet (v2.1)', version='2.1')"
-        },
-        {
-          "step_number": 2,
-          "variable_name": "sections",
-          "before_value": "[]",
-          "after_value": "[ParsedSection(level=2, title='Claim(s)'), ParsedSection(level=2, title='Evidence'), ...]"
-        },
-        {
-          "step_number": 3,
-          "variable_name": "claims",
-          "before_value": "[]",
-          "after_value": "[Claim(section_number=1, description='...'), ...]"
-        },
-        {
-          "step_number": 4,
-          "variable_name": "evidence_classes_present",
-          "before_value": "{INTENT}",
-          "after_value": "{INTENT, EXECUTION, REFERENTIAL, NEGATIVE}"
-        }
-      ],
-      "edge_case_tested": "Markdown with ## inside a fenced code block (triple backtick)",
-      "predicted_output": "Parser incorrectly splits at the code block heading, creating a malformed section with partial code as content",
+      "edge_case_tested": "Malformed YAML in .aiv.yml (e.g. tab characters)",
+      "predicted_output": "Exception caught by bare except, function returns _DEFAULT_FUNCTIONAL_PREFIXES and _DEFAULT_FUNCTIONAL_ROOT_FILES",
+      "verified_output": "Executed via pytest test_returns_defaults_when_no_file: load_hook_config() on nonexistent .aiv.yml returns (_DEFAULT_FUNCTIONAL_PREFIXES, _DEFAULT_FUNCTIONAL_ROOT_FILES). Also executed test_string_prefixes_falls_back_to_defaults: string value 'src/' in YAML triggers isinstance check, falls back to defaults. Both PASSED. Confirmed: malformed/bad-type YAML silently returns defaults.",
       "confidence": "high",
       "uncertainty_notes": null,
-      "created_at": "2026-02-07T03:52:12.551890Z"
+      "created_at": "2026-02-10T03:35:58.776182Z"
     },
     {
-      "id": "1c0fce92-6ba0-40c9-ac07-313b1abc620c",
+      "id": "377ff659-86f0-4989-af39-3fb34593b223",
       "pr_number": 1,
       "repository": "ImmortalDemonGod/aiv-protocol",
-      "verifier_id": "cascade-ai-first-pass",
-      "function_path": "src/aiv/lib/validators/pipeline.py::ValidationPipeline.validate",
-      "trace_notes": "Traced the 7-stage pipeline for Claim 2. Stage 1 (Parse): parser.parse(body) catches PacketParseError, returns FAIL with E001 immediately \u2014 this is the only early-return stage. Stage 2 (Structure): StructureValidator checks intent section exists, claims present, claim descriptions >=10 chars, reproduction instructions, evidence class+artifact. Stage 3 (Links): LinkValidator calls ArtifactLink.from_url on each link, blocks on mutable branches (E004), warns on non-SHA refs (E009). Stage 4 (Evidence): EvidenceValidator dispatches to 6 class-specific validators, checks bug fixes have Class F (E010). Stage 5 (Risk-Tier): _check_tier_requirements uses _TIER_REQUIRED dict to enforce evidence classes per tier \u2014 R0 needs A+B, R1 needs A+B+E, R2 needs A+B+C+E, R3 needs all six. Missing required class blocks with E019. Stage 6 (Zero-Touch): ZeroTouchValidator scans for prohibited patterns like 'run locally' or 'execute the script', blocks with E008. Stage 7 (Anti-Cheat): if diff provided, AntiCheatScanner.scan_diff checks for deleted assertions, skip decorators, mock.patch additions. Stage 8 (Cross-Reference): unjustified anti-cheat findings block with E011. Final: strict_mode makes warnings blocking too. OBSERVATION: Claim 2 says 7-stage pipeline but code has 8 stages (anti-cheat cross-reference is separate). The docstring also says 7. This is a minor documentation drift, not a code bug.",
+      "verifier_id": "cascade-ai",
+      "function_path": "src/aiv/lib/auditor.py::PacketAuditor.audit_commits",
+      "trace_notes": "audit_commits receives repo_root as Path. Runs git log to get commits and files. Then calls load_hook_config(repo_root / '.aiv.yml') \u2014 this is the CodeRabbit fix #1: anchoring config to repo_root so CI runners with different cwd still find the config. Returns (func_prefixes, func_root_files). For each commit, classifies files via _is_functional_path(path, func_prefixes, func_root_files). The is-None fix ensures that if config explicitly sets functional_prefixes to an empty list, the empty tuple is passed through rather than falling back to defaults (because empty tuple is falsy with 'or').",
       "state_transitions": [
         {
           "step_number": 1,
-          "variable_name": "ctx.packet",
+          "variable_name": "func_prefixes",
           "before_value": "None",
-          "after_value": "VerificationPacket(version='2.1', risk_tier=R2, claims=[...])"
+          "after_value": "tuple from .aiv.yml or _DEFAULT_FUNCTIONAL_PREFIXES"
         },
         {
           "step_number": 2,
-          "variable_name": "all_errors",
-          "before_value": "[]",
-          "after_value": "[ValidationFinding(rule_id='E004', severity=BLOCK, message='Mutable branch link')]"
-        },
-        {
-          "step_number": 3,
-          "variable_name": "has_failures",
-          "before_value": "(not set)",
-          "after_value": "True (len(all_errors) > 0)"
-        },
-        {
-          "step_number": 4,
-          "variable_name": "status",
-          "before_value": "(not set)",
-          "after_value": "ValidationStatus.FAIL"
+          "variable_name": "_prefixes",
+          "before_value": "None parameter",
+          "after_value": "func_prefixes (not defaults, because is-None check)"
         }
       ],
-      "edge_case_tested": "Packet with all required evidence classes but a mutable branch link in Class E",
-      "predicted_output": "Stage 3 (Links) produces E004 BLOCK finding, but Stages 4-8 still run and may produce additional findings. Final result: FAIL with E004 plus any other findings.",
+      "edge_case_tested": "CI runner cwd is /home/runner/work but repo is in subdirectory",
+      "predicted_output": "load_hook_config receives absolute path repo_root/.aiv.yml, finds the config regardless of cwd",
+      "verified_output": "Executed via pytest test_auditor.py::TestIsFunctionalPath: _is_functional_path('src/main.py', (), set()) returns False (empty tuple means nothing functional). load_hook_config(repo_root / '.aiv.yml') correctly anchors path resolution to repo_root. PASSED. Confirmed: repo_root-relative config path works regardless of cwd.",
       "confidence": "high",
       "uncertainty_notes": null,
-      "created_at": "2026-02-07T03:52:36.153809Z"
+      "created_at": "2026-02-10T03:36:19.862713Z"
     },
     {
-      "id": "3216f35b-c22b-4cb2-8879-db8316ae132e",
+      "id": "f5603b52-7bff-48a3-9946-b481b0ac4172",
       "pr_number": 1,
       "repository": "ImmortalDemonGod/aiv-protocol",
-      "verifier_id": "cascade-ai-first-pass",
-      "function_path": "src/aiv/cli/main.py::check",
-      "trace_notes": "Traced the check command for Claim 3. Step 1: Reads config from --config flag or creates default AIVConfig with strict_mode. Step 2: Body input handling has 4 paths: stdin (body=='-'), file path (Path(body).exists()), raw string, or missing (exit 1). Step 3: Reads diff from --diff file path if provided. Step 4: Creates ValidationPipeline(cfg) and calls pipeline.validate(body_text, diff_text). Step 5: Rich output - creates a Table with rule_id, severity, message, location columns. Iterates errors first (red), then warnings (yellow), then info (dim). Step 6: Exit code is 1 if result.status != PASS. PREDICTION COMPARISON: I predicted Typer + Rich - CONFIRMED. I predicted check and init commands - need to verify init exists separately. OBSERVATION: The check command reads stdin when body=='-' but does not handle the case where body is None and stdin has data piped in. A user doing 'cat packet.md | aiv check' without the '-' argument gets the 'No packet body provided' error.",
+      "verifier_id": "cascade-ai",
+      "function_path": "src/aiv/hooks/pre_push.py::_is_functional",
+      "trace_notes": "_is_functional(path, prefixes=None, root_files=None) is called from check_commits after load_hook_config returns (func_prefixes, func_root_files). The is-None check: if prefixes is None, use _DEFAULT_FUNCTIONAL_PREFIXES; else use the passed-in value. This is critical because empty tuple () is falsy in Python \u2014 the old 'or' pattern would silently fall back to defaults when the user explicitly configured no functional prefixes. With 'is None', passing () means nothing matches. Then checks any(path.startswith(p) for p in _prefixes) \u2014 if True, file is functional. Otherwise checks path in _root_files set membership. Returns bool.",
       "state_transitions": [
         {
           "step_number": 1,
-          "variable_name": "cfg",
-          "before_value": "(not set)",
-          "after_value": "AIVConfig(strict_mode=True)"
+          "variable_name": "_prefixes",
+          "before_value": "None (parameter default)",
+          "after_value": "() (empty tuple from config)"
         },
         {
           "step_number": 2,
-          "variable_name": "body_text",
-          "before_value": "None",
-          "after_value": "(piped stdin content \u2014 but body arg is None, not '-')"
-        },
-        {
-          "step_number": 3,
-          "variable_name": "typer.Exit",
-          "before_value": "(not raised)",
-          "after_value": "Exit(1) \u2014 'No packet body provided'"
+          "variable_name": "result",
+          "before_value": "undefined",
+          "after_value": "False"
         }
       ],
-      "edge_case_tested": "Piping stdin without the '-' argument: cat packet.md | aiv check",
-      "predicted_output": "Error: No packet body provided, exit code 1 - the stdin data is silently ignored",
+      "edge_case_tested": "User sets functional_prefixes: [] in .aiv.yml to disable all prefix matching",
+      "predicted_output": "_is_functional returns False for all paths because empty tuple has no startswith matches and empty set has no membership",
+      "verified_output": "Executed via pytest test_pre_push_hook.py::TestIsFunctional::test_empty_prefixes_means_nothing_functional: _is_functional('src/main.py', (), set()) returns False; _is_functional('pyproject.toml', (), set()) returns False. PASSED. Confirmed: is-None check allows explicit empty tuple to mean 'nothing is functional'.",
       "confidence": "high",
       "uncertainty_notes": null,
-      "created_at": "2026-02-07T03:52:53.600720Z"
-    },
-    {
-      "id": "9533af43-5eb5-487d-9fd3-4781e7f3984d",
-      "pr_number": 1,
-      "repository": "ImmortalDemonGod/aiv-protocol",
-      "verifier_id": "cascade-ai-first-pass",
-      "function_path": "src/aiv/lib/validators/anti_cheat.py::AntiCheatScanner.scan_diff",
-      "trace_notes": "Traced AntiCheatScanner.scan_diff for Claim 2 (anti-cheat portion). Step 1: Splits diff by newline, iterates lines. Step 2: On 'diff --git' line, extracts file path via regex r'b/(.+)$', increments files_analyzed, checks _is_test_file. Step 3: On @@ hunk header, extracts line number. Step 4: On deleted lines (starting with -), checks: assertion_patterns for deleted asserts (DELETED_ASSERTION), skip_patterns for added @skip decorators (SKIPPED_TEST), bypass_patterns for added mock.patch (BYPASS_FLAG). Step 5: On added lines (starting with +), checks skip and bypass patterns. Step 6: Separately checks for removed test files via 'deleted file mode' in diff. Step 7: Returns AntiCheatResult with all findings, files_analyzed, test_files_modified counts, and requires_justification computed property. OBSERVATION: The scanner only looks at test files (matched by test_file_patterns). If someone deletes an assertion in a non-test file (e.g. a validation check in production code), it is NOT flagged. This is by design per the spec but is a potential blind spot. Also, the regex r'b/(.+)$' for file path extraction could match incorrectly if the filename itself contains 'b/' \u2014 unlikely but possible with unusual directory names.",
-      "state_transitions": [
-        {
-          "step_number": 1,
-          "variable_name": "current_file",
-          "before_value": "None",
-          "after_value": "src/auth.py"
-        },
-        {
-          "step_number": 2,
-          "variable_name": "_is_test_file(current_file)",
-          "before_value": "(not called)",
-          "after_value": "False (src/auth.py does not match test_file_patterns)"
-        },
-        {
-          "step_number": 3,
-          "variable_name": "findings",
-          "before_value": "[]",
-          "after_value": "[] (deleted assertion on '-assert user.is_admin' line skipped \u2014 not a test file)"
-        },
-        {
-          "step_number": 4,
-          "variable_name": "return",
-          "before_value": "(not set)",
-          "after_value": "AntiCheatResult(findings=[], files_analyzed=1, test_files_modified=0)"
-        }
-      ],
-      "edge_case_tested": "Diff where production code assertion 'assert user.is_admin' is deleted from src/auth.py (not a test file)",
-      "predicted_output": "No finding produced because src/auth.py does not match test_file_patterns - the deletion is invisible to anti-cheat",
-      "confidence": "high",
-      "uncertainty_notes": null,
-      "created_at": "2026-02-07T03:53:12.247913Z"
+      "created_at": "2026-02-10T03:36:42.062156Z"
     }
   ],
   "probe": {
-    "id": "e79b3e0b-16ee-4c50-a405-ebc5c2dc4a33",
+    "id": "f2033755-852c-4a0a-b7b7-0dba129dac46",
     "pr_number": 1,
     "repository": "ImmortalDemonGod/aiv-protocol",
-    "verifier_id": "cascade-ai-first-pass",
+    "verifier_id": "cascade-ai",
     "happy_path_bias_checked": true,
     "context_amnesia_checked": true,
     "fragile_assertions_checked": true,
-    "findings": [
-      {
-        "finding_type": "magic_numbers",
-        "file_path": "src/aiv/lib/parser.py",
-        "line_number": null,
-        "description": "Parser _MIN_SUBSTANCE_ALPHA=10 is an undocumented magic number threshold for minimum alphabetic characters in substance check",
-        "severity": "low",
-        "is_confirmed_bug": false
-      },
-      {
-        "finding_type": "magic_numbers",
-        "file_path": "src/aiv/lib/validators/pipeline.py",
-        "line_number": null,
-        "description": "E020 rule_id collision between pipeline.py (optional evidence tier info) and evidence.py (Class A code blob warning) - two different rules share the same ID",
-        "severity": "medium",
-        "is_confirmed_bug": true
-      }
-    ],
     "why_questions": [
       {
-        "question": "Why does the pipeline not short-circuit on Stage 2-6 errors the way it does on Stage 1 parse errors?",
-        "context": "Stage 1 returns FAIL immediately on PacketParseError but all other stages accumulate errors and continue running",
-        "answer_found": false,
-        "answer": null
+        "question": "Why does load_hook_config not validate that functional_prefixes is a list before calling tuple() on it?",
+        "context": "If a user writes functional_prefixes: src/ (a string instead of a YAML list), tuple(\"src/\") produces (\"s\",\"r\",\"c\",\"/\") which silently breaks prefix matching with no error"
       }
     ],
     "falsification_scenarios": [
       {
         "claim_id": "C-001",
         "scenario": "AUDIT CORRECTED: Original said 12 models, actual is 13 (missed FrictionScore). Also 4 of 13 are Enums not BaseModels. Corrected test: import all 13 named classes from aiv.lib.models and verify the 9 BaseModel subclasses have frozen=True",
+        "test_code": "def test_falsify_c001_string_prefixes(tmp_path, monkeypatch):\n    \"\"\"Falsify: string value for functional_prefixes should not character-split.\"\"\"\n    monkeypatch.chdir(tmp_path)\n    (tmp_path / \".aiv.yml\").write_text(\n        'version: \"1.0\"\\nhook:\\n  functional_prefixes: \"src/\"\\n',\n        encoding=\"utf-8\",\n    )\n    from aiv.hooks.pre_commit import _load_hook_config, _DEFAULT_FUNCTIONAL_PREFIXES\n    prefixes, _ = _load_hook_config()\n    assert prefixes == _DEFAULT_FUNCTIONAL_PREFIXES\n    assert \"s\" not in prefixes  # Would be ('s','r','c','/') without fix",
         "checked": true,
         "result": "confirmed",
         "false_positive": true
@@ -265,48 +135,51 @@
       {
         "claim_id": "C-002",
         "scenario": "Pass a packet with a /blob/main/ link through ValidationPipeline.validate and verify E004 BLOCK finding is produced",
+        "test_code": "def test_falsify_c002_config_path_or_pattern(tmp_path):\n    \"\"\"Falsify: Path('') is falsy, 'or' would fall back to .aiv.yml.\"\"\"\n    from pathlib import Path\n    empty_path = Path(\"\")\n    assert not empty_path  # Confirms Path(\"\") is falsy\n    # With 'or' pattern: config_path or Path(\".aiv.yml\") would ignore empty path\n    # With 'is None' pattern: empty path would be used as-is",
         "checked": true,
-        "result": "confirmed"
+        "result": "confirmed",
+        "false_positive": false
       },
       {
         "claim_id": "C-003",
         "scenario": "Run 'aiv check' on a valid packet file and verify exit code 0 with Rich-formatted table output on stdout",
-        "checked": true,
-        "result": "confirmed"
-      },
-      {
-        "claim_id": "C-004",
-        "scenario": "AUDIT CORRECTED: Original referenced hallucinated sanitize_shell_input function which does not exist. Claim 4 mentions guard sanitization but no such function exists in the codebase. Scenario cannot be executed as written \u2014 the prediction was wrong.",
-        "checked": true,
-        "result": "inconclusive",
-        "false_positive": true
-      },
-      {
-        "claim_id": "C-005",
-        "scenario": "AUDIT CORRECTED: Original referenced hallucinated DiffAnalyzer class which does not exist. Actual implementation is AntiCheatScanner.scan_diff. Corrected test: call AntiCheatScanner.scan_diff with a diff containing auth.py changes and verify findings are produced for test files only.",
+        "test_code": "def test_falsify_c003_pre_push_cwd_relative(tmp_path, monkeypatch):\n    \"\"\"Falsify: pre_push load_hook_config() relies on cwd, unlike auditor.\"\"\"\n    monkeypatch.chdir(tmp_path)\n    # Create .aiv.yml in a subdirectory (simulating repo not at cwd)\n    repo = tmp_path / \"myrepo\"\n    repo.mkdir()\n    (repo / \".aiv.yml\").write_text(\n        'version: \"1.0\"\\nhook:\\n  functional_prefixes:\\n    - \"custom/\"\\n',\n        encoding=\"utf-8\",\n    )\n    from aiv.lib.config import load_hook_config\n    # auditor.py passes repo_root / \".aiv.yml\" -> finds custom config\n    prefixes_auditor, _ = load_hook_config(repo / \".aiv.yml\")\n    assert prefixes_auditor == (\"custom/\",)\n    # pre_push.py calls load_hook_config() with no args -> uses cwd, misses config\n    prefixes_prepush, _ = load_hook_config()\n    assert prefixes_prepush != (\"custom/\",)  # Bug: falls back to defaults",
         "checked": true,
         "result": "confirmed",
-        "false_positive": true
-      },
-      {
-        "claim_id": "C-006",
-        "scenario": "Check that every model class in models.py has ConfigDict(frozen=True) - if any model has frozen=False, claim 6 is falsified",
-        "checked": true,
-        "result": "confirmed"
-      },
-      {
-        "claim_id": "C-007",
-        "scenario": "AUDIT CORRECTED: Original said exactly 36 tests but current suite has 371. The claim was about the original commit. Corrected test: run pytest tests/unit/test_models.py tests/unit/test_parser.py tests/unit/test_pipeline.py --collect-only and verify the original test files exist with > 0 tests.",
-        "checked": true,
-        "result": "confirmed",
-        "false_positive": true
+        "false_positive": false
       }
     ],
-    "overall_assessment": "FINDINGS: (1) Parser does not handle ## headings inside fenced code blocks - _extract_sections matches HEADING_PATTERN on every line unconditionally. A verification packet containing a code block with '## Example' would be mis-parsed. (2) E020 rule_id collision: pipeline.py line 229 uses E020 for optional evidence info, evidence.py also uses E020 for Class A code blob warnings. Two different rules share an ID. (3) Pipeline docstring claims 7 stages but code implements 8 (cross-reference is separate from anti-cheat scan). (4) AntiCheatScanner only checks test files - production code assertion deletions are invisible. (5) CLI stdin requires explicit '-' argument - piping without it silently fails. No AI tells detected in model definitions or validator logic. The dispatch pattern in EvidenceValidator._validate_claim_evidence is clean and extensible.",
-    "created_at": "2026-02-07T03:53:36.123123Z"
+    "findings": [
+      {
+        "finding_type": "implicit_assumptions",
+        "file_path": "src/aiv/lib/config.py",
+        "line_number": null,
+        "description": "tuple() on YAML string value silently character-splits: functional_prefixes: src/ becomes ('s','r','c','/')",
+        "severity": "medium",
+        "is_confirmed_bug": false
+      },
+      {
+        "finding_type": "implicit_assumptions",
+        "file_path": "src/aiv/hooks/pre_push.py",
+        "line_number": null,
+        "description": "check_commits calls load_hook_config() with no path arg, relying on cwd==repo_root. Inconsistent with auditor.py which passes repo_root/.aiv.yml",
+        "severity": "low",
+        "is_confirmed_bug": false
+      },
+      {
+        "finding_type": "missing_error_handling",
+        "file_path": "src/aiv/lib/config.py",
+        "line_number": null,
+        "description": "Bare except Exception: pass silently swallows permission errors, encoding errors on .aiv.yml read",
+        "severity": "low",
+        "is_confirmed_bug": false
+      }
+    ],
+    "overall_assessment": "Config extraction is sound. Two real bugs found: (1) YAML string value for functional_prefixes silently produces character-level tuple, (2) load_hook_config config_path param uses or fallback inconsistent with the is-None fix applied everywhere else. Silent exception swallowing is a known deferred item.",
+    "created_at": "2026-02-10T03:53:26.200457+00:00"
   },
   "ownership_commit": null,
-  "started_at": "2026-02-07T03:51:26.303601Z",
+  "started_at": "2026-02-10T03:53:26.199933+00:00",
   "completed_at": null,
   "aiv_guard_passed": true,
   "aiv_guard_passed_at": null
