@@ -202,15 +202,17 @@ class AIVConfig(BaseSettings):
     def from_file(cls, path: Path) -> AIVConfig:
         """
         Load AIV configuration from a YAML file.
-        
-        If the file does not exist, returns a default AIVConfig instance. On successful parse and validation, returns an AIVConfig populated from the YAML contents.
-        
+
+        If the file does not exist, returns a default AIVConfig instance.
+        On successful parse and validation, returns an AIVConfig populated
+        from the YAML contents.
+
         Parameters:
             path (Path): Filesystem path to the YAML configuration file.
-        
+
         Returns:
             AIVConfig: Configuration loaded from the file, or a default instance if the file is missing.
-        
+
         Raises:
             ConfigurationError: If the YAML cannot be parsed or the file contents are invalid for AIVConfig.
         """
@@ -242,14 +244,18 @@ def load_hook_config(
 ) -> tuple[tuple[str, ...], set[str]]:
     """
     Load functional file prefixes and root-file names from an AIV hook configuration.
-    
-    If a YAML file exists at `config_path` (or `./.aiv.yml` when `None`), extract the `hook.functional_prefixes` and `hook.functional_root_files` values; otherwise, return the built-in HookConfig defaults.
-    
+
+    If a YAML file exists at `config_path` (or `./.aiv.yml` when `None`),
+    extract the `hook.functional_prefixes` and `hook.functional_root_files`
+    values; otherwise, return the built-in HookConfig defaults.
+
     Parameters:
         config_path (Path | None): Path to the `.aiv.yml` file; when `None`, defaults to `./.aiv.yml`.
-    
+
     Returns:
-        tuple[tuple[str, ...], set[str]]: A pair where the first element is a tuple of functional prefixes and the second is a set of functional root-file names.
+        tuple[tuple[str, ...], set[str]]: A pair where the first element
+            is a tuple of functional prefixes and the second is a set of
+            functional root-file names.
     """
     try:
         path = config_path or Path(".aiv.yml")
