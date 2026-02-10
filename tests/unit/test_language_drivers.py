@@ -11,7 +11,6 @@ import pytest
 from aiv.lib.language_drivers import LanguageDriver, PythonDriver, get_driver
 from aiv.lib.language_drivers.registry import registered_extensions
 
-
 # ---------------------------------------------------------------------------
 # Registry tests
 # ---------------------------------------------------------------------------
