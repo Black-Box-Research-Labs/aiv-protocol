@@ -35,6 +35,14 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
+from aiv.lib.config import (
+    _DEFAULT_FUNCTIONAL_PREFIXES,
+    _DEFAULT_FUNCTIONAL_ROOT_FILES,
+)
+from aiv.lib.config import (
+    load_hook_config as _load_hook_config,
+)
+
 PACKET_PREFIXES = (
     ".github/aiv-packets/VERIFICATION_PACKET_",
     ".github/VERIFICATION_PACKET_",
@@ -43,21 +51,14 @@ PACKET_PREFIXES = (
 PACKET_SUFFIX = ".md"
 EVIDENCE_PREFIX = ".github/aiv-evidence/EVIDENCE_"
 
-# Import shared config loader (single source of truth for all enforcement layers)
-from aiv.lib.config import (
-    _DEFAULT_FUNCTIONAL_PREFIXES,
-    _DEFAULT_FUNCTIONAL_ROOT_FILES,
-    load_hook_config as _load_hook_config,
-)
-
 
 def _run_git(*args: str) -> str:
     """
     Execute a git command and return its standard output with surrounding whitespace removed.
-    
+
     Parameters:
         *args (str): Arguments to pass to the git command (for example, 'status', '--porcelain').
-    
+
     Returns:
         stdout (str): The command's standard output with leading and trailing whitespace stripped.
     """
