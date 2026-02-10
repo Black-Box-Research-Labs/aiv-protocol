@@ -337,7 +337,7 @@ class TestTreeSitterDownstreamCallers:
             encoding="utf-8",
         )
         driver = TreeSitterDriver()
-        callers = driver.find_downstream_callers(["nonexistent"])
+        callers = driver.find_downstream_callers(["nonexistent"], src_dir=str(src_dir))
         assert len(callers) == 0
 
     def test_nonexistent_src_dir(self) -> None:

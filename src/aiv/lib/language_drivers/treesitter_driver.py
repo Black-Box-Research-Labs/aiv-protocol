@@ -304,7 +304,7 @@ def _analyze_file(root: Node) -> _FileAnalysis:
         # Find the node spanning this symbol's lines
         func_node = _find_node_at_range(root, sym.start_line - 1, sym.end_line - 1)
         if func_node:
-            analysis.calls[sym.name] = _extract_calls(func_node)
+            analysis.calls.setdefault(sym.name, set()).update(_extract_calls(func_node))
 
     return analysis
 
