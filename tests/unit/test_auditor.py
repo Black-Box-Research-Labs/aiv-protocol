@@ -262,9 +262,9 @@ class TestEvidenceTodoSeverity:
         evidence_todos = [
             f for f in result.findings if f.finding_type == "TODO_PRESENT" and f.severity == AuditSeverity.ERROR
         ]
-        assert (
-            len(evidence_todos) >= 1
-        ), f"Expected at least 1 ERROR-severity TODO_PRESENT in evidence section, got findings: {result.findings}"
+        assert len(evidence_todos) >= 1, (
+            f"Expected at least 1 ERROR-severity TODO_PRESENT in evidence section, got findings: {result.findings}"
+        )
 
     def test_class_e_todo_link_is_error(self, tmp_path: Path):
         """Class E link containing 'TODO' must be AuditSeverity.ERROR.
@@ -282,9 +282,9 @@ class TestEvidenceTodoSeverity:
         result = auditor.audit(tmp_path)
         class_e_findings = [f for f in result.findings if f.finding_type == "CLASS_E_NO_URL"]
         assert len(class_e_findings) == 1
-        assert (
-            class_e_findings[0].severity == AuditSeverity.ERROR
-        ), f"Expected ERROR for TODO in Class E link, got {class_e_findings[0].severity}"
+        assert class_e_findings[0].severity == AuditSeverity.ERROR, (
+            f"Expected ERROR for TODO in Class E link, got {class_e_findings[0].severity}"
+        )
 
     def test_classification_todo_stays_warning(self, tmp_path: Path):
         """A TODO in classification_rationale (outside evidence) stays WARNING.
