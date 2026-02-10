@@ -28,7 +28,7 @@ import subprocess
 import sys
 
 # ---------------------------------------------------------------------------
-# Constants — mirrors pre_commit.py and auditor.py
+# Constants
 # ---------------------------------------------------------------------------
 
 PACKET_PREFIXES = (
@@ -39,40 +39,28 @@ PACKET_PREFIXES = (
 PACKET_SUFFIX = ".md"
 EVIDENCE_PREFIX = ".github/aiv-evidence/EVIDENCE_"
 
-FUNCTIONAL_PREFIXES = (
-    "src/",
-    "lib/",
-    "app/",
-    "pkg/",
-    "cmd/",
-    "internal/",
-    "engine/",
-    "infrastructure/",
-    "scripts/",
-    "tests/",
-    ".github/workflows/",
-    ".husky/",
+# Import shared config loader (single source of truth for all enforcement layers)
+from aiv.lib.config import (
+    _DEFAULT_FUNCTIONAL_PREFIXES,
+    _DEFAULT_FUNCTIONAL_ROOT_FILES,
+    load_hook_config,
 )
-
-FUNCTIONAL_ROOT_FILES = {
-    "pyproject.toml",
-    "setup.py",
-    "setup.cfg",
-    "package.json",
-    "package-lock.json",
-    ".gitignore",
-    ".env.example",
-}
 
 
 def _is_packet(path: str) -> bool:
     return any(path.startswith(p) for p in PACKET_PREFIXES) and path.endswith(PACKET_SUFFIX)
 
 
-def _is_functional(path: str) -> bool:
-    if any(path.startswith(p) for p in FUNCTIONAL_PREFIXES):
+def _is_functional(
+    path: str,
+    prefixes: tuple[str, ...] | None = None,
+    root_files: set[str] | None = None,
+) -> bool:
+    _prefixes = prefixes or _DEFAULT_FUNCTIONAL_PREFIXES
+    _root_files = root_files or _DEFAULT_FUNCTIONAL_ROOT_FILES
+    if any(path.startswith(p) for p in _prefixes):
         return True
-    return path in FUNCTIONAL_ROOT_FILES
+    return path in _root_files
 
 
 def _get_commits_in_range(local_sha: str, remote_sha: str) -> list[str]:
@@ -148,6 +136,9 @@ def check_commits(commits: list[str]) -> list[tuple[str, list[str]]]:
     packet (PACKET_*.md) or Layer 1 evidence file (EVIDENCE_*.md), functional
     commits in the same range are considered covered by aggregate evidence.
     """
+    # Load config from .aiv.yml (consistent with pre-commit hook and CI auditor)
+    func_prefixes, func_root_files = load_hook_config()
+
     violations: list[tuple[str, list[str]]] = []
 
     # Cache files per commit (single query each).
@@ -161,7 +152,7 @@ def check_commits(commits: list[str]) -> list[tuple[str, list[str]]]:
 
     for sha in commits:
         files = files_by_sha[sha]
-        functional = [f for f in files if _is_functional(f)]
+        functional = [f for f in files if _is_functional(f, func_prefixes, func_root_files)]
         packets = [f for f in files if _is_packet(f)]
         evidence = [f for f in files if _is_evidence(f)]
 

@@ -483,6 +483,23 @@ class TestIsFunctionalPath:
         assert auditor._is_functional_path("docs/guide.md") is False
         assert auditor._is_functional_path("README.md") is False
 
+    def test_custom_prefixes_respected(self) -> None:
+        """P0-4: _is_functional_path accepts custom prefixes from .aiv.yml."""
+        auditor = PacketAuditor()
+        custom_prefixes = ("backend/", "frontend/")
+        custom_roots: set[str] = set()
+        assert auditor._is_functional_path("backend/api.py", custom_prefixes, custom_roots) is True
+        assert auditor._is_functional_path("frontend/app.ts", custom_prefixes, custom_roots) is True
+        assert auditor._is_functional_path("src/main.py", custom_prefixes, custom_roots) is False
+
+    def test_custom_root_files_respected(self) -> None:
+        """P0-4: _is_functional_path accepts custom root files from .aiv.yml."""
+        auditor = PacketAuditor()
+        custom_prefixes: tuple[str, ...] = ()
+        custom_roots = {"Makefile", "Dockerfile"}
+        assert auditor._is_functional_path("Makefile", custom_prefixes, custom_roots) is True
+        assert auditor._is_functional_path("pyproject.toml", custom_prefixes, custom_roots) is False
+
 
 def _make_git_log_output(commits: list[tuple[str, list[str]]]) -> str:
     """Build fake git log --format=%H --name-only output."""

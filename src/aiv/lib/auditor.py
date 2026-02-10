@@ -50,31 +50,12 @@ _PACKET_PREFIXES = (
 _PACKET_SUFFIX = ".md"
 _EVIDENCE_PREFIX = ".github/aiv-evidence/EVIDENCE_"
 
-# Default functional prefixes (mirrors pre_commit.py defaults)
-_FUNCTIONAL_PREFIXES = (
-    "src/",
-    "lib/",
-    "app/",
-    "pkg/",
-    "cmd/",
-    "internal/",
-    "engine/",
-    "infrastructure/",
-    "scripts/",
-    "tests/",
-    ".github/workflows/",
-    ".husky/",
+# Import shared config loader (single source of truth for all enforcement layers)
+from aiv.lib.config import (
+    _DEFAULT_FUNCTIONAL_PREFIXES,
+    _DEFAULT_FUNCTIONAL_ROOT_FILES,
+    load_hook_config,
 )
-
-_FUNCTIONAL_ROOT_FILES = {
-    "pyproject.toml",
-    "setup.py",
-    "setup.cfg",
-    "package.json",
-    "package-lock.json",
-    ".gitignore",
-    ".env.example",
-}
 
 
 class AuditSeverity(str, Enum):
@@ -720,10 +701,16 @@ class PacketAuditor:
         return path.startswith(_EVIDENCE_PREFIX) and path.endswith(_PACKET_SUFFIX)
 
     @staticmethod
-    def _is_functional_path(path: str) -> bool:
-        if any(path.startswith(p) for p in _FUNCTIONAL_PREFIXES):
+    def _is_functional_path(
+        path: str,
+        prefixes: tuple[str, ...] | None = None,
+        root_files: set[str] | None = None,
+    ) -> bool:
+        _prefixes = prefixes or _DEFAULT_FUNCTIONAL_PREFIXES
+        _root_files = root_files or _DEFAULT_FUNCTIONAL_ROOT_FILES
+        if any(path.startswith(p) for p in _prefixes):
             return True
-        return path in _FUNCTIONAL_ROOT_FILES
+        return path in _root_files
 
     def audit_commits(
         self,
@@ -780,6 +767,9 @@ class PacketAuditor:
 
         result.packets_scanned = len(commits)
 
+        # Load config from .aiv.yml (consistent with pre-commit and pre-push hooks)
+        func_prefixes, func_root_files = load_hook_config()
+
         # Two-Layer Architecture: check if any commit in the scan range
         # contains a packet or evidence file (aggregate coverage).
         range_has_evidence = any(
@@ -790,7 +780,7 @@ class PacketAuditor:
             short = sha[:7]
             packets = [f for f in files if self._is_packet_path(f)]
             evidence = [f for f in files if self._is_evidence_path(f)]
-            functional = [f for f in files if self._is_functional_path(f)]
+            functional = [f for f in files if self._is_functional_path(f, func_prefixes, func_root_files)]
 
             # Skip commits with no functional files (docs-only, etc.)
             if not functional:
