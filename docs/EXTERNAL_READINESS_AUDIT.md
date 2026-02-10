@@ -302,7 +302,7 @@ evidence and explicit violation documentation.
 
 | # | Issue | Files | Risk | Effort | Status |
 |---|-------|-------|------|--------|--------|
-| P0-1 | Configurable functional prefixes | config.py, pre_commit.py, main.py | Medium | Medium | **PARTIAL** (249ecde) — pre_commit.py reads .aiv.yml but pre_push.py and auditor.py do not (see P0-4) |
+| P0-1 | Configurable functional prefixes | config.py, pre_commit.py, main.py | Medium | Medium | **DONE** (249ecde + 16b1c97) — P0-4 completed propagation to all layers |
 | P0-2 | Remove project-specific root files | pre_commit.py | Low | Small | DONE (249ecde) |
 | P0-3 | Enforcement gap (--no-verify bypass) | pre_push.py, auditor.py, ci.yml, main.py | High | Large | DONE (4-layer defence) |
 | P1-3 | Error code reference | docs/ERROR_CODES.md, README.md | None | Medium | DONE (917b23b) |
@@ -442,7 +442,7 @@ should include a `find_callers()` method.
 
 | # | Issue | Files | Risk | Effort | Depends On | Status |
 |---|-------|-------|------|--------|------------|--------|
-| P0-4 | Config propagation to all enforcement layers | config.py, pre_push.py, auditor.py | Medium | Small | — | TODO |
+| P0-4 | Config propagation to all enforcement layers | config.py, pre_push.py, auditor.py | Medium | Small | — | DONE (16b1c97) |
 | P1-6 | Polyglot symbol resolution (tree-sitter) | evidence_collector.py, lang/*.py | Low | Large | — | TODO |
 | P1-7 | Polyglot test graph builder | evidence_collector.py, lang/*.py | Low | Medium | P1-6 | TODO |
 | P1-8 | Polyglot downstream caller analysis | evidence_collector.py, lang/*.py | Low | Medium | P1-6 | TODO |
