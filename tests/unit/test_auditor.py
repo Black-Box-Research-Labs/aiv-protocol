@@ -262,9 +262,9 @@ class TestEvidenceTodoSeverity:
         evidence_todos = [
             f for f in result.findings if f.finding_type == "TODO_PRESENT" and f.severity == AuditSeverity.ERROR
         ]
-        assert len(evidence_todos) >= 1, (
-            f"Expected at least 1 ERROR-severity TODO_PRESENT in evidence section, got findings: {result.findings}"
-        )
+        assert (
+            len(evidence_todos) >= 1
+        ), f"Expected at least 1 ERROR-severity TODO_PRESENT in evidence section, got findings: {result.findings}"
 
     def test_class_e_todo_link_is_error(self, tmp_path: Path):
         """Class E link containing 'TODO' must be AuditSeverity.ERROR.
@@ -282,9 +282,9 @@ class TestEvidenceTodoSeverity:
         result = auditor.audit(tmp_path)
         class_e_findings = [f for f in result.findings if f.finding_type == "CLASS_E_NO_URL"]
         assert len(class_e_findings) == 1
-        assert class_e_findings[0].severity == AuditSeverity.ERROR, (
-            f"Expected ERROR for TODO in Class E link, got {class_e_findings[0].severity}"
-        )
+        assert (
+            class_e_findings[0].severity == AuditSeverity.ERROR
+        ), f"Expected ERROR for TODO in Class E link, got {class_e_findings[0].severity}"
 
     def test_classification_todo_stays_warning(self, tmp_path: Path):
         """A TODO in classification_rationale (outside evidence) stays WARNING.
@@ -495,7 +495,7 @@ class TestIsFunctionalPath:
     def test_custom_root_files_respected(self) -> None:
         """
         Verify that _is_functional_path recognizes custom root filenames from configuration.
-        
+
         Asserts that a filename present in the provided root set is treated as a functional path and a filename not in the set is not.
         """
         auditor = PacketAuditor()
@@ -514,12 +514,12 @@ class TestIsFunctionalPath:
 def _make_git_log_output(commits: list[tuple[str, list[str]]]) -> str:
     """
     Build a fake git log output using the format produced by `git log --format=%H --name-only`.
-    
+
     Parameters:
         commits (list[tuple[str, list[str]]]): Sequence of commits where each item is a tuple
             (commit_sha, file_paths). `commit_sha` is the commit hash string; `file_paths`
             is a list of file path strings changed in that commit.
-    
+
     Returns:
         str: A single string where each commit appears as the SHA on its own line followed by
         its file paths on separate lines, and commits are separated by a blank line.
