@@ -22,15 +22,19 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Node types that define named symbols in JS/TS
-_FUNCTION_TYPES = frozenset({
-    "function_declaration",
-    "method_definition",
-    "generator_function_declaration",
-})
+_FUNCTION_TYPES = frozenset(
+    {
+        "function_declaration",
+        "method_definition",
+        "generator_function_declaration",
+    }
+)
 
-_CLASS_TYPES = frozenset({
-    "class_declaration",
-})
+_CLASS_TYPES = frozenset(
+    {
+        "class_declaration",
+    }
+)
 
 # Arrow functions and variable-assigned functions:
 #   const foo = () => {}
@@ -123,23 +127,27 @@ def _walk_for_symbols(
     if node.type in _FUNCTION_TYPES:
         name = _extract_name(node)
         if name:
-            symbols.append(_SymbolSpan(
-                name=name,
-                start_line=node.start_point[0] + 1,
-                end_line=node.end_point[0] + 1,
-                parent_class=parent_class,
-            ))
+            symbols.append(
+                _SymbolSpan(
+                    name=name,
+                    start_line=node.start_point[0] + 1,
+                    end_line=node.end_point[0] + 1,
+                    parent_class=parent_class,
+                )
+            )
         # Don't recurse into nested functions for symbol extraction
         return
 
     if node.type in _CLASS_TYPES:
         class_name = _extract_name(node)
         if class_name:
-            symbols.append(_SymbolSpan(
-                name=class_name,
-                start_line=node.start_point[0] + 1,
-                end_line=node.end_point[0] + 1,
-            ))
+            symbols.append(
+                _SymbolSpan(
+                    name=class_name,
+                    start_line=node.start_point[0] + 1,
+                    end_line=node.end_point[0] + 1,
+                )
+            )
             # Recurse into class body with class context
             for child in node.children:
                 if child.type == "class_body":
@@ -153,12 +161,14 @@ def _walk_for_symbols(
         if name:
             for child in node.children:
                 if child.type in (_ARROW_FUNCTION, _FUNCTION_EXPRESSION, "function"):
-                    symbols.append(_SymbolSpan(
-                        name=name,
-                        start_line=node.start_point[0] + 1,
-                        end_line=node.end_point[0] + 1,
-                        parent_class=parent_class,
-                    ))
+                    symbols.append(
+                        _SymbolSpan(
+                            name=name,
+                            start_line=node.start_point[0] + 1,
+                            end_line=node.end_point[0] + 1,
+                            parent_class=parent_class,
+                        )
+                    )
                     return
 
     # Recurse into children
@@ -450,11 +460,13 @@ class TreeSitterDriver:
                     for symbol in changed_symbols:
                         bare = symbol.split(".")[-1] if "." in symbol else symbol
                         if bare in called and bare in analysis.imports:
-                            callers.append(DownstreamCaller(
-                                file=rel_path,
-                                function=func_name,
-                                symbol_called=symbol,
-                            ))
+                            callers.append(
+                                DownstreamCaller(
+                                    file=rel_path,
+                                    function=func_name,
+                                    symbol_called=symbol,
+                                )
+                            )
 
         return callers
 

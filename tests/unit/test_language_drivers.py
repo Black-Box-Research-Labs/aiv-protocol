@@ -207,9 +207,7 @@ class TestTreeSitterSymbolResolution:
     def test_typescript_file(self, tmp_path) -> None:
         src = tmp_path / "utils.ts"
         src.write_text(
-            "export function formatDate(d: Date): string {\n"
-            "    return d.toISOString();\n"
-            "}\n",
+            "export function formatDate(d: Date): string {\n    return d.toISOString();\n}\n",
             encoding="utf-8",
         )
         driver = TreeSitterDriver()
@@ -219,9 +217,7 @@ class TestTreeSitterSymbolResolution:
     def test_tsx_file(self, tmp_path) -> None:
         src = tmp_path / "Component.tsx"
         src.write_text(
-            "function MyComponent(props: any) {\n"
-            "    return <div>{props.name}</div>;\n"
-            "}\n",
+            "function MyComponent(props: any) {\n    return <div>{props.name}</div>;\n}\n",
             encoding="utf-8",
         )
         driver = TreeSitterDriver()
