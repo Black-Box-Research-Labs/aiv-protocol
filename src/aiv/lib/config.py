@@ -6,6 +6,9 @@ Configuration models for customizing validation behavior.
 
 from __future__ import annotations
 
+import logging
+from pathlib import Path
+
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings
 
@@ -14,9 +17,9 @@ try:
 except ImportError as _yaml_err:
     raise ImportError("PyYAML is required for AIV configuration. Install it with: pip install PyYAML") from _yaml_err
 
-from pathlib import Path
-
 from .errors import ConfigurationError
+
+_log = logging.getLogger(__name__)
 
 
 class ZeroTouchConfig(BaseModel):
@@ -266,8 +269,16 @@ def load_hook_config(
             raw_prefixes = hook_data.get("functional_prefixes", _DEFAULT_FUNCTIONAL_PREFIXES)
             raw_root_files = hook_data.get("functional_root_files", _DEFAULT_FUNCTIONAL_ROOT_FILES)
             if not isinstance(raw_prefixes, (list, tuple)):
+                _log.warning(
+                    ".aiv.yml: 'hook.functional_prefixes' must be a list, got %s — using defaults",
+                    type(raw_prefixes).__name__,
+                )
                 raw_prefixes = _DEFAULT_FUNCTIONAL_PREFIXES
             if not isinstance(raw_root_files, (list, tuple, set)):
+                _log.warning(
+                    ".aiv.yml: 'hook.functional_root_files' must be a list, got %s — using defaults",
+                    type(raw_root_files).__name__,
+                )
                 raw_root_files = _DEFAULT_FUNCTIONAL_ROOT_FILES
             return tuple(raw_prefixes), set(raw_root_files)
     except Exception:

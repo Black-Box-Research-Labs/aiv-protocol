@@ -1,9 +1,9 @@
 # AIV Evidence File (v1.0)
 
 **File:** `src/aiv/lib/config.py`
-**Commit:** `ad560a7`
-**Previous:** `b7fbe77`
-**Generated:** 2026-02-10T03:39:21Z
+**Commit:** `e53136d`
+**Previous:** `d82360b`
+**Generated:** 2026-04-04T23:09:52Z
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
 ---
@@ -12,20 +12,19 @@
 
 ```yaml
 classification:
-  risk_tier: R1
+  risk_tier: R0
   sod_mode: S0
   critical_surfaces: []
   blast_radius: "src/aiv/lib/config.py"
-  classification_rationale: "R1: bug fix discovered during SVP adversarial probe"
+  classification_rationale: "Logging-only change — no behavior change, no critical surfaces"
   classified_by: "Miguel Ingram"
-  classified_at: "2026-02-10T03:39:21Z"
+  classified_at: "2026-04-04T23:09:52Z"
 ```
 
 ## Claim(s)
 
-1. functional_prefixes string value now falls back to defaults instead of character-splitting via tuple()
-2. Added isinstance check for list/tuple before tuple() conversion
-3. No existing tests were modified or deleted during this change.
+1. Config load_hook_config emits logging.warning on YAML type mismatch instead of silent fallback to defaults
+2. No existing tests were modified or deleted during this change.
 
 ---
 
@@ -33,47 +32,34 @@ classification:
 
 ### Class E (Intent Alignment)
 
-- **Link:** [https://github.com/ImmortalDemonGod/aiv-protocol/blob/655e5ab/docs/EXTERNAL_READINESS_AUDIT.md](https://github.com/ImmortalDemonGod/aiv-protocol/blob/655e5ab/docs/EXTERNAL_READINESS_AUDIT.md)
-- **Requirements Verified:** SVP probe finding: implicit_assumptions in config.py YAML parsing
+- **Link:** [https://github.com/Black-Box-Research-Labs/aiv-protocol/pull/8](https://github.com/Black-Box-Research-Labs/aiv-protocol/pull/8)
+- **Requirements Verified:** Code audit MEDIUM-3: warn on config type mismatch at config.py:268
 
 ### Class B (Referential Evidence)
 
-**Scope Inventory** (SHA: [`ad560a7`](https://github.com/ImmortalDemonGod/aiv-protocol/tree/ad560a7a535956af0aa46514ba66b2d0901c5fd8))
+**Scope Inventory** (SHA: [`e53136d`](https://github.com/ImmortalDemonGod/aiv-protocol/tree/e53136db2df379beabfffcefce4f40c50ba5bb6e))
 
-- [`src/aiv/lib/config.py#L266-L272`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/ad560a7a535956af0aa46514ba66b2d0901c5fd8/src/aiv/lib/config.py#L266-L272)
+- [`src/aiv/lib/config.py#L9-L11`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/e53136db2df379beabfffcefce4f40c50ba5bb6e/src/aiv/lib/config.py#L9-L11)
+- [`src/aiv/lib/config.py#L22-L23`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/e53136db2df379beabfffcefce4f40c50ba5bb6e/src/aiv/lib/config.py#L22-L23)
+- [`src/aiv/lib/config.py#L272-L275`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/e53136db2df379beabfffcefce4f40c50ba5bb6e/src/aiv/lib/config.py#L272-L275)
+- [`src/aiv/lib/config.py#L278-L281`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/e53136db2df379beabfffcefce4f40c50ba5bb6e/src/aiv/lib/config.py#L278-L281)
 
 ### Class A (Execution Evidence)
 
-**Per-symbol test coverage (AST analysis):**
+- Local checks skipped (--skip-checks).
+- **Skip reason:** Logging-only addition — import reorder and two log.warning calls, no behavior change
 
-- **`load_hook_config`** (L266-L272): FAIL -- WARNING: No tests import or call `load_hook_config`
 
-**Coverage summary:** 0/1 symbols verified by tests.
-
-### Code Quality (Linting & Types)
-
-- **ruff:** All checks passed
-- **mypy:** Success: no issues found in 1 source file
-
-## Claim Verification Matrix
-
-| # | Claim | Type | Evidence | Verdict |
-|---|-------|------|----------|---------|
-| 1 | functional_prefixes string value now falls back to defaults ... | unresolved | No automatic binding available | REVIEW MANUAL REVIEW |
-| 2 | Added isinstance check for list/tuple before tuple() convers... | unresolved | No automatic binding available | REVIEW MANUAL REVIEW |
-| 3 | No existing tests were modified or deleted during this chang... | structural | Class C not collected | REVIEW MANUAL REVIEW |
-
-**Verdict summary:** 0 verified, 0 unverified, 3 manual review.
 ---
 
 ## Verification Methodology
 
-**Zero-Touch Mandate:** Verifier inspects artifacts only.
-Evidence collected by `aiv commit` running: git diff (scope inventory), AST symbol-to-test binding (0/1 symbols verified).
-Ruff/mypy results are in Code Quality (not Class A) because they prove syntax/types, not behavior.
+**R0 (trivial) -- local checks skipped.**
+**Reason:** Logging-only addition — import reorder and two log.warning calls, no behavior change
+Only git diff scope inventory was collected. No execution evidence.
 
 ---
 
 ## Summary
 
-Validate YAML types before tuple()/set() in load_hook_config
+Emit warning when .aiv.yml has wrong types for hook config
