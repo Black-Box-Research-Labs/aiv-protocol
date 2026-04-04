@@ -380,7 +380,7 @@ class GuardRunner:
                     evidence_class=cls,
                     required=is_required,
                     present=present,
-                    valid=present if is_required else present,
+                    valid=present,
                 )
             )
 
