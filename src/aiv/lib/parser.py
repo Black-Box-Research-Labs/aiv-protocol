@@ -469,6 +469,12 @@ class PacketParser:
 
         return sorted(claims, key=lambda c: c.section_number)
 
+    # Pattern for extracting **Justification:** text from Class F evidence sections
+    _JUSTIFICATION_PATTERN = re.compile(
+        r"\*\*Justification:\*\*\s*(.+?)(?=\n\*\*|\n##|\n###|\Z)",
+        re.DOTALL | re.IGNORECASE,
+    )
+
     def _enrich_claims_with_evidence(
         self,
         claims: list[Claim],
@@ -479,13 +485,26 @@ class PacketParser:
 
         Scans ### Class B, ### Class A, etc. for "Claim N:" references
         and updates the corresponding claim's evidence_class and artifact.
+
+        Each unlinked evidence item (no "Claim N:" reference) is consumed by
+        at most one claim to prevent the same artifact from being silently
+        applied to multiple claims.
+
+        For Class F (Provenance) sections, extracts **Justification:** text
+        and stores it in the claim's ``justification`` field so the anti-cheat
+        cross-reference stage can verify it.
         """
         evidence_sections = [s for s in sections if s.level == 3 and self.EVIDENCE_CLASS_PATTERN.search(s.title)]
 
         # Build a map: claim_number -> (evidence_class, artifact_text)
         claim_evidence: dict[int, tuple[EvidenceClass, str]] = {}
-        # Track evidence sections that don't reference specific claims
+        # Build a map: claim_number -> justification text (from **Justification:** in Class F)
+        claim_justification: dict[int, str] = {}
+        # Track evidence without explicit claim references; consumed one-per-claim
+        # to prevent the same artifact from satisfying multiple claims.
         unlinked_evidence: list[tuple[EvidenceClass, str]] = []
+        # Broad justification from an unlinked Class F section (no "Claim N:" ref)
+        unlinked_justification: str | None = None
 
         for ev_section in evidence_sections:
             class_match = self.EVIDENCE_CLASS_PATTERN.search(ev_section.title)
@@ -502,6 +521,13 @@ class PacketParser:
                 continue
 
             content = "\n".join(ev_section.content)
+
+            # Extract **Justification:** from Class F (Provenance) sections
+            justification_text: str | None = None
+            if ev_class == EvidenceClass.PROVENANCE:
+                just_match = self._JUSTIFICATION_PATTERN.search(content)
+                if just_match:
+                    justification_text = just_match.group(1).strip()
 
             # Find "Claim N:" references
             claim_refs = list(
@@ -527,11 +553,15 @@ class PacketParser:
                             claim_evidence[n] = (ev_class, url)
                         elif artifact_text:
                             claim_evidence[n] = (ev_class, artifact_text)
+                        if justification_text:
+                            claim_justification[n] = justification_text
             else:
-                # No "Claim N:" references — this evidence applies broadly
+                # No "Claim N:" references — collect for heuristic (one-per-claim) assignment
                 artifact_text = content.strip()
                 if artifact_text:
                     unlinked_evidence.append((ev_class, artifact_text))
+                if justification_text:
+                    unlinked_justification = justification_text
 
         # Extract reproduction from ## Verification Methodology section.
         # If absent, default to "N/A" (zero-touch compliant).
@@ -542,7 +572,9 @@ class PacketParser:
         else:
             reproduction = "N/A"
 
-        # Rebuild claims with enriched evidence
+        # Rebuild claims with enriched evidence.
+        # ``unlinked_evidence`` is consumed (each item popped after use) so that a single
+        # unlinked evidence section cannot silently satisfy multiple distinct claims.
         enriched: list[Claim] = []
         for claim in claims:
             ev_class = claim.evidence_class
@@ -559,15 +591,29 @@ class PacketParser:
                 else:
                     artifact = artifact_raw
             elif unlinked_evidence:
-                # Apply the best matching unlinked evidence to unenriched claims.
-                # Prefer evidence whose class matches the claim's default, then
-                # fall back to the first available unlinked evidence.
-                best = unlinked_evidence[0]
-                for ue_class, ue_artifact in unlinked_evidence:
+                # Consume the best-matching unlinked evidence item (one per claim).
+                # Prefer an item whose class matches the claim's default class,
+                # then fall back to the first available item.
+                best_idx = 0
+                for i, (ue_class, _) in enumerate(unlinked_evidence):
                     if ue_class == claim.evidence_class:
-                        best = (ue_class, ue_artifact)
+                        best_idx = i
                         break
-                ev_class, artifact = best
+                ev_class, artifact_raw = unlinked_evidence.pop(best_idx)
+                url = self._extract_url(artifact_raw) if not artifact_raw.startswith("http") else artifact_raw
+                if url:
+                    try:
+                        artifact = ArtifactLink.from_url(url)
+                    except Exception:
+                        artifact = artifact_raw
+                else:
+                    artifact = artifact_raw
+
+            # Resolve justification: explicit per-claim mapping takes priority;
+            # fall back to the broad unlinked justification for Class F claims.
+            justification: str | None = claim_justification.get(claim.section_number)
+            if justification is None and ev_class == EvidenceClass.PROVENANCE:
+                justification = unlinked_justification
 
             # Since Claim is frozen, we must create a new instance
             enriched.append(
@@ -577,6 +623,7 @@ class PacketParser:
                     evidence_class=ev_class,
                     artifact=artifact,
                     reproduction=reproduction,
+                    justification=justification,
                 )
             )
 
