@@ -180,6 +180,12 @@ class AntiCheatScanner:
         """
         Cross-reference findings with packet claims to check for justification.
 
+        A Class F (Provenance) claim satisfies a finding when its ``justification``
+        field (extracted from ``**Justification:**`` in the packet markdown) contains
+        substantive text (> 20 characters).  For packets that predate the
+        ``**Justification:**`` marker, falls back to the claim's ``description``
+        field so that existing packets are not broken by the stricter parser.
+
         Returns:
             List of findings that lack justification
         """
@@ -189,11 +195,16 @@ class AntiCheatScanner:
             if not finding.requires_justification:
                 continue
 
-            # Check if any Class F claim provides justification
+            # Check if any Class F claim provides justification.
+            # Use the dedicated ``justification`` field when available (populated
+            # by the parser from ``**Justification:**`` markers in Class F sections).
+            # Fall back to ``description`` for backward compatibility with packets
+            # authored before the marker was introduced.
             has_justification = False
             for claim in packet_claims:
                 if claim.evidence_class.value == "F":
-                    if claim.justification and len(claim.justification) > 20:
+                    justification_text = claim.justification or claim.description
+                    if justification_text and len(justification_text) > 20:
                         has_justification = True
                         break
 
