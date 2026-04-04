@@ -86,6 +86,14 @@ classification:
 - `tests/unit/test_validators.py#L545-L983`
 - `tests/unit/test_validators.py#L40-L46`
 
+### Class F (Provenance)
+
+**Claim 1:** Bug traced to `parser.py:561-570` — the `elif unlinked_evidence:` branch inside a `for claim in claims:` loop applied the same `unlinked_evidence[0]` to every iteration without consuming from the list. Root cause: list was read but never mutated.
+
+**Claim 2, 4:** Bug traced to model/parser disconnect — `Claim.justification` field exists at `models.py:199` with `default=None`, but `parser.py` never populated it (0 matches for "justification" in parser). `check_justification()` at `anti_cheat.py:196` tested `claim.justification and len(...)` which short-circuited to False on every call. Root cause: the `**Justification:**` extraction was designed (error message at `pipeline.py:158` references it) but never implemented in the parser.
+
+**Claim 5:** Dead code traced to `auditor.py:231` — `if fix or True:` evaluates to `True` regardless of `fix` value. Root cause: likely a debugging artifact that was committed.
+
 ---
 
 ## Verification Methodology
