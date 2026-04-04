@@ -10,6 +10,8 @@ import pytest
 
 from aiv.lib.config import AIVConfig
 from aiv.lib.models import (
+    AntiCheatFinding,
+    AntiCheatResult,
     Claim,
     EvidenceClass,
     IntentSection,
@@ -540,3 +542,442 @@ class TestLinkVitality:
         validator = LinkValidator(audit_links=True)
         validator.validate(packet)
         assert call_count == 1, f"URL should be checked exactly once, was checked {call_count} times"
+
+
+# ============================================================================
+# Parser: Unlinked Evidence Consumed One-Per-Claim (Bug Fix CRITICAL-1)
+# ============================================================================
+
+
+class TestUnlinkedEvidenceConsumption:
+    """
+    The parser must consume unlinked evidence one-per-claim rather than
+    applying the same artifact to all unenriched claims.
+    """
+
+    _PACKET_MULTI_CLAIM_SINGLE_UNLINKED = """\
+# AIV Verification Packet (v2.1)
+
+## Classification (required)
+```yaml
+classification:
+  risk_tier: R1
+```
+
+## Claim(s)
+1. Input validation correctly rejects malformed payloads
+2. Output serialization produces well-formed JSON
+3. Error handler returns appropriate HTTP status codes
+
+## Evidence
+
+### Class E (Intent Alignment)
+**Link:** https://github.com/org/repo/issues/42
+**Requirements Verified:** Spec §3.1 — all three claims must be independently evidenced.
+
+### Class B (Referential)
+Modified file: src/handler.py (no explicit Claim N reference)
+
+## Verification Methodology
+N/A — automated via CI run #9999.
+
+## Summary
+Three claims, one unlinked evidence section.
+"""
+
+    def test_unlinked_evidence_not_repeated_across_all_claims(self):
+        """
+        When a single unlinked evidence item exists and there are multiple
+        claims, only the FIRST unenriched claim should receive the artifact.
+        Subsequent claims must fall back to their default artifact, not
+        silently reuse the same artifact.
+        """
+        from aiv.lib.parser import PacketParser
+
+        parser = PacketParser()
+        packet = parser.parse(self._PACKET_MULTI_CLAIM_SINGLE_UNLINKED)
+        assert packet is not None
+
+        # After consuming the unlinked item for claim 1, claims 2 and 3 should
+        # NOT have the same artifact as claim 1.
+        artifacts = [str(c.artifact) for c in packet.claims]
+        # The first claim gets the unlinked evidence
+        assert "src/handler.py" in artifacts[0] or "handler" in artifacts[0]
+        # Claims 2 and 3 should NOT have consumed the same artifact
+        # (they fall back to the default "See Evidence section" placeholder)
+        assert artifacts[1] != artifacts[0] or artifacts[2] != artifacts[0], (
+            "Unlinked evidence was incorrectly applied to multiple claims"
+        )
+
+    def test_single_claim_single_unlinked_still_works(self):
+        """One unlinked evidence + one claim = correct assignment (regression guard)."""
+        packet_text = """\
+# AIV Verification Packet (v2.1)
+
+## Classification (required)
+```yaml
+classification:
+  risk_tier: R0
+```
+
+## Claim(s)
+1. Documentation update is self-consistent and accurate
+
+## Evidence
+
+### Class E (Intent Alignment)
+**Link:** https://github.com/org/repo/issues/10
+**Requirements Verified:** Docs review spec.
+
+### Class B (Referential)
+Modified docs/README.md — no claim ref needed for single claim
+
+## Verification Methodology
+N/A
+
+## Summary
+One claim, one unlinked evidence.
+"""
+        from aiv.lib.parser import PacketParser
+
+        parser = PacketParser()
+        packet = parser.parse(packet_text)
+        assert packet is not None
+        assert len(packet.claims) == 1
+        # The single claim should receive the unlinked evidence
+        assert "README" in str(packet.claims[0].artifact) or "docs" in str(packet.claims[0].artifact).lower()
+
+
+# ============================================================================
+# Parser: **Justification:** Extraction from Class F (Bug Fix CRITICAL-2a)
+# ============================================================================
+
+
+class TestJustificationExtraction:
+    """
+    The parser must extract **Justification:** text from Class F evidence
+    sections and store it in claim.justification so the anti-cheat stage
+    can verify it.
+    """
+
+    _PACKET_WITH_JUSTIFICATION = """\
+# AIV Verification Packet (v2.1)
+
+## Classification (required)
+```yaml
+classification:
+  risk_tier: R1
+```
+
+## Claim(s)
+1. Stale assertion in test_auth.py removed after JWT expiry logic refactor
+
+## Evidence
+
+### Class E (Intent Alignment)
+**Link:** https://github.com/org/repo/issues/55
+**Requirements Verified:** JWT expiry refactor spec §4.2.
+
+### Class B (Referential)
+**Claim 1:** https://github.com/org/repo/blob/abc1234def5678/src/auth.py#L42-L58
+
+### Class F (Provenance)
+**Claim 1:** https://github.com/org/repo/issues/55
+**Justification:** The assertion at test_auth.py:42 was stale — it checked for
+the old 200 status on expired tokens. Post-refactor the correct response is 401.
+The assertion was updated to match the new behaviour, not removed to hide failures.
+
+## Verification Methodology
+N/A — all evidence from CI run #12345.
+
+## Summary
+JWT expiry assertion update with full provenance.
+"""
+
+    def test_justification_field_populated_from_class_f(self):
+        """Parser extracts **Justification:** text into claim.justification."""
+        from aiv.lib.parser import PacketParser
+
+        parser = PacketParser()
+        packet = parser.parse(self._PACKET_WITH_JUSTIFICATION)
+        assert packet is not None
+
+        class_f_claims = [c for c in packet.claims if c.evidence_class.value == "F"]
+        assert class_f_claims, "Expected at least one Class F claim"
+        claim = class_f_claims[0]
+
+        assert claim.justification is not None, "justification field should be populated"
+        assert "stale" in claim.justification.lower() or "assertion" in claim.justification.lower(), (
+            f"Justification text does not match expected content: {claim.justification!r}"
+        )
+        assert len(claim.justification) > 20
+
+    def test_class_f_without_justification_marker_leaves_field_none(self):
+        """Class F claims without **Justification:** leave justification=None."""
+        packet_text = """\
+# AIV Verification Packet (v2.1)
+
+## Classification (required)
+```yaml
+classification:
+  risk_tier: R1
+```
+
+## Claim(s)
+1. Bug source traced to faulty input sanitizer
+
+## Evidence
+
+### Class E (Intent Alignment)
+**Link:** https://github.com/org/repo/issues/60
+**Requirements Verified:** Input sanitizer bug spec.
+
+### Class B (Referential)
+**Claim 1:** https://github.com/org/repo/blob/deadbeef1234567/src/sanitizer.py#L10-L20
+
+### Class F (Provenance)
+**Claim 1:** https://github.com/org/repo/issues/60
+
+## Verification Methodology
+N/A
+
+## Summary
+Provenance traced, no justification marker.
+"""
+        from aiv.lib.parser import PacketParser
+
+        parser = PacketParser()
+        packet = parser.parse(packet_text)
+        assert packet is not None
+
+        class_f_claims = [c for c in packet.claims if c.evidence_class.value == "F"]
+        assert class_f_claims
+        # No **Justification:** marker → field stays None
+        assert class_f_claims[0].justification is None
+
+
+# ============================================================================
+# Anti-Cheat: check_justification() Fixed (Bug Fix CRITICAL-2b)
+# ============================================================================
+
+
+class TestAntiCheatJustificationCheck:
+    """
+    check_justification() was broken: claim.justification was always None
+    because the parser never populated it. After the fix:
+    - A Class F claim with a populated justification field satisfies findings.
+    - A Class F claim with no justification but a substantive description also
+      satisfies findings (backward compat fallback).
+    - A packet with no Class F claims at all fails the check.
+    """
+
+    def _make_finding(self) -> AntiCheatFinding:
+        return AntiCheatFinding(
+            finding_type="deleted_assertion",
+            file_path="tests/test_auth.py",
+            line_number=42,
+            original_content="assert response.status_code == 200",
+            requires_justification=True,
+        )
+
+    def _make_result(self, finding: AntiCheatFinding) -> AntiCheatResult:
+        return AntiCheatResult(findings=[finding], files_analyzed=1, test_files_modified=1)
+
+    def _make_class_f_claim(self, justification: str | None, description: str) -> Claim:
+        return Claim(
+            section_number=1,
+            description=description,
+            evidence_class=EvidenceClass.PROVENANCE,
+            artifact="https://github.com/org/repo/issues/55",
+            reproduction="N/A",
+            justification=justification,
+        )
+
+    def test_populated_justification_field_satisfies_finding(self):
+        """When claim.justification is set (> 20 chars), the finding is justified."""
+        from aiv.lib.validators.anti_cheat import AntiCheatScanner
+
+        scanner = AntiCheatScanner()
+        finding = self._make_finding()
+        result = self._make_result(finding)
+        claim = self._make_class_f_claim(
+            justification="The assertion was stale after the JWT expiry refactor; updated to check 401.",
+            description="Provenance: bug traced to faulty token validation logic.",
+        )
+        unjustified = scanner.check_justification(result, [claim])
+        assert unjustified == [], (
+            f"Finding should be justified by claim.justification, got: {unjustified}"
+        )
+
+    def test_description_fallback_when_justification_is_none(self):
+        """When justification is None, a substantive description satisfies the finding."""
+        from aiv.lib.validators.anti_cheat import AntiCheatScanner
+
+        scanner = AntiCheatScanner()
+        finding = self._make_finding()
+        result = self._make_result(finding)
+        claim = self._make_class_f_claim(
+            justification=None,  # No **Justification:** marker in packet
+            description="Stale assertion removed: the 200 status was incorrect post-refactor.",
+        )
+        unjustified = scanner.check_justification(result, [claim])
+        assert unjustified == [], (
+            "Finding should be satisfied by description fallback when justification is None"
+        )
+
+    def test_no_class_f_claim_is_unjustified(self):
+        """A packet with no Class F claims at all leaves the finding unjustified."""
+        from aiv.lib.validators.anti_cheat import AntiCheatScanner
+
+        scanner = AntiCheatScanner()
+        finding = self._make_finding()
+        result = self._make_result(finding)
+        class_b_claim = Claim(
+            section_number=1,
+            description="Referential evidence for the code change in src/auth.py",
+            evidence_class=EvidenceClass.REFERENTIAL,
+            artifact="https://github.com/org/repo/blob/abc123def456/src/auth.py#L10",
+            reproduction="N/A",
+        )
+        unjustified = scanner.check_justification(result, [class_b_claim])
+        assert finding in unjustified
+
+    def test_short_justification_is_insufficient(self):
+        """A justification shorter than 20 chars does not satisfy the finding."""
+        from aiv.lib.validators.anti_cheat import AntiCheatScanner
+
+        scanner = AntiCheatScanner()
+        finding = self._make_finding()
+        result = self._make_result(finding)
+        claim = self._make_class_f_claim(
+            justification="Too short",  # < 20 chars
+            description="Provenance for this code change traced to issue tracker.",
+        )
+        unjustified = scanner.check_justification(result, [claim])
+        assert finding in unjustified
+
+    def test_finding_without_justification_requirement_is_ignored(self):
+        """Findings with requires_justification=False are not returned as unjustified."""
+        from aiv.lib.validators.anti_cheat import AntiCheatScanner
+
+        scanner = AntiCheatScanner()
+        finding = AntiCheatFinding(
+            finding_type="mock_bypass",
+            file_path="tests/test_foo.py",
+            line_number=10,
+            requires_justification=False,
+        )
+        result = AntiCheatResult(findings=[finding], files_analyzed=1, test_files_modified=0)
+        unjustified = scanner.check_justification(result, [])
+        assert unjustified == []
+
+
+# ============================================================================
+# Pipeline: Anti-Cheat End-to-End with Diff (High Gap)
+# ============================================================================
+
+
+class TestPipelineAntiCheatWithDiff:
+    """
+    Verify the pipeline's Stage 7/8 (anti-cheat + cross-reference) when a diff
+    is provided. Before the fix, Stage 8 always failed because justification
+    was never populated. After the fix, a packet with a Class F claim and a
+    **Justification:** marker in the markdown should pass.
+    """
+
+    _BASE_PACKET = """\
+# AIV Verification Packet (v2.1)
+
+## Classification (required)
+```yaml
+classification:
+  risk_tier: R1
+```
+
+## Claim(s)
+1. Stale assertion removed from test_auth.py after JWT refactor
+
+## Evidence
+
+### Class E (Intent Alignment)
+**Link:** https://github.com/org/repo/issues/55
+**Requirements Verified:** JWT expiry spec §4.2 — expired tokens must return 401.
+
+### Class B (Referential)
+**Claim 1:** https://github.com/org/repo/blob/abc1234def5678/src/auth.py#L42-L58
+
+### Class F (Provenance)
+**Claim 1:** https://github.com/org/repo/issues/55
+**Justification:** The deleted assertion at test_auth.py:42 checked for HTTP 200
+on expired tokens. Post-refactor the correct response is 401. The assertion
+was updated to match the new behaviour, not to hide test failures.
+
+## Verification Methodology
+N/A — evidence from CI run https://github.com/org/repo/actions/runs/99999
+
+## Summary
+JWT expiry assertion corrected with full Class F provenance and justification.
+"""
+
+    _DIFF_WITH_DELETED_ASSERTION = """\
+diff --git a/tests/test_auth.py b/tests/test_auth.py
+index aaaaaaa..bbbbbbb 100644
+--- a/tests/test_auth.py
++++ b/tests/test_auth.py
+@@ -40,7 +40,7 @@ def test_expired_token():
+     response = client.get("/api/data", headers={"Authorization": f"Bearer {token}"})
+-    assert response.status_code == 200
++    assert response.status_code == 401
+"""
+
+    def test_packet_with_class_f_justification_passes_anticheat(self):
+        """
+        A packet with **Justification:** in its Class F section must pass
+        the anti-cheat cross-reference stage when a diff with a deleted
+        assertion is provided.
+        """
+        pipeline = ValidationPipeline(AIVConfig(strict_mode=False))
+        result = pipeline.validate(self._BASE_PACKET, diff=self._DIFF_WITH_DELETED_ASSERTION)
+
+        e011_errors = [e for e in result.errors if e.rule_id == "E011"]
+        assert e011_errors == [], (
+            f"E011 should not fire when Class F justification is present. Got: {e011_errors}"
+        )
+
+    def test_packet_without_class_f_fails_anticheat(self):
+        """
+        A packet with no Class F claim must fail E011 when the diff has a
+        deleted assertion.
+        """
+        packet_no_f = """\
+# AIV Verification Packet (v2.1)
+
+## Classification (required)
+```yaml
+classification:
+  risk_tier: R1
+```
+
+## Claim(s)
+1. Test suite updated to reflect new API contract
+
+## Evidence
+
+### Class E (Intent Alignment)
+**Link:** https://github.com/org/repo/issues/88
+**Requirements Verified:** API contract change spec.
+
+### Class B (Referential)
+**Claim 1:** https://github.com/org/repo/blob/abc1234def5678/src/api.py#L10-L30
+
+## Verification Methodology
+N/A
+
+## Summary
+API update, no provenance claim.
+"""
+        pipeline = ValidationPipeline(AIVConfig(strict_mode=False))
+        result = pipeline.validate(packet_no_f, diff=self._DIFF_WITH_DELETED_ASSERTION)
+
+        e011_errors = [e for e in result.errors if e.rule_id == "E011"]
+        assert e011_errors, "E011 should fire when no Class F justification is present"
