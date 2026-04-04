@@ -226,11 +226,11 @@ class PacketAuditor:
         result = AuditResult(packets_scanned=len(all_files))
         packets_with_findings: set[str] = set()
 
-        # Pre-compute commit SHAs for all files (used by fix mode)
+        # Pre-compute commit SHAs for all files — needed both for quality checks
+        # (COMMIT_PENDING detection) and for auto-fix mode.
         commit_map: dict[str, str | None] = {}
-        if fix or True:  # Always compute; cheap enough and needed for checks
-            for p in all_files:
-                commit_map[p.name] = _get_introducing_commit(p)
+        for p in all_files:
+            commit_map[p.name] = _get_introducing_commit(p)
 
         for p in packets:
             body = p.read_text(encoding="utf-8")

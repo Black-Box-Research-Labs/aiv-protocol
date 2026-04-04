@@ -1,9 +1,9 @@
 # AIV Evidence File (v1.0)
 
 **File:** `src/aiv/lib/auditor.py`
-**Commit:** `c92c100`
-**Previous:** `01fde92`
-**Generated:** 2026-02-10T03:16:33Z
+**Commit:** `fdd54ba`
+**Previous:** `3ae3072`
+**Generated:** 2026-04-04T23:08:41Z
 **Protocol:** AIV v2.0 + Addendum 2.7 (Zero-Touch Mandate)
 
 ---
@@ -12,21 +12,19 @@
 
 ```yaml
 classification:
-  risk_tier: R0
+  risk_tier: R1
   sod_mode: S0
   critical_surfaces: []
   blast_radius: "src/aiv/lib/auditor.py"
-  classification_rationale: "R0: import reordering and docstring wrapping only"
+  classification_rationale: "Trivial dead-code removal in auditor — no behavior change"
   classified_by: "Miguel Ingram"
-  classified_at: "2026-02-10T03:16:33Z"
+  classified_at: "2026-04-04T23:08:41Z"
 ```
 
 ## Claim(s)
 
-1. Moved aiv.lib.config import to top of auditor.py for E402 compliance
-2. Wrapped long docstring lines in _is_functional_path for E501 compliance
-3. Restored Path import inside TYPE_CHECKING block for TC003 compliance
-4. No existing tests were modified or deleted during this change.
+1. Dead if-fix-or-True branch removed — SHA computation runs unconditionally as needed for quality checks
+2. No existing tests were modified or deleted during this change.
 
 ---
 
@@ -34,41 +32,68 @@ classification:
 
 ### Class E (Intent Alignment)
 
-- **Link:** [https://github.com/ImmortalDemonGod/aiv-protocol/blob/655e5ab/docs/EXTERNAL_READINESS_AUDIT.md](https://github.com/ImmortalDemonGod/aiv-protocol/blob/655e5ab/docs/EXTERNAL_READINESS_AUDIT.md)
-- **Requirements Verified:** CI lint compliance for PR #1
+- **Link:** [https://github.com/Black-Box-Research-Labs/aiv-protocol/pull/8](https://github.com/Black-Box-Research-Labs/aiv-protocol/pull/8)
+- **Requirements Verified:** Code audit MEDIUM-1: remove dead branch at auditor.py:231
 
 ### Class B (Referential Evidence)
 
-**Scope Inventory** (SHA: [`c92c100`](https://github.com/ImmortalDemonGod/aiv-protocol/tree/c92c1004734d8dfba64494e0b2d5d647483b9e70))
+**Scope Inventory** (SHA: [`fdd54ba`](https://github.com/ImmortalDemonGod/aiv-protocol/tree/fdd54ba10f7493a4f45b64ef078d088c26448c87))
 
-- [`src/aiv/lib/auditor.py#L41-L46`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/c92c1004734d8dfba64494e0b2d5d647483b9e70/src/aiv/lib/auditor.py#L41-L46)
-- [`src/aiv/lib/auditor.py#L702`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/c92c1004734d8dfba64494e0b2d5d647483b9e70/src/aiv/lib/auditor.py#L702)
-- [`src/aiv/lib/auditor.py#L705`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/c92c1004734d8dfba64494e0b2d5d647483b9e70/src/aiv/lib/auditor.py#L705)
-- [`src/aiv/lib/auditor.py#L719`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/c92c1004734d8dfba64494e0b2d5d647483b9e70/src/aiv/lib/auditor.py#L719)
-- [`src/aiv/lib/auditor.py#L722-L726`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/c92c1004734d8dfba64494e0b2d5d647483b9e70/src/aiv/lib/auditor.py#L722-L726)
-- [`src/aiv/lib/auditor.py#L728-L729`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/c92c1004734d8dfba64494e0b2d5d647483b9e70/src/aiv/lib/auditor.py#L728-L729)
-- [`src/aiv/lib/auditor.py#L745`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/c92c1004734d8dfba64494e0b2d5d647483b9e70/src/aiv/lib/auditor.py#L745)
-- [`src/aiv/lib/auditor.py#L749`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/c92c1004734d8dfba64494e0b2d5d647483b9e70/src/aiv/lib/auditor.py#L749)
-- [`src/aiv/lib/auditor.py#L753`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/c92c1004734d8dfba64494e0b2d5d647483b9e70/src/aiv/lib/auditor.py#L753)
-- [`src/aiv/lib/auditor.py#L756`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/c92c1004734d8dfba64494e0b2d5d647483b9e70/src/aiv/lib/auditor.py#L756)
-- [`src/aiv/lib/auditor.py#L857`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/c92c1004734d8dfba64494e0b2d5d647483b9e70/src/aiv/lib/auditor.py#L857)
+- [`src/aiv/lib/auditor.py#L229-L230`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/fdd54ba10f7493a4f45b64ef078d088c26448c87/src/aiv/lib/auditor.py#L229-L230)
+- [`src/aiv/lib/auditor.py#L232-L233`](https://github.com/ImmortalDemonGod/aiv-protocol/blob/fdd54ba10f7493a4f45b64ef078d088c26448c87/src/aiv/lib/auditor.py#L232-L233)
 
 ### Class A (Execution Evidence)
 
-- Local checks skipped (--skip-checks).
-- **Skip reason:** Lint-only: moved import to top, wrapped long docstrings, fixed TYPE_CHECKING block
+**Per-symbol test coverage (AST analysis):**
 
+- **`PacketAuditor`** (L229-L230): PASS -- 52 test(s) call `PacketAuditor` directly
+  - `tests/unit/test_auditor.py::test_clean_packet_no_findings`
+  - `tests/unit/test_auditor.py::test_template_excluded`
+  - `tests/unit/test_auditor.py::test_commit_pending_detected`
+  - `tests/unit/test_auditor.py::test_commit_filled_passes`
+  - `tests/unit/test_auditor.py::test_plain_text_link_detected`
+  - `tests/unit/test_auditor.py::test_mutable_link_detected`
+  - `tests/unit/test_auditor.py::test_sha_pinned_link_passes`
+  - `tests/unit/test_auditor.py::test_todo_in_claim_detected`
+  - `tests/unit/test_auditor.py::test_todo_in_summary_detected`
+  - `tests/unit/test_auditor.py::test_classified_by_todo_detected`
+- **`PacketAuditor.audit`** (L232-L233): PASS -- 37 test(s) call `audit` directly
+  - `tests/unit/test_auditor.py::test_clean_packet_no_findings`
+  - `tests/unit/test_auditor.py::test_template_excluded`
+  - `tests/unit/test_auditor.py::test_commit_pending_detected`
+  - `tests/unit/test_auditor.py::test_commit_filled_passes`
+  - `tests/unit/test_auditor.py::test_plain_text_link_detected`
+  - `tests/unit/test_auditor.py::test_mutable_link_detected`
+  - `tests/unit/test_auditor.py::test_sha_pinned_link_passes`
+  - `tests/unit/test_auditor.py::test_todo_in_claim_detected`
+  - `tests/unit/test_auditor.py::test_todo_in_summary_detected`
+  - `tests/unit/test_auditor.py::test_classified_by_todo_detected`
 
+**Coverage summary:** 2/2 symbols verified by tests.
+
+### Code Quality (Linting & Types)
+
+- **ruff:** All checks passed
+- **mypy:** Success: no issues found in 1 source file
+
+## Claim Verification Matrix
+
+| # | Claim | Type | Evidence | Verdict |
+|---|-------|------|----------|---------|
+| 1 | Dead if-fix-or-True branch removed — SHA computation runs un... | unresolved | No automatic binding available | REVIEW MANUAL REVIEW |
+| 2 | No existing tests were modified or deleted during this chang... | structural | Class C not collected | REVIEW MANUAL REVIEW |
+
+**Verdict summary:** 0 verified, 0 unverified, 2 manual review.
 ---
 
 ## Verification Methodology
 
-**R0 (trivial) -- local checks skipped.**
-**Reason:** Lint-only: moved import to top, wrapped long docstrings, fixed TYPE_CHECKING block
-Only git diff scope inventory was collected. No execution evidence.
+**Zero-Touch Mandate:** Verifier inspects artifacts only.
+Evidence collected by `aiv commit` running: git diff (scope inventory), AST symbol-to-test binding (2/2 symbols verified).
+Ruff/mypy results are in Code Quality (not Class A) because they prove syntax/types, not behavior.
 
 ---
 
 ## Summary
 
-Fix ruff E402/E501/TC003 in auditor.py
+Remove dead fix-or-True branch in auditor
