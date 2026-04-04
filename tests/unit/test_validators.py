@@ -805,9 +805,7 @@ class TestAntiCheatJustificationCheck:
             description="Provenance: bug traced to faulty token validation logic.",
         )
         unjustified = scanner.check_justification(result, [claim])
-        assert unjustified == [], (
-            f"Finding should be justified by claim.justification, got: {unjustified}"
-        )
+        assert unjustified == [], f"Finding should be justified by claim.justification, got: {unjustified}"
 
     def test_description_fallback_when_justification_is_none(self):
         """When justification is None, a substantive description satisfies the finding."""
@@ -821,9 +819,7 @@ class TestAntiCheatJustificationCheck:
             description="Stale assertion removed: the 200 status was incorrect post-refactor.",
         )
         unjustified = scanner.check_justification(result, [claim])
-        assert unjustified == [], (
-            "Finding should be satisfied by description fallback when justification is None"
-        )
+        assert unjustified == [], "Finding should be satisfied by description fallback when justification is None"
 
     def test_no_class_f_claim_is_unjustified(self):
         """A packet with no Class F claims at all leaves the finding unjustified."""
@@ -940,9 +936,7 @@ index aaaaaaa..bbbbbbb 100644
         result = pipeline.validate(self._BASE_PACKET, diff=self._DIFF_WITH_DELETED_ASSERTION)
 
         e011_errors = [e for e in result.errors if e.rule_id == "E011"]
-        assert e011_errors == [], (
-            f"E011 should not fire when Class F justification is present. Got: {e011_errors}"
-        )
+        assert e011_errors == [], f"E011 should not fire when Class F justification is present. Got: {e011_errors}"
 
     def test_packet_without_class_f_fails_anticheat(self):
         """
