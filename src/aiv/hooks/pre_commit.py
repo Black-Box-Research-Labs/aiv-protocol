@@ -165,20 +165,19 @@ def _validate_packet(packet_path: str) -> bool:
         )
 
         if check_result.returncode != 0:
-            if "0 blocking error" not in check_result.stdout:
-                print()
-                print("[BLOCK] PACKET VALIDATION FAILED")
-                print("=" * 79)
-                print("The staged verification packet failed content validation:")
-                print()
-                print(check_result.stdout)
-                if check_result.stderr:
-                    print(check_result.stderr)
-                print()
-                print("Fix the packet errors before committing.")
-                print("=" * 79)
-                Path(tmp_path).unlink(missing_ok=True)
-                return False
+            print()
+            print("[BLOCK] PACKET VALIDATION FAILED")
+            print("=" * 79)
+            print("The staged verification packet failed content validation:")
+            print()
+            print(check_result.stdout)
+            if check_result.stderr:
+                print(check_result.stderr)
+            print()
+            print("Fix the packet errors before committing.")
+            print("=" * 79)
+            Path(tmp_path).unlink(missing_ok=True)
+            return False
 
         # --- aiv audit (catches FIX_NO_CLASS_F, TODO remnants, etc.) ---
         audit_dir = tempfile.mkdtemp(prefix="aiv-audit-check-")
